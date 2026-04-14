@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/app_data_sync.dart';
@@ -61,7 +63,7 @@ class _VicePermissionsSheetState extends State<VicePermissionsSheet> {
         {AppDataScope.vicePermissions},
         reason: 'vice_permissions_updated',
       );
-      await session.refresh();
+      unawaited(session.refresh(showLoadingState: false));
 
       if (!mounted) {
         return;

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../data/auth_repository.dart';
@@ -30,6 +32,8 @@ class AppSessionController extends ChangeNotifier {
   TeamInfo _teamInfo = TeamInfo.defaults;
   VicePermissions _vicePermissions = VicePermissions.defaults;
   bool _isLoading = true;
+  bool _isRefreshing = false;
+  bool _refreshQueued = false;
   String? _errorMessage;
   int _lastHandledSyncRevision = 0;
   bool _disposed = false;
@@ -86,7 +90,9 @@ class AppSessionController extends ChangeNotifier {
       password: password,
     );
     _authUser = session.user;
-    await refresh(showLoadingState: false);
+    _errorMessage = null;
+    _notifyIfMounted();
+    unawaited(refresh(showLoadingState: false));
   }
 
   Future<String> signUpWithEmail({
@@ -98,14 +104,21 @@ class AppSessionController extends ChangeNotifier {
       password: password,
     );
     _authUser = session.user;
-    await refresh(showLoadingState: false);
+    _errorMessage = null;
+    _notifyIfMounted();
+    unawaited(refresh(showLoadingState: false));
     return 'Account creato. Ora completa il tuo profilo squadra.';
   }
 
   Future<void> signOut() async {
     await _authRepository.signOut();
     _authUser = null;
-    await refresh(showLoadingState: false);
+    _players = const [];
+    _teamInfo = TeamInfo.defaults;
+    _vicePermissions = VicePermissions.defaults;
+    _errorMessage = null;
+    _notifyIfMounted();
+    unawaited(refresh(showLoadingState: false));
   }
 
   Future<String> requestPasswordReset({
@@ -118,11 +131,17 @@ class AppSessionController extends ChangeNotifier {
     required String password,
   }) async {
     final message = await _authRepository.updatePassword(password: password);
-    await refresh(showLoadingState: false);
+    unawaited(refresh(showLoadingState: false));
     return message;
   }
 
   Future<void> refresh({bool showLoadingState = true}) async {
+    if (_isRefreshing) {
+      _refreshQueued = true;
+      return;
+    }
+
+    _isRefreshing = true;
     if (showLoadingState) {
       _isLoading = true;
     }
@@ -155,6 +174,12 @@ class AppSessionController extends ChangeNotifier {
       _isLoading = false;
       _errorMessage = e.toString();
       _notifyIfMounted();
+    } finally {
+      _isRefreshing = false;
+      if (_refreshQueued) {
+        _refreshQueued = false;
+        unawaited(refresh(showLoadingState: false));
+      }
     }
   }
 
@@ -178,7 +203,7 @@ class AppSessionController extends ChangeNotifier {
     }
 
     _lastHandledSyncRevision = change.revision;
-    refresh(showLoadingState: false);
+    unawaited(refresh(showLoadingState: false));
   }
 
   @override

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -27,6 +28,7 @@ class ApiClient {
         _sessionStore = sessionStore ?? AuthSessionStore();
 
   static final ApiClient shared = ApiClient();
+  static const Duration _requestTimeout = Duration(seconds: 15);
 
   final http.Client _httpClient;
   final AuthSessionStore _sessionStore;
@@ -113,21 +115,39 @@ class ApiClient {
     late final http.Response response;
     final encodedBody = body == null ? null : jsonEncode(body);
 
-    switch (method) {
-      case 'GET':
-        response = await _httpClient.get(uri, headers: headers);
-        break;
-      case 'POST':
-        response = await _httpClient.post(uri, headers: headers, body: encodedBody);
-        break;
-      case 'PUT':
-        response = await _httpClient.put(uri, headers: headers, body: encodedBody);
-        break;
-      case 'DELETE':
-        response = await _httpClient.delete(uri, headers: headers, body: encodedBody);
-        break;
-      default:
-        throw ApiException('Metodo HTTP non supportato: $method');
+    try {
+      switch (method) {
+        case 'GET':
+          response = await _httpClient
+              .get(uri, headers: headers)
+              .timeout(_requestTimeout);
+          break;
+        case 'POST':
+          response = await _httpClient
+              .post(uri, headers: headers, body: encodedBody)
+              .timeout(_requestTimeout);
+          break;
+        case 'PUT':
+          response = await _httpClient
+              .put(uri, headers: headers, body: encodedBody)
+              .timeout(_requestTimeout);
+          break;
+        case 'DELETE':
+          response = await _httpClient
+              .delete(uri, headers: headers, body: encodedBody)
+              .timeout(_requestTimeout);
+          break;
+        default:
+          throw ApiException('Metodo HTTP non supportato: $method');
+      }
+    } on TimeoutException {
+      throw const ApiException(
+        'Connessione lenta o non disponibile. Riprova tra qualche secondo.',
+      );
+    } on http.ClientException {
+      throw const ApiException(
+        'Impossibile raggiungere il server. Controlla la connessione e riprova.',
+      );
     }
 
     if (response.statusCode == 204 || response.body.trim().isEmpty) {

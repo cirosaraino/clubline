@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/app_data_sync.dart';
@@ -216,7 +218,7 @@ class _PlayerFormPageState extends State<PlayerFormPage> {
 
           try {
             await repository.claimPlayer(playerToClaim);
-            await session.refresh(showLoadingState: false);
+            unawaited(session.refresh(showLoadingState: false));
             if (!mounted) return;
             AppDataSync.instance.notifyDataChanged(
               {
@@ -283,7 +285,7 @@ class _PlayerFormPageState extends State<PlayerFormPage> {
     try {
       if (isEditing) {
         await repository.updatePlayer(player);
-        await session.refresh(showLoadingState: false);
+        unawaited(session.refresh(showLoadingState: false));
         if (!mounted) return;
         AppDataSync.instance.notifyDataChanged(
           {
@@ -297,7 +299,7 @@ class _PlayerFormPageState extends State<PlayerFormPage> {
       }
 
       await repository.createPlayer(player);
-      await session.refresh(showLoadingState: false);
+      unawaited(session.refresh(showLoadingState: false));
 
       if (!mounted) return;
       AppDataSync.instance.notifyDataChanged(

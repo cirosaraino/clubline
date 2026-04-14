@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/app_data_sync.dart';
@@ -208,7 +210,7 @@ class _TeamInfoSheetState extends State<TeamInfoSheet> {
 
     try {
       await repository.saveTeamInfo(_buildDraft());
-      await session.refresh();
+      unawaited(session.refresh(showLoadingState: false));
       AppDataSync.instance.notifyDataChanged(
         {AppDataScope.teamInfo},
         reason: 'team_info_updated',
