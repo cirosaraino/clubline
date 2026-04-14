@@ -43,6 +43,8 @@ class AppSessionController extends ChangeNotifier {
   bool get isAuthenticated => _authUser != null;
   String? get currentUserEmail => _authUser?.email.trim();
   bool get needsProfileSetup => isAuthenticated && currentUser == null;
+  bool get requiresPasswordRecovery =>
+      _authRepository.currentSession?.isRecoverySession == true;
 
   bool get canBootstrapCaptain {
     if (!needsProfileSetup) {
@@ -104,6 +106,20 @@ class AppSessionController extends ChangeNotifier {
     await _authRepository.signOut();
     _authUser = null;
     await refresh(showLoadingState: false);
+  }
+
+  Future<String> requestPasswordReset({
+    required String email,
+  }) {
+    return _authRepository.requestPasswordReset(email: email);
+  }
+
+  Future<String> updatePassword({
+    required String password,
+  }) async {
+    final message = await _authRepository.updatePassword(password: password);
+    await refresh(showLoadingState: false);
+    return message;
   }
 
   Future<void> refresh({bool showLoadingState = true}) async {

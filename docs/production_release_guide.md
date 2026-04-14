@@ -131,6 +131,22 @@ Test da fare sul link frontend produzione:
 9. apertura da mobile e comparsa invito installazione
 10. installazione icona sulla schermata Home
 
+## 7.bis Recupero password
+
+Per far funzionare il recupero password via email devi configurare anche Supabase Auth:
+
+1. apri il progetto Supabase produzione
+2. vai in `Authentication -> URL Configuration`
+3. imposta `Site URL` con l URL reale del frontend
+4. aggiungi nei `Redirect URLs` almeno l URL pubblico del frontend
+
+Esempio:
+
+- `https://squadra-web.onrender.com`
+- `https://squadra-web.onrender.com/`
+
+Se in futuro userai un dominio personalizzato, aggiungi anche quello.
+
 ## 8. URL produzione
 
 Finche non aggiungi un dominio personalizzato, l'URL di produzione della web app sara:

@@ -6,12 +6,14 @@ class AuthSession {
     required this.refreshToken,
     required this.user,
     this.expiresAt,
+    this.isRecoverySession = false,
   });
 
   final String accessToken;
   final String refreshToken;
   final AuthenticatedUser user;
   final DateTime? expiresAt;
+  final bool isRecoverySession;
 
   factory AuthSession.fromMap(Map<String, dynamic> map) {
     final rawSession = map['session'] is Map
@@ -33,6 +35,8 @@ class AuthSession {
       expiresAt: rawExpiresAt == null
           ? null
           : DateTime.tryParse(rawExpiresAt.toString())?.toLocal(),
+      isRecoverySession: rawSession['isRecoverySession'] == true ||
+          rawSession['is_recovery_session'] == true,
     );
   }
 
@@ -41,12 +45,14 @@ class AuthSession {
     String? refreshToken,
     AuthenticatedUser? user,
     DateTime? expiresAt,
+    bool? isRecoverySession,
   }) {
     return AuthSession(
       accessToken: accessToken ?? this.accessToken,
       refreshToken: refreshToken ?? this.refreshToken,
       user: user ?? this.user,
       expiresAt: expiresAt ?? this.expiresAt,
+      isRecoverySession: isRecoverySession ?? this.isRecoverySession,
     );
   }
 
@@ -55,6 +61,7 @@ class AuthSession {
       'accessToken': accessToken,
       'refreshToken': refreshToken,
       'expiresAt': expiresAt?.toUtc().toIso8601String(),
+      'isRecoverySession': isRecoverySession,
       'user': user.toMap(),
     };
   }

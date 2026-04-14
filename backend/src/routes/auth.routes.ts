@@ -18,6 +18,15 @@ const refreshSchema = z.object({
   refreshToken: z.string().min(1),
 });
 
+const passwordResetRequestSchema = z.object({
+  email: z.string().email(),
+  redirectTo: z.string().url().optional(),
+});
+
+const passwordUpdateSchema = z.object({
+  password: z.string().min(6),
+});
+
 export const authRouter = Router();
 
 authRouter.post(
@@ -43,6 +52,37 @@ authRouter.post(
   asyncHandler(async (req, res) => {
     const { refreshToken } = refreshSchema.parse(req.body);
     const result = await authService.refresh(refreshToken);
+    sendOk(res, result);
+  }),
+);
+
+authRouter.post(
+  '/request-password-reset',
+  asyncHandler(async (req, res) => {
+    const { email, redirectTo } = passwordResetRequestSchema.parse(req.body);
+    const result = await authService.requestPasswordReset(email, redirectTo);
+    sendOk(res, result);
+  }),
+);
+
+authRouter.post(
+  '/update-password',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const principal = req.principal;
+    if (!principal) {
+      sendOk(res, {
+        success: false,
+        message: 'Sessione non valida',
+      });
+      return;
+    }
+
+    const { password } = passwordUpdateSchema.parse(req.body);
+    const result = await authService.updatePassword(
+      principal.authUser.id,
+      password,
+    );
     sendOk(res, result);
   }),
 );

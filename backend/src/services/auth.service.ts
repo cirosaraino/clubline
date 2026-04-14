@@ -94,6 +94,43 @@ export class AuthService {
     return { success: true };
   }
 
+  async requestPasswordReset(
+    email: string,
+    redirectTo?: string | null,
+  ): Promise<{ success: true; message: string }> {
+    const response = await this.authClient.auth.resetPasswordForEmail(email, {
+      redirectTo: redirectTo ?? undefined,
+    });
+
+    if (response.error) {
+      throw response.error;
+    }
+
+    return {
+      success: true,
+      message:
+          'Se l account esiste, abbiamo inviato una mail con le istruzioni per reimpostare la password.',
+    };
+  }
+
+  async updatePassword(
+    userId: string,
+    password: string,
+  ): Promise<{ success: true; message: string }> {
+    const response = await this.adminClient.auth.admin.updateUserById(userId, {
+      password,
+    });
+
+    if (response.error) {
+      throw response.error;
+    }
+
+    return {
+      success: true,
+      message: 'Password aggiornata con successo.',
+    };
+  }
+
   async getUser(token: string): Promise<AuthUserDto> {
     const response = await this.authClient.auth.getUser(token);
     if (response.error || !response.data.user) {

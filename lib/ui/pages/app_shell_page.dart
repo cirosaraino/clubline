@@ -9,6 +9,7 @@ import 'player_form_page.dart';
 import 'players_page.dart';
 import 'streams_page.dart';
 import '../widgets/auth_sheet.dart';
+import '../widgets/auth_password_sheet.dart';
 import '../widgets/theme_palette_sheet.dart';
 import '../widgets/team_info_sheet.dart';
 import '../widgets/vice_permissions_sheet.dart';
@@ -22,6 +23,7 @@ class AppShellPage extends StatefulWidget {
 
 class _AppShellPageState extends State<AppShellPage> {
   int selectedIndex = 0;
+  bool _hasAutoOpenedRecoverySheet = false;
 
   void _goToTab(int index) {
     setState(() {
@@ -56,6 +58,46 @@ class _AppShellPageState extends State<AppShellPage> {
     await AppSessionScope.read(context).refresh(showLoadingState: false);
   }
 
+  Future<void> _openPasswordSheet({
+    bool isRecoveryFlow = false,
+  }) async {
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => AuthPasswordSheet(
+        mode: AuthPasswordSheetMode.changePassword,
+        isRecoveryFlow: isRecoveryFlow,
+      ),
+    );
+
+    if (result == null || !mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(result)),
+    );
+  }
+
+  void _maybeOpenRecoverySheet(AppSessionController session) {
+    if (!session.requiresPasswordRecovery) {
+      _hasAutoOpenedRecoverySheet = false;
+      return;
+    }
+
+    if (_hasAutoOpenedRecoverySheet) {
+      return;
+    }
+
+    _hasAutoOpenedRecoverySheet = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _openPasswordSheet(isRecoveryFlow: true);
+    });
+  }
+
   Future<void> _openThemeSettings() async {
     await showModalBottomSheet<void>(
       context: context,
@@ -83,11 +125,15 @@ class _AppShellPageState extends State<AppShellPage> {
   @override
   Widget build(BuildContext context) {
     final session = AppSessionScope.of(context);
+    _maybeOpenRecoverySheet(session);
     final pages = [
       HomePage(
         onOpenCreateProfile: _openCreateProfile,
         onOpenSignIn: () => _openAuthSheet(AuthSheetMode.signIn),
         onOpenSignUp: () => _openAuthSheet(AuthSheetMode.signUp),
+        onOpenPasswordSettings: () => _openPasswordSheet(
+          isRecoveryFlow: session.requiresPasswordRecovery,
+        ),
         onOpenThemeSettings: _openThemeSettings,
         onOpenVicePermissionsSettings: _openVicePermissionsSettings,
         onOpenTeamInfoSettings: _openTeamInfoSettings,

@@ -16,6 +16,7 @@ class HomePage extends StatelessWidget {
     required this.onOpenCreateProfile,
     required this.onOpenSignIn,
     required this.onOpenSignUp,
+    required this.onOpenPasswordSettings,
     required this.onOpenThemeSettings,
     required this.onOpenVicePermissionsSettings,
     required this.onOpenTeamInfoSettings,
@@ -24,6 +25,7 @@ class HomePage extends StatelessWidget {
   final VoidCallback onOpenCreateProfile;
   final VoidCallback onOpenSignIn;
   final VoidCallback onOpenSignUp;
+  final VoidCallback onOpenPasswordSettings;
   final VoidCallback onOpenThemeSettings;
   final VoidCallback onOpenVicePermissionsSettings;
   final VoidCallback onOpenTeamInfoSettings;
@@ -106,12 +108,14 @@ class HomePage extends StatelessWidget {
                     currentUser: currentUser,
                     currentUserEmail: currentUserEmail,
                     needsProfileSetup: needsProfileSetup,
+                    requiresPasswordRecovery: session.requiresPasswordRecovery,
                     isCaptainRegistrationOpen:
                         !session.players.any((player) => player.hasLinkedAuthAccount),
                     errorMessage: session.errorMessage,
                     onCreateProfile: onOpenCreateProfile,
                     onOpenSignIn: onOpenSignIn,
                     onOpenSignUp: onOpenSignUp,
+                    onOpenPasswordSettings: onOpenPasswordSettings,
                     onSignOut: () => _signOut(context, session),
                   ),
                   if (currentUser?.isCaptain == true || currentUser?.isViceCaptain == true) ...[
@@ -318,11 +322,13 @@ class _AccessCard extends StatelessWidget {
     required this.currentUser,
     required this.currentUserEmail,
     required this.needsProfileSetup,
+    required this.requiresPasswordRecovery,
     required this.isCaptainRegistrationOpen,
     required this.errorMessage,
     required this.onCreateProfile,
     required this.onOpenSignIn,
     required this.onOpenSignUp,
+    required this.onOpenPasswordSettings,
     required this.onSignOut,
   });
 
@@ -330,11 +336,13 @@ class _AccessCard extends StatelessWidget {
   final PlayerProfile? currentUser;
   final String? currentUserEmail;
   final bool needsProfileSetup;
+  final bool requiresPasswordRecovery;
   final bool isCaptainRegistrationOpen;
   final String? errorMessage;
   final VoidCallback onCreateProfile;
   final VoidCallback onOpenSignIn;
   final VoidCallback onOpenSignUp;
+  final VoidCallback onOpenPasswordSettings;
   final VoidCallback onSignOut;
 
   List<Widget> _permissionPills(PlayerProfile? user) {
@@ -565,6 +573,28 @@ class _AccessCard extends StatelessWidget {
                       height: 1.35,
                     ),
               ),
+              if (requiresPasswordRecovery) ...[
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: UltrasAppTheme.warning.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: UltrasAppTheme.warning.withValues(alpha: 0.28),
+                    ),
+                  ),
+                  child: Text(
+                    'Sei entrato dal link di recupero password. Impostane una nuova per chiudere il recupero e continuare ad usare l app normalmente.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: UltrasAppTheme.warningSoft,
+                          fontWeight: FontWeight.w700,
+                          height: 1.35,
+                        ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 14),
               Wrap(
                 spacing: compact ? 8 : 10,
@@ -574,14 +604,57 @@ class _AccessCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
-              SizedBox(
-                width: compact ? double.infinity : null,
-                child: OutlinedButton.icon(
-                  onPressed: onSignOut,
-                  icon: const Icon(Icons.logout_outlined),
-                  label: const Text('Esci'),
+              if (compact) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: onOpenPasswordSettings,
+                    icon: Icon(
+                      requiresPasswordRecovery
+                          ? Icons.lock_reset_outlined
+                          : Icons.password_outlined,
+                    ),
+                    label: Text(
+                      requiresPasswordRecovery
+                          ? 'Imposta nuova password'
+                          : 'Cambia password',
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: onSignOut,
+                    icon: const Icon(Icons.logout_outlined),
+                    label: const Text('Esci'),
+                  ),
+                ),
+              ] else
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: onOpenPasswordSettings,
+                      icon: Icon(
+                        requiresPasswordRecovery
+                            ? Icons.lock_reset_outlined
+                            : Icons.password_outlined,
+                      ),
+                      label: Text(
+                        requiresPasswordRecovery
+                            ? 'Imposta nuova password'
+                            : 'Cambia password',
+                      ),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: onSignOut,
+                      icon: const Icon(Icons.logout_outlined),
+                      label: const Text('Esci'),
+                    ),
+                  ],
+                ),
             ],
           ],
         ),

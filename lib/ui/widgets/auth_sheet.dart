@@ -4,6 +4,7 @@ import '../../core/app_session.dart';
 import '../../core/app_theme.dart';
 import '../../data/api_client.dart';
 import 'app_chrome.dart';
+import 'auth_password_sheet.dart';
 
 enum AuthSheetMode { signIn, signUp }
 
@@ -47,6 +48,25 @@ class _AuthSheetState extends State<AuthSheet> {
       labelText: label,
       prefixIcon: icon == null ? null : Icon(icon),
       border: const OutlineInputBorder(),
+    );
+  }
+
+  Future<void> _openPasswordResetSheet() async {
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => AuthPasswordSheet(
+        mode: AuthPasswordSheetMode.requestReset,
+        initialEmail: emailController.text.trim(),
+      ),
+    );
+
+    if (result == null || !mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(result)),
     );
   }
 
@@ -247,6 +267,16 @@ class _AuthSheetState extends State<AuthSheet> {
                 decoration: _decoration('Password', icon: Icons.lock_outline),
                 enabled: !isSubmitting,
               ),
+              if (selectedMode == AuthSheetMode.signIn) ...[
+                const SizedBox(height: 6),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: isSubmitting ? null : _openPasswordResetSheet,
+                    child: const Text('Password dimenticata?'),
+                  ),
+                ),
+              ],
               if (selectedMode == AuthSheetMode.signUp) ...[
                 const SizedBox(height: 12),
                 TextField(
