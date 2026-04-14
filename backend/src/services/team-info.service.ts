@@ -27,11 +27,13 @@ export class TeamInfoService {
       throw new ForbiddenError('Non puoi modificare le info squadra');
     }
 
+    const { updated_at, ...payload } = teamInfo;
+
     const response = await this.db
       .from('team_settings')
       .upsert(
         {
-          ...teamInfo,
+          ...payload,
           id: 1,
         },
         { onConflict: 'id' },

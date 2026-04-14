@@ -58,7 +58,6 @@ teamInfoRouter.put(
         instagram_url: parsedTeamInfo.instagram_url ?? null,
         twitch_url: parsedTeamInfo.twitch_url ?? null,
         tiktok_url: parsedTeamInfo.tiktok_url ?? null,
-        updated_at: parsedTeamInfo.updated_at ?? null,
       },
       principal!,
     );
