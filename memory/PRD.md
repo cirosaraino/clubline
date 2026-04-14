@@ -131,3 +131,21 @@ Aggiornare in tempo reale, senza refresh manuale, quando un altro utente crea/mo
 
 ### Obiettivo UX
 - Aggiornamenti istantanei affidabili anche in modalità app Home Screen iOS, senza refresh manuale.
+
+---
+
+## Aggiornamento successivo - Fix bootstrap accesso (falso "disconnesso" all'avvio)
+
+### Problema segnalato
+- All'apertura app compariva stato non autenticato; cliccando "Accedi" la sessione risultava già valida in background.
+
+### Fix applicati
+- `AppShellPage` ora mostra **overlay iniziale "Verifica accesso in corso..."** sulla Home durante bootstrap sessione.
+- Timeout overlay impostato a **1.5s** (come richiesto).
+- Apertura login/signup bloccata quando:
+  - sessione è ancora in caricamento, oppure
+  - sessione è già autenticata (**mai aprire login se già loggato**, come richiesto).
+
+### Risultato atteso
+- Niente più effetto “finto disconnesso” nei primi istanti.
+- Niente apertura inutile della pagina di accesso quando sei già autenticato.

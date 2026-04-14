@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/app_session.dart';
@@ -22,8 +24,32 @@ class AppShellPage extends StatefulWidget {
 }
 
 class _AppShellPageState extends State<AppShellPage> {
+  static const Duration _initialAccessOverlayTimeout = Duration(milliseconds: 1500);
+
   int selectedIndex = 0;
   bool _hasAutoOpenedRecoverySheet = false;
+  bool _isInitialAccessOverlayActive = true;
+  Timer? _initialAccessOverlayTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _initialAccessOverlayTimer = Timer(_initialAccessOverlayTimeout, () {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isInitialAccessOverlayActive = false;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _initialAccessOverlayTimer?.cancel();
+    super.dispose();
+  }
 
   void _goToTab(int index) {
     setState(() {
@@ -43,6 +69,24 @@ class _AppShellPageState extends State<AppShellPage> {
   }
 
   Future<void> _openAuthSheet(AuthSheetMode initialMode) async {
+    final session = AppSessionScope.read(context);
+
+    if (session.isAuthenticated) {
+      return;
+    }
+
+    if (session.isLoading) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Stiamo verificando la sessione. Attendi un attimo.'),
+        ),
+      );
+      return;
+    }
+
     final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -56,6 +100,55 @@ class _AppShellPageState extends State<AppShellPage> {
     }
 
     await AppSessionScope.read(context).refresh(showLoadingState: false);
+  }
+
+  bool _showInitialAccessOverlay(AppSessionController session) {
+    return _isInitialAccessOverlayActive && session.isLoading;
+  }
+
+  Widget _wrapHomeWithInitialOverlay({
+    required Widget child,
+    required AppSessionController session,
+  }) {
+    if (!_showInitialAccessOverlay(session)) {
+      return child;
+    }
+
+    return Stack(
+      children: [
+        child,
+        Positioned.fill(
+          child: AbsorbPointer(
+            child: Container(
+              color: Colors.black.withValues(alpha: 0.22),
+              alignment: Alignment.center,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 22),
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2.2),
+                    ),
+                    SizedBox(width: 12),
+                    Flexible(
+                      child: Text('Verifica accesso in corso...'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   Future<void> _openPasswordSheet({
@@ -146,7 +239,10 @@ class _AppShellPageState extends State<AppShellPage> {
 
     if (!session.isAuthenticated || session.needsProfileSetup) {
       return Scaffold(
-        body: pages.first,
+        body: _wrapHomeWithInitialOverlay(
+          child: pages.first,
+          session: session,
+        ),
       );
     }
 
