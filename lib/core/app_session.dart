@@ -1,0 +1,197 @@
+import 'package:flutter/material.dart';
+
+import '../data/auth_repository.dart';
+import '../data/player_repository.dart';
+import '../data/team_info_repository.dart';
+import '../data/vice_permissions_repository.dart';
+import '../models/authenticated_user.dart';
+import '../models/player_profile.dart';
+import '../models/team_info.dart';
+import '../models/vice_permissions.dart';
+import 'app_data_sync.dart';
+
+class AppSessionController extends ChangeNotifier {
+  AppSessionController()
+      : _authRepository = AuthRepository(),
+        _repository = PlayerRepository(),
+        _teamInfoRepository = TeamInfoRepository(),
+        _vicePermissionsRepository = VicePermissionsRepository() {
+    AppDataSync.instance.addListener(_handleAppDataSync);
+    refresh();
+  }
+
+  final AuthRepository _authRepository;
+  final PlayerRepository _repository;
+  final TeamInfoRepository _teamInfoRepository;
+  final VicePermissionsRepository _vicePermissionsRepository;
+
+  AuthenticatedUser? _authUser;
+  List<PlayerProfile> _players = const [];
+  TeamInfo _teamInfo = TeamInfo.defaults;
+  VicePermissions _vicePermissions = VicePermissions.defaults;
+  bool _isLoading = true;
+  String? _errorMessage;
+  int _lastHandledSyncRevision = 0;
+  bool _disposed = false;
+
+  List<PlayerProfile> get players => _players;
+  TeamInfo get teamInfo => _teamInfo;
+  VicePermissions get vicePermissions => _vicePermissions;
+  bool get isLoading => _isLoading;
+  String? get errorMessage => _errorMessage;
+  AuthenticatedUser? get authUser => _authUser;
+  bool get isAuthenticated => _authUser != null;
+  String? get currentUserEmail => _authUser?.email.trim();
+  bool get needsProfileSetup => isAuthenticated && currentUser == null;
+
+  bool get canBootstrapCaptain {
+    if (!needsProfileSetup) {
+      return false;
+    }
+
+    return !_players.any((player) => player.hasLinkedAuthAccount);
+  }
+
+  PlayerProfile? get currentUser {
+    final authUser = _authUser;
+    if (authUser == null) {
+      return null;
+    }
+
+    for (final player in _players) {
+      if (player.isLinkedToAuthUser(authUser.id)) {
+        return player;
+      }
+    }
+
+    for (final player in _players) {
+      if (player.matchesAccountEmail(authUser.email)) {
+        return player;
+      }
+    }
+
+    return null;
+  }
+
+  bool get hasCurrentUser => currentUser != null;
+
+  Future<void> signInWithEmail({
+    required String email,
+    required String password,
+  }) async {
+    final session = await _authRepository.signInWithEmail(
+      email: email,
+      password: password,
+    );
+    _authUser = session.user;
+    await refresh(showLoadingState: false);
+  }
+
+  Future<String> signUpWithEmail({
+    required String email,
+    required String password,
+  }) async {
+    final session = await _authRepository.signUpWithEmail(
+      email: email,
+      password: password,
+    );
+    _authUser = session.user;
+    await refresh(showLoadingState: false);
+    return 'Account creato. Ora completa il tuo profilo squadra.';
+  }
+
+  Future<void> signOut() async {
+    await _authRepository.signOut();
+    _authUser = null;
+    await refresh(showLoadingState: false);
+  }
+
+  Future<void> refresh({bool showLoadingState = true}) async {
+    if (showLoadingState) {
+      _isLoading = true;
+    }
+    _errorMessage = null;
+    _notifyIfMounted();
+
+    try {
+      _authUser = await _authRepository.restoreSession();
+      final loadedPlayersFuture = _repository.fetchPlayers();
+      final loadedTeamInfoFuture = _teamInfoRepository.fetchTeamInfo();
+      final loadedVicePermissionsFuture = _vicePermissionsRepository.fetchPermissions();
+
+      final loadedPlayers = await loadedPlayersFuture;
+      final loadedTeamInfo = await loadedTeamInfoFuture;
+      final loadedVicePermissions = await loadedVicePermissionsFuture;
+
+      _teamInfo = loadedTeamInfo;
+      _vicePermissions = loadedVicePermissions;
+      _players = loadedPlayers
+          .map(
+            (player) => player.copyWith(
+              vicePermissions: loadedVicePermissions,
+            ),
+          )
+          .toList();
+      _isLoading = false;
+      _errorMessage = null;
+      _notifyIfMounted();
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = e.toString();
+      _notifyIfMounted();
+    }
+  }
+
+  void _notifyIfMounted() {
+    if (!_disposed) {
+      notifyListeners();
+    }
+  }
+
+  void _handleAppDataSync() {
+    final change = AppDataSync.instance.latestChange;
+    if (change == null || change.revision == _lastHandledSyncRevision) {
+      return;
+    }
+    if (!change.affects({
+      AppDataScope.players,
+      AppDataScope.teamInfo,
+      AppDataScope.vicePermissions,
+    })) {
+      return;
+    }
+
+    _lastHandledSyncRevision = change.revision;
+    refresh(showLoadingState: false);
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    AppDataSync.instance.removeListener(_handleAppDataSync);
+    super.dispose();
+  }
+}
+
+class AppSessionScope extends InheritedNotifier<AppSessionController> {
+  const AppSessionScope({
+    super.key,
+    required AppSessionController controller,
+    required super.child,
+  }) : super(
+          notifier: controller,
+        );
+
+  static AppSessionController of(BuildContext context) {
+    final scope = context.dependOnInheritedWidgetOfExactType<AppSessionScope>();
+    assert(scope != null, 'AppSessionScope non trovato nel widget tree.');
+    return scope!.notifier!;
+  }
+
+  static AppSessionController read(BuildContext context) {
+    final element = context.getElementForInheritedWidgetOfExactType<AppSessionScope>();
+    final scope = element?.widget as AppSessionScope?;
+    assert(scope != null, 'AppSessionScope non trovato nel widget tree.');
+    return scope!.notifier!;
+  }
+}

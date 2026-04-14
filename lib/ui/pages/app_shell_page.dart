@@ -1,0 +1,146 @@
+import 'package:flutter/material.dart';
+
+import '../../core/app_session.dart';
+import '../widgets/app_chrome.dart';
+import 'attendance_page.dart';
+import 'home_page.dart';
+import 'lineups_page.dart';
+import 'player_form_page.dart';
+import 'players_page.dart';
+import 'streams_page.dart';
+import '../widgets/auth_sheet.dart';
+import '../widgets/theme_palette_sheet.dart';
+import '../widgets/team_info_sheet.dart';
+import '../widgets/vice_permissions_sheet.dart';
+
+class AppShellPage extends StatefulWidget {
+  const AppShellPage({super.key});
+
+  @override
+  State<AppShellPage> createState() => _AppShellPageState();
+}
+
+class _AppShellPageState extends State<AppShellPage> {
+  int selectedIndex = 0;
+
+  void _goToTab(int index) {
+    setState(() {
+      selectedIndex = index;
+    });
+  }
+
+  Future<void> _openCreateProfile() async {
+    await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const PlayerFormPage(
+          selfRegistration: true,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openAuthSheet(AuthSheetMode initialMode) async {
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => AuthSheet(
+        initialMode: initialMode,
+      ),
+    );
+
+    if (result != true || !mounted) {
+      return;
+    }
+
+    await AppSessionScope.read(context).refresh(showLoadingState: false);
+  }
+
+  Future<void> _openThemeSettings() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => const ThemePaletteSheet(),
+    );
+  }
+
+  Future<void> _openVicePermissionsSettings() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => const VicePermissionsSheet(),
+    );
+  }
+
+  Future<void> _openTeamInfoSettings() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => const TeamInfoSheet(),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final session = AppSessionScope.of(context);
+    final pages = [
+      HomePage(
+        onOpenCreateProfile: _openCreateProfile,
+        onOpenSignIn: () => _openAuthSheet(AuthSheetMode.signIn),
+        onOpenSignUp: () => _openAuthSheet(AuthSheetMode.signUp),
+        onOpenThemeSettings: _openThemeSettings,
+        onOpenVicePermissionsSettings: _openVicePermissionsSettings,
+        onOpenTeamInfoSettings: _openTeamInfoSettings,
+      ),
+      const PlayersPage(),
+      const LineupsPage(),
+      const StreamsPage(),
+      const AttendancePage(),
+    ];
+
+    if (!session.isAuthenticated || session.needsProfileSetup) {
+      return Scaffold(
+        body: pages.first,
+      );
+    }
+
+    return Scaffold(
+      body: IndexedStack(
+        index: selectedIndex,
+        children: pages,
+      ),
+      bottomNavigationBar: NavigationBar(
+        height: AppResponsive.isCompact(context) ? 74 : null,
+        selectedIndex: selectedIndex,
+        onDestinationSelected: _goToTab,
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.groups_2_outlined),
+            selectedIcon: Icon(Icons.groups_2),
+            label: 'Rosa',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.assignment_outlined),
+            selectedIcon: Icon(Icons.assignment),
+            label: 'Formazioni',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.smart_display_outlined),
+            selectedIcon: Icon(Icons.smart_display),
+            label: 'Live',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.event_available_outlined),
+            selectedIcon: Icon(Icons.event_available),
+            label: 'Presenze',
+          ),
+        ],
+      ),
+    );
+  }
+}
