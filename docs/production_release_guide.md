@@ -59,6 +59,8 @@ Nel dashboard Render:
 4. conferma il file `render.yaml`
 5. completa le variabili ambiente del servizio `squadra-backend`
 
+Il backend usa TypeScript anche in fase di build, quindi il blueprint installa anche le `devDependencies` durante il deploy.
+
 Valori da inserire:
 
 - `NODE_ENV=production`
