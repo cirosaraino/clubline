@@ -100,6 +100,22 @@ class _AppShellPageState extends State<AppShellPage> {
     );
   }
 
+  Future<void> _openEditCurrentProfile() async {
+    final session = AppSessionScope.read(context);
+    final currentUser = session.currentUser;
+    if (currentUser == null) {
+      await _openCreateProfile();
+      return;
+    }
+
+    await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PlayerFormPage(player: currentUser),
+      ),
+    );
+  }
+
   Future<void> _openAuthSheet(AuthSheetMode initialMode) async {
     final session = AppSessionScope.read(context);
 
@@ -286,6 +302,7 @@ class _AppShellPageState extends State<AppShellPage> {
     final pages = [
       HomePage(
         onOpenCreateProfile: _openCreateProfile,
+        onOpenEditCurrentProfile: _openEditCurrentProfile,
         onOpenSignIn: () => _openAuthSheet(AuthSheetMode.signIn),
         onOpenSignUp: () => _openAuthSheet(AuthSheetMode.signUp),
         onOpenPasswordSettings: () => _openPasswordSheet(

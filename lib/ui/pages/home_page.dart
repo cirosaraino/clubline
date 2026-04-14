@@ -5,15 +5,23 @@ import '../../core/app_session.dart';
 import '../../core/app_theme.dart';
 import '../../models/player_profile.dart';
 import '../../models/team_info.dart';
-import '../../models/vice_permissions.dart';
 import '../widgets/app_chrome.dart';
 
 const String kUltrasLogoAsset = 'assets/images/ultras_mentality_logo.jpg';
+
+enum _HomeProfileMenuAction {
+  completeProfile,
+  editProfile,
+  changePassword,
+  manageVicePermissions,
+  signOut,
+}
 
 class HomePage extends StatelessWidget {
   const HomePage({
     super.key,
     required this.onOpenCreateProfile,
+    required this.onOpenEditCurrentProfile,
     required this.onOpenSignIn,
     required this.onOpenSignUp,
     required this.onOpenPasswordSettings,
@@ -23,6 +31,7 @@ class HomePage extends StatelessWidget {
   });
 
   final VoidCallback onOpenCreateProfile;
+  final VoidCallback onOpenEditCurrentProfile;
   final VoidCallback onOpenSignIn;
   final VoidCallback onOpenSignUp;
   final VoidCallback onOpenPasswordSettings;
@@ -51,6 +60,40 @@ class HomePage extends StatelessWidget {
     }
   }
 
+  Future<void> _signOut(BuildContext context, AppSessionController session) async {
+    await session.signOut();
+
+    if (!context.mounted) {
+      return;
+    }
+
+    await AppSessionScope.read(context).refresh();
+  }
+
+  Future<void> _handleProfileMenuAction(
+    BuildContext context,
+    AppSessionController session,
+    _HomeProfileMenuAction action,
+  ) async {
+    switch (action) {
+      case _HomeProfileMenuAction.completeProfile:
+        onOpenCreateProfile();
+        return;
+      case _HomeProfileMenuAction.editProfile:
+        onOpenEditCurrentProfile();
+        return;
+      case _HomeProfileMenuAction.changePassword:
+        onOpenPasswordSettings();
+        return;
+      case _HomeProfileMenuAction.manageVicePermissions:
+        onOpenVicePermissionsSettings();
+        return;
+      case _HomeProfileMenuAction.signOut:
+        await _signOut(context, session);
+        return;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = AppSessionScope.of(context);
@@ -59,10 +102,71 @@ class HomePage extends StatelessWidget {
     final currentUserEmail = session.currentUserEmail;
     final needsProfileSetup = session.needsProfileSetup;
     final teamInfo = session.teamInfo;
+    final canShowProfileMenu = isAuthenticated;
+    final canManageVicePermissions = currentUser?.isCaptain == true;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(teamInfo.displayTeamName),
+        actions: [
+          if (canShowProfileMenu)
+            PopupMenuButton<_HomeProfileMenuAction>(
+              tooltip: 'Menu profilo',
+              icon: const CircleAvatar(
+                radius: 16,
+                child: Icon(Icons.person_outline, size: 18),
+              ),
+              onSelected: (action) =>
+                  _handleProfileMenuAction(context, session, action),
+              itemBuilder: (_) => [
+                if (currentUser != null)
+                  const PopupMenuItem<_HomeProfileMenuAction>(
+                    value: _HomeProfileMenuAction.editProfile,
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.edit_outlined),
+                      title: Text('Modifica profilo giocatore'),
+                    ),
+                  )
+                else
+                  const PopupMenuItem<_HomeProfileMenuAction>(
+                    value: _HomeProfileMenuAction.completeProfile,
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.person_add_alt_1_outlined),
+                      title: Text('Completa Profilo giocatore'),
+                    ),
+                  ),
+                const PopupMenuItem<_HomeProfileMenuAction>(
+                  value: _HomeProfileMenuAction.changePassword,
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.password_outlined),
+                    title: Text('Cambia password'),
+                  ),
+                ),
+                if (canManageVicePermissions)
+                  const PopupMenuItem<_HomeProfileMenuAction>(
+                    value: _HomeProfileMenuAction.manageVicePermissions,
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.admin_panel_settings_outlined),
+                      title: Text('Gestione permessi vice'),
+                    ),
+                  ),
+                const PopupMenuDivider(),
+                const PopupMenuItem<_HomeProfileMenuAction>(
+                  value: _HomeProfileMenuAction.signOut,
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.logout_outlined),
+                    title: Text('Esci'),
+                  ),
+                ),
+              ],
+            ),
+          const SizedBox(width: 4),
+        ],
       ),
       body: Stack(
         children: [
@@ -112,20 +216,9 @@ class HomePage extends StatelessWidget {
                     isCaptainRegistrationOpen:
                         !session.players.any((player) => player.hasLinkedAuthAccount),
                     errorMessage: session.errorMessage,
-                    onCreateProfile: onOpenCreateProfile,
                     onOpenSignIn: onOpenSignIn,
                     onOpenSignUp: onOpenSignUp,
-                    onOpenPasswordSettings: onOpenPasswordSettings,
-                    onSignOut: () => _signOut(context, session),
                   ),
-                  if (currentUser?.isCaptain == true || currentUser?.isViceCaptain == true) ...[
-                    const SizedBox(height: 18),
-                    _VicePermissionsCard(
-                      currentUser: currentUser!,
-                      vicePermissions: session.vicePermissions,
-                      onOpenSettings: onOpenVicePermissionsSettings,
-                    ),
-                  ],
                 ],
               ),
             ),
@@ -135,15 +228,6 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  Future<void> _signOut(BuildContext context, AppSessionController session) async {
-    await session.signOut();
-
-    if (!context.mounted) {
-      return;
-    }
-
-    await AppSessionScope.read(context).refresh();
-  }
 }
 
 class _GlowCircle extends StatelessWidget {
@@ -325,11 +409,8 @@ class _AccessCard extends StatelessWidget {
     required this.requiresPasswordRecovery,
     required this.isCaptainRegistrationOpen,
     required this.errorMessage,
-    required this.onCreateProfile,
     required this.onOpenSignIn,
     required this.onOpenSignUp,
-    required this.onOpenPasswordSettings,
-    required this.onSignOut,
   });
 
   final bool isAuthenticated;
@@ -339,11 +420,8 @@ class _AccessCard extends StatelessWidget {
   final bool requiresPasswordRecovery;
   final bool isCaptainRegistrationOpen;
   final String? errorMessage;
-  final VoidCallback onCreateProfile;
   final VoidCallback onOpenSignIn;
   final VoidCallback onOpenSignUp;
-  final VoidCallback onOpenPasswordSettings;
-  final VoidCallback onSignOut;
 
   List<Widget> _permissionPills(PlayerProfile? user) {
     if (user == null) {
@@ -521,41 +599,13 @@ class _AccessCard extends StatelessWidget {
                     ),
               ),
               const SizedBox(height: 14),
-              if (compact) ...[
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: onCreateProfile,
-                    icon: const Icon(Icons.person_add_alt_1_outlined),
-                    label: const Text('Completa profilo'),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: onSignOut,
-                    icon: const Icon(Icons.logout_outlined),
-                    label: const Text('Esci'),
-                  ),
-                ),
-              ] else
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    ElevatedButton.icon(
-                      onPressed: onCreateProfile,
-                      icon: const Icon(Icons.person_add_alt_1_outlined),
-                      label: const Text('Completa profilo'),
+              Text(
+                'Usa l icona profilo in alto a destra per completare il profilo giocatore, cambiare password o uscire.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: UltrasAppTheme.textMuted,
+                      height: 1.35,
                     ),
-                    OutlinedButton.icon(
-                      onPressed: onSignOut,
-                      icon: const Icon(Icons.logout_outlined),
-                      label: const Text('Esci'),
-                    ),
-                  ],
-                ),
+              ),
             ] else ...[
               Text(
                 currentUserEmail == null
@@ -604,144 +654,12 @@ class _AccessCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
-              if (compact) ...[
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: onOpenPasswordSettings,
-                    icon: Icon(
-                      requiresPasswordRecovery
-                          ? Icons.lock_reset_outlined
-                          : Icons.password_outlined,
+              Text(
+                'Le azioni account (modifica profilo, password ed uscita) sono nel menu profilo in alto a destra.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: UltrasAppTheme.textMuted,
+                      height: 1.35,
                     ),
-                    label: Text(
-                      requiresPasswordRecovery
-                          ? 'Imposta nuova password'
-                          : 'Cambia password',
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: onSignOut,
-                    icon: const Icon(Icons.logout_outlined),
-                    label: const Text('Esci'),
-                  ),
-                ),
-              ] else
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    ElevatedButton.icon(
-                      onPressed: onOpenPasswordSettings,
-                      icon: Icon(
-                        requiresPasswordRecovery
-                            ? Icons.lock_reset_outlined
-                            : Icons.password_outlined,
-                      ),
-                      label: Text(
-                        requiresPasswordRecovery
-                            ? 'Imposta nuova password'
-                            : 'Cambia password',
-                      ),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: onSignOut,
-                      icon: const Icon(Icons.logout_outlined),
-                      label: const Text('Esci'),
-                    ),
-                  ],
-                ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _VicePermissionsCard extends StatelessWidget {
-  const _VicePermissionsCard({
-    required this.currentUser,
-    required this.vicePermissions,
-    required this.onOpenSettings,
-  });
-
-  final PlayerProfile currentUser;
-  final VicePermissions vicePermissions;
-  final VoidCallback onOpenSettings;
-
-  @override
-  Widget build(BuildContext context) {
-    final compact = AppResponsive.isCompact(context);
-    final title = currentUser.canConfigureVicePermissions
-        ? 'Menu permessi vice'
-        : 'Permessi assegnati ai vice';
-
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: EdgeInsets.all(AppResponsive.cardPadding(context)),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                AppIconBadge(
-                  icon: Icons.admin_panel_settings_outlined,
-                  iconColor: UltrasAppTheme.gold,
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: compact ? 6 : 8,
-              runSpacing: compact ? 6 : 8,
-              children: [
-                _VicePermissionChip(
-                  label: 'Rosa',
-                  enabled: vicePermissions.managePlayers,
-                ),
-                _VicePermissionChip(
-                  label: 'Formazioni',
-                  enabled: vicePermissions.manageLineups,
-                ),
-                _VicePermissionChip(
-                  label: 'Live',
-                  enabled: vicePermissions.manageStreams,
-                ),
-                _VicePermissionChip(
-                  label: 'Presenze',
-                  enabled: vicePermissions.manageAttendance,
-                ),
-                _VicePermissionChip(
-                  label: 'Info squadra',
-                  enabled: vicePermissions.manageTeamInfo,
-                ),
-              ],
-            ),
-            if (currentUser.canConfigureVicePermissions) ...[
-              const SizedBox(height: 14),
-              SizedBox(
-                width: compact ? double.infinity : null,
-                child: ElevatedButton.icon(
-                  onPressed: onOpenSettings,
-                  icon: const Icon(Icons.tune_outlined),
-                  label: const Text('Apri menu permessi vice'),
-                ),
               ),
             ],
           ],
@@ -845,52 +763,3 @@ class _TeamCrestAvatar extends StatelessWidget {
   }
 }
 
-class _VicePermissionChip extends StatelessWidget {
-  const _VicePermissionChip({
-    required this.label,
-    required this.enabled,
-  });
-
-  final String label;
-  final bool enabled;
-
-  @override
-  Widget build(BuildContext context) {
-    final backgroundColor = enabled
-        ? UltrasAppTheme.success.withValues(alpha: 0.15)
-        : UltrasAppTheme.surfaceAlt;
-    final foregroundColor = enabled
-        ? UltrasAppTheme.successSoft
-        : UltrasAppTheme.textMuted;
-    final borderColor = enabled
-        ? UltrasAppTheme.success.withValues(alpha: 0.34)
-        : UltrasAppTheme.outlineSoft;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: borderColor),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            enabled ? Icons.check_circle_outline : Icons.remove_circle_outline,
-            size: 15,
-            color: foregroundColor,
-          ),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: foregroundColor,
-                  fontWeight: FontWeight.w800,
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-}

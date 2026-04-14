@@ -1,0 +1,55 @@
+{
+  "summary": "Frontend-only review for new Home profile menu feature completed via code review plus live deployed UI probing. Core logic in source matches requested visibility/menu rules, but full runtime verification for authenticated states is blocked in this environment.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Flutter Web Home interactions under Playwright",
+        "issue": "Buttons and popup menu entries are rendered visually but not exposed as queryable DOM/role/semantics nodes, preventing deterministic selector-based assertions.",
+        "selector": "get_by_role('button', name='Accedi'|'Registrati'|'Menu profilo'), text locators",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Guest Home initial load",
+        "issue": "Console still reports 401 on /api/vice-permissions while unauthenticated.",
+        "affected_selectors": []
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/lib/ui/pages/home_page.dart",
+    "/app/lib/ui/pages/app_shell_page.dart",
+    "/app/integration_test/guest_home_buttons_clickable_test.dart",
+    "/root/.emergent/automation_output/20260414_145455/console_20260414_145455.log",
+    "/root/.emergent/automation_output/20260414_145536/console_20260414_145536.log"
+  ],
+  "action_items": [
+    "Add stable test hooks (Flutter semantics labels/keys or web test ids bridge) for profile icon and menu entries to enable automated UI validation.",
+    "Run Flutter integration tests in CI/runtime with Flutter SDK installed to verify authenticated states (currentUser exists/missing, captain-only item visibility).",
+    "Confirm guest-safe handling of /api/vice-permissions unauthorized response to avoid noisy console errors."
+  ],
+  "critical_code_review_comments": [
+    "Home app bar profile icon is correctly gated by isAuthenticated (canShowProfileMenu).",
+    "Menu content logic matches requirement: currentUser != null => 'Modifica profilo giocatore', else 'Completa Profilo giocatore'.",
+    "Captain-only rule is correctly enforced with currentUser?.isCaptain == true for 'Gestione permessi vice'.",
+    "Guest flow remains intact in source: Accedi/Registrati buttons still present and wired, and guest overlay bypass remains in AppShell (_wrapHomeWithInitialOverlay returns child for !isAuthenticated)."
+  ],
+  "updated_files": [
+    "/app/test_reports/iteration_2.json"
+  ],
+  "success_rate": {
+    "backend": "N/A (skipped per request)",
+    "frontend": "65%"
+  },
+  "seed_data_creation": "",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "test_credentials.md has no persisted credentials. Flutter/Dart SDK is unavailable in this container, so integration_test could not be executed locally. Playwright can visually render the app but cannot reliably locate Flutter controls via role/text selectors in this runtime.",
+  "rca of the issue": "Primary test blocker RCA: deployed Flutter web appears canvas-rendered without machine-queryable control nodes for Playwright selectors in this environment (body text length 0, button count 0 despite visible buttons in screenshot). This blocks deterministic UI assertions for profile menu flows. Secondary issue: unauthenticated bootstrap still triggers /api/vice-permissions and returns 401 in console."
+}
