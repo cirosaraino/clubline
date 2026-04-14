@@ -25,12 +25,15 @@ class AppShellPage extends StatefulWidget {
 
 class _AppShellPageState extends State<AppShellPage> {
   static const Duration _initialAccessOverlayTimeout = Duration(milliseconds: 1500);
+  static const Duration _postVerificationGuardDuration = Duration(milliseconds: 1000);
   static const Duration _initialAccessTransitionDuration = Duration(milliseconds: 420);
 
   int selectedIndex = 0;
   bool _hasAutoOpenedRecoverySheet = false;
   bool _isInitialAccessOverlayActive = true;
+  bool _isPostVerificationGuardActive = true;
   Timer? _initialAccessOverlayTimer;
+  Timer? _postVerificationGuardTimer;
 
   @override
   void initState() {
@@ -43,12 +46,23 @@ class _AppShellPageState extends State<AppShellPage> {
       setState(() {
         _isInitialAccessOverlayActive = false;
       });
+
+      _postVerificationGuardTimer = Timer(_postVerificationGuardDuration, () {
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          _isPostVerificationGuardActive = false;
+        });
+      });
     });
   }
 
   @override
   void dispose() {
     _initialAccessOverlayTimer?.cancel();
+    _postVerificationGuardTimer?.cancel();
     super.dispose();
   }
 
@@ -107,11 +121,33 @@ class _AppShellPageState extends State<AppShellPage> {
     return _isInitialAccessOverlayActive && session.isLoading;
   }
 
+  bool _showSyncProfileOverlay(AppSessionController session) {
+    if (_showInitialAccessOverlay(session)) {
+      return false;
+    }
+
+    if (_isPostVerificationGuardActive) {
+      return true;
+    }
+
+    return session.isLoading;
+  }
+
   Widget _wrapHomeWithInitialOverlay({
     required Widget child,
     required AppSessionController session,
   }) {
-    final overlayVisible = _showInitialAccessOverlay(session);
+    final showInitialOverlay = _showInitialAccessOverlay(session);
+    final showSyncOverlay = _showSyncProfileOverlay(session);
+    final overlayVisible = showInitialOverlay || showSyncOverlay;
+    final overlayMessage = showInitialOverlay
+        ? 'Verifica accesso in corso...'
+        : 'Sincronizzazione profilo...';
+    final overlayBackgroundAlpha = showInitialOverlay ? 0.22 : 0.14;
+    final panelPadding = showInitialOverlay
+        ? const EdgeInsets.symmetric(horizontal: 18, vertical: 16)
+        : const EdgeInsets.symmetric(horizontal: 14, vertical: 12);
+    final spinnerSize = showInitialOverlay ? 18.0 : 14.0;
 
     return Stack(
       children: [
@@ -134,26 +170,26 @@ class _AppShellPageState extends State<AppShellPage> {
               curve: Curves.easeOutCubic,
               opacity: overlayVisible ? 1 : 0,
               child: Container(
-                color: Colors.black.withValues(alpha: 0.22),
+                color: Colors.black.withValues(alpha: overlayBackgroundAlpha),
                 alignment: Alignment.center,
                 child: Container(
                   margin: const EdgeInsets.symmetric(horizontal: 22),
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                  padding: panelPadding,
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
                     borderRadius: BorderRadius.circular(18),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2.2),
+                        width: spinnerSize,
+                        height: spinnerSize,
+                        child: const CircularProgressIndicator(strokeWidth: 2.2),
                       ),
                       SizedBox(width: 12),
                       Flexible(
-                        child: Text('Verifica accesso in corso...'),
+                        child: Text(overlayMessage),
                       ),
                     ],
                   ),

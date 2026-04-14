@@ -156,6 +156,13 @@ Aggiornare in tempo reale, senza refresh manuale, quando un altro utente crea/mo
   - effetto **fade + slide-up delicata**
   - curva **easeOutCubic**
 
+### Fix anti-flicker successivo
+- Gestione a due fasi overlay bootstrap in `AppShellPage`:
+  - fase 1: "Verifica accesso in corso..." (1.5s)
+  - fase 2: mini overlay "Sincronizzazione profilo..." con guardia minima 1s
+- Priorità zero flicker: l'utente non vede più il riquadro "Accedi" nel passaggio tra verifica e sessione valida.
+- Migliorato refresh sessione: dopo `restoreSession()` viene notificato subito lo stato auth, riducendo il gap visivo prima del rendering corretto.
+
 ---
 
 ## Aggiornamento successivo - Schermata Rosa: filtri collapsable + recap macroruoli

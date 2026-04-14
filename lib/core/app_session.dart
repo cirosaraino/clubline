@@ -150,6 +150,8 @@ class AppSessionController extends ChangeNotifier {
 
     try {
       _authUser = await _authRepository.restoreSession();
+      _notifyIfMounted();
+
       final loadedPlayersFuture = _repository.fetchPlayers();
       final loadedTeamInfoFuture = _teamInfoRepository.fetchTeamInfo();
       final loadedVicePermissionsFuture = _vicePermissionsRepository.fetchPermissions();
