@@ -173,12 +173,53 @@ class _StreamFormPageState extends State<StreamFormPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Dati live recuperati dal link')),
       );
-    } catch (e) {
+    } catch (_) {
+      final providerGuess = _guessProviderFromUrl(streamUrl);
+      final fallbackStatus = _guessStatusFromUrl(streamUrl);
+
       setState(() {
-        metadataError = e.toString();
+        metadataError =
+            'Recupero automatico non disponibile. Compila o verifica i campi prima di salvare.';
         isFetchingMetadata = false;
+        detectedProvider ??= providerGuess;
+        selectedStreamStatus ??= fallbackStatus;
+        selectedPlayedOn ??= normalizePlayedOnDate(DateTime.now());
       });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Dati automatici non disponibili: puoi completare manualmente.'),
+        ),
+      );
     }
+  }
+
+  String? _guessProviderFromUrl(String url) {
+    final parsed = Uri.tryParse(url);
+    final host = (parsed?.host ?? '').toLowerCase();
+
+    if (host.contains('youtube.com') || host.contains('youtu.be')) {
+      return 'YOUTUBE';
+    }
+
+    if (host.contains('twitch.tv')) {
+      return 'TWITCH';
+    }
+
+    return null;
+  }
+
+  String _guessStatusFromUrl(String url) {
+    final parsed = Uri.tryParse(url);
+    final host = (parsed?.host ?? '').toLowerCase();
+    final path = (parsed?.path ?? '').toLowerCase();
+
+    if (host.contains('twitch.tv') && !path.contains('/videos/')) {
+      return 'live';
+    }
+
+    return 'ended';
   }
 
   void _applyMetadata(StreamLinkMetadata metadata) {

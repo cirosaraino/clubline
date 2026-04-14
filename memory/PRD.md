@@ -257,6 +257,30 @@ Aggiornare in tempo reale, senza refresh manuale, quando un altro utente crea/mo
 
 ---
 
+## Aggiornamento successivo - Fix recupero metadata live (YouTube/Twitch)
+
+### Problema segnalato
+- Su "Recupera dati dal link" con YouTube compariva errore tecnico: `edge function returned a non-2xx status code`.
+
+### Intervento backend (robusto, senza regressioni)
+- `StreamMetadataService` reso resiliente:
+  - gestione nativa YouTube (estrazione videoId + lookup oEmbed)
+  - fallback automatico YouTube/Twitch anche se provider esterno o edge function fallisce
+  - niente propagazione raw dell'errore edge all'utente
+- Per Twitch mantenuta logica dedicata; in caso di errore rete/API viene usato fallback sicuro (live o video).
+
+### Intervento frontend (UX fallback manuale)
+- In `StreamFormPage` se il recupero automatico fallisce:
+  - messaggio chiaro e non tecnico
+  - precompilazione minima assistita (`status`, `playedOn`, `provider` stimato)
+  - utente può completare manualmente il titolo e salvare (fallback confermabile)
+
+### Outcome
+- YouTube non si blocca più con errore edge non-2xx esposto in UI.
+- Twitch resta supportato con degrado controllato e logica pulita.
+
+---
+
 ## Aggiornamento successivo - Schermata Rosa: filtri collapsable + recap macroruoli
 
 ### Richiesta
