@@ -26,14 +26,17 @@ class AppShellPage extends StatefulWidget {
 class _AppShellPageState extends State<AppShellPage> {
   static const Duration _initialAccessOverlayTimeout = Duration(milliseconds: 1500);
   static const Duration _postVerificationGuardDuration = Duration(milliseconds: 1000);
+  static const Duration _accessConfirmedLabelLeadTime = Duration(milliseconds: 300);
   static const Duration _initialAccessTransitionDuration = Duration(milliseconds: 420);
 
   int selectedIndex = 0;
   bool _hasAutoOpenedRecoverySheet = false;
   bool _isInitialAccessOverlayActive = true;
   bool _isPostVerificationGuardActive = true;
+  bool _showAccessConfirmedLabel = false;
   Timer? _initialAccessOverlayTimer;
   Timer? _postVerificationGuardTimer;
+  Timer? _accessConfirmedLabelTimer;
 
   @override
   void initState() {
@@ -45,6 +48,18 @@ class _AppShellPageState extends State<AppShellPage> {
 
       setState(() {
         _isInitialAccessOverlayActive = false;
+        _showAccessConfirmedLabel = false;
+      });
+
+      final accessConfirmedDelay = _postVerificationGuardDuration - _accessConfirmedLabelLeadTime;
+      _accessConfirmedLabelTimer = Timer(accessConfirmedDelay, () {
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          _showAccessConfirmedLabel = true;
+        });
       });
 
       _postVerificationGuardTimer = Timer(_postVerificationGuardDuration, () {
@@ -54,6 +69,7 @@ class _AppShellPageState extends State<AppShellPage> {
 
         setState(() {
           _isPostVerificationGuardActive = false;
+          _showAccessConfirmedLabel = false;
         });
       });
     });
@@ -63,6 +79,7 @@ class _AppShellPageState extends State<AppShellPage> {
   void dispose() {
     _initialAccessOverlayTimer?.cancel();
     _postVerificationGuardTimer?.cancel();
+    _accessConfirmedLabelTimer?.cancel();
     super.dispose();
   }
 
@@ -142,7 +159,9 @@ class _AppShellPageState extends State<AppShellPage> {
     final overlayVisible = showInitialOverlay || showSyncOverlay;
     final overlayMessage = showInitialOverlay
         ? 'Verifica accesso in corso...'
-        : 'Sincronizzazione profilo...';
+        : _showAccessConfirmedLabel && session.isAuthenticated
+            ? 'Accesso confermato'
+            : 'Sincronizzazione profilo...';
     final overlayBackgroundAlpha = showInitialOverlay ? 0.22 : 0.14;
     final panelPadding = showInitialOverlay
         ? const EdgeInsets.symmetric(horizontal: 18, vertical: 16)

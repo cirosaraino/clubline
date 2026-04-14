@@ -163,6 +163,12 @@ Aggiornare in tempo reale, senza refresh manuale, quando un altro utente crea/mo
 - Priorità zero flicker: l'utente non vede più il riquadro "Accedi" nel passaggio tra verifica e sessione valida.
 - Migliorato refresh sessione: dopo `restoreSession()` viene notificato subito lo stato auth, riducendo il gap visivo prima del rendering corretto.
 
+### Rifinitura premium successiva
+- Overlay dinamico negli ultimi 300ms della fase di guardia:
+  - testo finale: **"Accesso confermato"**
+  - mostrato solo quando la sessione risulta autenticata
+  - fallback: resta "Sincronizzazione profilo..." se auth non ancora confermata
+
 ---
 
 ## Aggiornamento successivo - Schermata Rosa: filtri collapsable + recap macroruoli
