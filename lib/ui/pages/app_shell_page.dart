@@ -150,6 +150,7 @@ class _AppShellPageState extends State<AppShellPage> {
         : _showAccessConfirmedLabel && session.isAuthenticated
             ? 'Accesso confermato'
             : 'Sincronizzazione profilo...';
+    final shouldBlockTouches = overlayVisible && session.isAuthenticated;
     final overlayBackgroundAlpha = showInitialOverlay ? 0.22 : 0.14;
     final panelPadding = showInitialOverlay
         ? const EdgeInsets.symmetric(horizontal: 18, vertical: 16)
@@ -172,7 +173,7 @@ class _AppShellPageState extends State<AppShellPage> {
         if (overlayVisible)
           Positioned.fill(
             child: IgnorePointer(
-              ignoring: false,
+              ignoring: !shouldBlockTouches,
               child: AnimatedOpacity(
                 duration: _initialAccessTransitionDuration,
                 curve: Curves.easeOutCubic,

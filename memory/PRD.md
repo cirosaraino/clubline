@@ -179,6 +179,14 @@ Aggiornare in tempo reale, senza refresh manuale, quando un altro utente crea/mo
 - In stato guest (non loggato) senza overlay attivo, non c'è più nessun layer trasparente a intercettare i tap.
 - Risolto il caso in cui i pulsanti Home risultavano visivamente presenti ma non cliccabili.
 
+### Audit approfondito successivo (touch/login Home + lifecycle)
+- Controllati i layer touch globali e relativi widget (`AppShellPage`, `MobileWebInstallPromptHost`, Home card accesso).
+- Root cause residua trovata: overlay Home ancora impostato con logica di blocco non condizionata al solo stato autenticato.
+- Fix applicato:
+  - blocco touch overlay attivo **solo** quando `session.isAuthenticated == true`
+  - in stato guest overlay eventualmente visibile ma **non** intercetta tap (`IgnorePointer` non bloccante)
+- Esito atteso: `Accedi` / `Registrati` sempre cliccabili quando non loggato.
+
 ---
 
 ## Aggiornamento successivo - Schermata Rosa: filtri collapsable + recap macroruoli
