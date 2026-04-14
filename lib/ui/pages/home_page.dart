@@ -222,6 +222,7 @@ class HomePage extends StatelessWidget {
                     isCaptainRegistrationOpen:
                         !session.players.any((player) => player.hasLinkedAuthAccount),
                     errorMessage: session.errorMessage,
+                    onCreateProfile: onOpenCreateProfile,
                     onOpenSignIn: onOpenSignIn,
                     onOpenSignUp: onOpenSignUp,
                   ),
@@ -415,6 +416,7 @@ class _AccessCard extends StatelessWidget {
     required this.requiresPasswordRecovery,
     required this.isCaptainRegistrationOpen,
     required this.errorMessage,
+    required this.onCreateProfile,
     required this.onOpenSignIn,
     required this.onOpenSignUp,
   });
@@ -426,6 +428,7 @@ class _AccessCard extends StatelessWidget {
   final bool requiresPasswordRecovery;
   final bool isCaptainRegistrationOpen;
   final String? errorMessage;
+  final VoidCallback onCreateProfile;
   final VoidCallback onOpenSignIn;
   final VoidCallback onOpenSignUp;
 
@@ -615,6 +618,16 @@ class _AccessCard extends StatelessWidget {
                       color: UltrasAppTheme.textMuted,
                       height: 1.35,
                     ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: compact ? double.infinity : null,
+                child: ElevatedButton.icon(
+                  key: const Key('home-complete-player-profile-button'),
+                  onPressed: onCreateProfile,
+                  icon: const Icon(Icons.person_add_alt_1_outlined),
+                  label: const Text('Completa Profilo giocatore'),
+                ),
               ),
             ] else ...[
               Text(

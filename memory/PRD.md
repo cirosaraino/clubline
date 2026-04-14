@@ -229,6 +229,11 @@ Aggiornare in tempo reale, senza refresh manuale, quando un altro utente crea/mo
 ### Hardening anti-regressione
 - Aggiunti `Key` stabili su pulsanti guest e voci menu profilo per test automation robusta.
 
+### Refinement UX successivo (nuovo accesso)
+- Su richiesta utente, quando `needsProfileSetup == true` è stato aggiunto in Home (dentro card accesso/profilo) il bottone evidente:
+  - **Completa Profilo giocatore**
+- Obiettivo: rendere il percorso più intuitivo al primo accesso senza obbligare subito all'uso del menu profilo.
+
 ---
 
 ## Aggiornamento successivo - Schermata Rosa: filtri collapsable + recap macroruoli
