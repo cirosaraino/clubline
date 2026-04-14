@@ -154,7 +154,9 @@ class AppSessionController extends ChangeNotifier {
 
       final loadedPlayersFuture = _repository.fetchPlayers();
       final loadedTeamInfoFuture = _teamInfoRepository.fetchTeamInfo();
-      final loadedVicePermissionsFuture = _vicePermissionsRepository.fetchPermissions();
+      final loadedVicePermissionsFuture = _authUser == null
+          ? Future<VicePermissions>.value(VicePermissions.defaults)
+          : _vicePermissionsRepository.fetchPermissions();
 
       final loadedPlayers = await loadedPlayersFuture;
       final loadedTeamInfo = await loadedTeamInfoFuture;

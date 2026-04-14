@@ -187,6 +187,12 @@ Aggiornare in tempo reale, senza refresh manuale, quando un altro utente crea/mo
   - in stato guest overlay eventualmente visibile ma **non** intercetta tap (`IgnorePointer` non bloccante)
 - Esito atteso: `Accedi` / `Registrati` sempre cliccabili quando non loggato.
 
+### Fix aggiuntivo post-test agent
+- Ridotto rumore/errori guest su bootstrap sessione:
+  - in `AppSession.refresh()` i permessi vice non vengono più richiesti quando utente non autenticato.
+  - evita chiamata guest a `/api/vice-permissions` con 401 in console durante il caricamento Home.
+- Aggiornato `/app/memory/test_credentials.md` per allineamento con report di test.
+
 ### Test automatico anti-regressione aggiunto
 - Creato `integration_test/guest_home_buttons_clickable_test.dart` con 2 scenari E2E:
   1. `guest-home-buttons-clickable-browser`
