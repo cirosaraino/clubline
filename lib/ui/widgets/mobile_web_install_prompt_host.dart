@@ -30,6 +30,7 @@ class _MobileWebInstallPromptHostState
   bool _hasPromptedThisSession = false;
   bool _isShowingPrompt = false;
   bool _showInstallBanner = false;
+  bool _showInlineInstructions = false;
 
   @override
   void initState() {
@@ -58,10 +59,13 @@ class _MobileWebInstallPromptHostState
     if (_showInstallBanner != shouldShow) {
       setState(() {
         _showInstallBanner = shouldShow;
+        if (!shouldShow) {
+          _showInlineInstructions = false;
+        }
       });
     }
 
-    if (shouldShow) {
+    if (shouldShow && mobileWebInstall.canPromptInstall) {
       Future<void>.delayed(const Duration(milliseconds: 700), () {
         if (!mounted) {
           return;
@@ -117,7 +121,8 @@ class _MobileWebInstallPromptHostState
     if (!mounted ||
         _isShowingPrompt ||
         _hasPromptedThisSession ||
-        !_showInstallBanner) {
+        !_showInstallBanner ||
+        !mobileWebInstall.canPromptInstall) {
       return;
     }
 
@@ -199,22 +204,43 @@ class _MobileWebInstallPromptHostState
             bottom: 16,
             child: SafeArea(
               top: false,
-              child: _MobileWebInstallBanner(
-                canPromptInstall: mobileWebInstall.canPromptInstall,
-                isIosSafari: mobileWebInstall.isIosSafari,
-                onTap: () {
-                  _hasPromptedThisSession = true;
-                  _openInstallPromptSheet();
-                },
-                onDismiss: () async {
-                  await _persistPromptDismissed();
-                  if (!mounted) {
-                    return;
-                  }
-                  setState(() {
-                    _showInstallBanner = false;
-                  });
-                },
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _MobileWebInstallBanner(
+                    canPromptInstall: mobileWebInstall.canPromptInstall,
+                    isIosSafari: mobileWebInstall.isIosSafari,
+                    showInlineInstructions: _showInlineInstructions,
+                    onTap: () {
+                      _hasPromptedThisSession = true;
+                      if (mobileWebInstall.canPromptInstall) {
+                        _openInstallPromptSheet();
+                        return;
+                      }
+
+                      setState(() {
+                        _showInlineInstructions = !_showInlineInstructions;
+                      });
+                    },
+                    onDismiss: () async {
+                      await _persistPromptDismissed();
+                      if (!mounted) {
+                        return;
+                      }
+                      setState(() {
+                        _showInstallBanner = false;
+                        _showInlineInstructions = false;
+                      });
+                    },
+                  ),
+                  if (_showInlineInstructions) ...[
+                    const SizedBox(height: 10),
+                    _InlineInstallInstructionsCard(
+                      isIosSafari: mobileWebInstall.isIosSafari,
+                    ),
+                  ],
+                ],
               ),
             ),
           ),
@@ -362,12 +388,14 @@ class _MobileWebInstallBanner extends StatelessWidget {
   const _MobileWebInstallBanner({
     required this.canPromptInstall,
     required this.isIosSafari,
+    required this.showInlineInstructions,
     required this.onTap,
     required this.onDismiss,
   });
 
   final bool canPromptInstall;
   final bool isIosSafari;
+  final bool showInlineInstructions;
   final VoidCallback onTap;
   final VoidCallback onDismiss;
 
@@ -376,8 +404,8 @@ class _MobileWebInstallBanner extends StatelessWidget {
     final installLabel = canPromptInstall
         ? 'Installa app'
         : isIosSafari
-            ? 'Aggiungi a Home'
-            : 'Apri istruzioni';
+            ? (showInlineInstructions ? 'Nascondi passi' : 'Aggiungi a Home')
+            : (showInlineInstructions ? 'Nascondi istruzioni' : 'Apri istruzioni');
 
     return Material(
       color: Colors.transparent,
@@ -442,6 +470,74 @@ class _MobileWebInstallBanner extends StatelessWidget {
                 ],
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InlineInstallInstructionsCard extends StatelessWidget {
+  const _InlineInstallInstructionsCard({
+    required this.isIosSafari,
+  });
+
+  final bool isIosSafari;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        decoration: BoxDecoration(
+          color: UltrasAppTheme.surfaceAlt.withValues(alpha: 0.96),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: UltrasAppTheme.outlineSoft),
+        ),
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              isIosSafari
+                  ? 'Come aggiungerla su iPhone'
+                  : 'Come installarla dal browser',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            const SizedBox(height: 10),
+            if (isIosSafari) ...[
+              _InstructionStep(
+                index: 1,
+                text: 'Tocca il pulsante Condividi di Safari.',
+              ),
+              const SizedBox(height: 10),
+              _InstructionStep(
+                index: 2,
+                text: 'Scorri e scegli Aggiungi alla schermata Home.',
+              ),
+              const SizedBox(height: 10),
+              _InstructionStep(
+                index: 3,
+                text: 'Conferma il nome e poi aprila dall icona appena creata.',
+              ),
+            ] else ...[
+              _InstructionStep(
+                index: 1,
+                text: 'Apri il menu principale del browser.',
+              ),
+              const SizedBox(height: 10),
+              _InstructionStep(
+                index: 2,
+                text: 'Scegli Installa app oppure Aggiungi alla schermata Home.',
+              ),
+              const SizedBox(height: 10),
+              _InstructionStep(
+                index: 3,
+                text: 'Conferma e usa l icona per aprire l app piu velocemente.',
+              ),
+            ],
           ],
         ),
       ),
