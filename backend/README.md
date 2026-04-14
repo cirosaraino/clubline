@@ -9,6 +9,16 @@ al posto del frontend. Il client Flutter dovra chiamare solo queste API.
 - Express
 - Supabase JS
 
+## Code quality / analyzer path
+
+Per l'ambiente `iphone-slowness`:
+
+- **Backend source corretto:** `/app/backend/src`
+- **Linguaggio backend:** TypeScript (`.ts`)
+- **Nota importante:** in questo progetto **non** ci sono file Python in `/app/backend`
+
+Se uno strumento di code quality sta cercando Python in `/app/backend`, la configurazione va aggiornata per analizzare TypeScript su `/app/backend/src`.
+
 ## Variabili ambiente
 
 Copiale da [`.env.example`](./.env.example).

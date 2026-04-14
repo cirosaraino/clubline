@@ -1,0 +1,30 @@
+environment: iphone-slowness
+
+project_structure:
+  backend:
+    language: typescript
+    source_path: /app/backend/src
+    file_patterns:
+      - "**/*.ts"
+  frontend:
+    language: dart
+    source_path: /app/lib
+    file_patterns:
+      - "**/*.dart"
+
+analyzers:
+  python:
+    enabled: false
+    reason: "Questo progetto non usa backend Python in /app/backend."
+  typescript:
+    enabled: true
+    source_path: /app/backend/src
+  dart:
+    enabled: true
+    source_path: /app/lib
+
+exclude_paths:
+  - /app/build
+  - /app/.dart_tool
+  - /app/backend/node_modules
+  - /app/backend/dist

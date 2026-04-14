@@ -2,6 +2,13 @@
 
 A new Flutter project.
 
+## Backend reale del progetto
+
+- Percorso: `/app/backend/src`
+- Linguaggio: **TypeScript** (non Python)
+
+Per analisi qualità codice in ambiente `iphone-slowness`, usare TypeScript su `/app/backend/src`.
+
 ## Getting Started
 
 This project is a starting point for a Flutter application.

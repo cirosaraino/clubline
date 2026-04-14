@@ -36,3 +36,18 @@
 ## Prossimi task consigliati
 1. Test E2E su iPhone in rete mobile reale.
 2. Se rimane lentezza, profilare endpoint backend più lenti e introdurre ottimizzazione mirata server-side.
+
+---
+
+## Aggiornamento successivo - Code quality report `iphone-slowness`
+
+### Richiesta
+Applicare i fix suggeriti dal report che segnalava assenza file Python in `/app/backend`.
+
+### Interventi effettuati
+- Aggiunta configurazione dedicata: `/app/lintiq.config.yaml`
+  - backend impostato correttamente su `/app/backend/src`
+  - analisi TypeScript/Dart abilitate
+  - analisi Python disabilitata per questo progetto
+- Aggiornata documentazione backend (`/app/backend/README.md`) con sezione esplicita su path e linguaggio reali.
+- Aggiornato `README.md` root con nota di struttura (backend TypeScript, non Python).
