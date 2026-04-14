@@ -20,14 +20,21 @@ class AppRealtimeSyncHost extends StatefulWidget {
 }
 
 class _AppRealtimeSyncHostState extends State<AppRealtimeSyncHost> {
-  static const Duration _batchWindow = Duration(milliseconds: 300);
+  static const Duration _baseBatchWindow = Duration(milliseconds: 300);
+  static const Duration _highTrafficBatchWindow = Duration(milliseconds: 600);
+  static const Duration _trafficObservationWindow = Duration(seconds: 1);
+  static const Duration _lowTrafficRecoveryWindow = Duration(seconds: 3);
+  static const int _highTrafficEventsThreshold = 4;
 
   StreamSubscription<String>? _messageSubscription;
   Timer? _reconnectTimer;
   Timer? _dispatchTimer;
   int _lastReceivedRevision = 0;
   final Set<AppDataScope> _pendingScopes = <AppDataScope>{};
+  final List<DateTime> _recentEventTimestamps = <DateTime>[];
   String _lastPendingReason = 'remote_change';
+  DateTime? _lastHighTrafficDetectedAt;
+  Duration _currentBatchWindow = _baseBatchWindow;
 
   @override
   void initState() {
@@ -55,7 +62,7 @@ class _AppRealtimeSyncHostState extends State<AppRealtimeSyncHost> {
       return;
     }
 
-    _dispatchTimer = Timer(_batchWindow, () {
+    _dispatchTimer = Timer(_currentBatchWindow, () {
       if (_pendingScopes.isEmpty) {
         return;
       }
@@ -70,6 +77,29 @@ class _AppRealtimeSyncHostState extends State<AppRealtimeSyncHost> {
         reason: 'remote_$batchedReason',
       );
     });
+  }
+
+  void _updateAdaptiveBatchWindow() {
+    final now = DateTime.now();
+
+    _recentEventTimestamps.add(now);
+    _recentEventTimestamps.removeWhere(
+      (eventTime) => now.difference(eventTime) > _trafficObservationWindow,
+    );
+
+    final eventsInWindow = _recentEventTimestamps.length;
+
+    if (eventsInWindow >= _highTrafficEventsThreshold) {
+      _lastHighTrafficDetectedAt = now;
+      _currentBatchWindow = _highTrafficBatchWindow;
+      return;
+    }
+
+    if (_currentBatchWindow == _highTrafficBatchWindow &&
+        _lastHighTrafficDetectedAt != null &&
+        now.difference(_lastHighTrafficDetectedAt!) >= _lowTrafficRecoveryWindow) {
+      _currentBatchWindow = _baseBatchWindow;
+    }
   }
 
   String _eventsUrl() {
@@ -143,6 +173,7 @@ class _AppRealtimeSyncHostState extends State<AppRealtimeSyncHost> {
     }
 
     final reason = decoded['reason']?.toString() ?? 'remote_change';
+    _updateAdaptiveBatchWindow();
     _pendingScopes.addAll(mappedScopes);
     _lastPendingReason = reason;
     _scheduleDispatch();

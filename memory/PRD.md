@@ -76,6 +76,7 @@ Aggiornare in tempo reale, senza refresh manuale, quando un altro utente crea/mo
   - aggiornamento automatico senza toast/notifiche visive (come richiesto)
   - approccio bilanciato performance: connessione persistente + heartbeat + reconnessione leggera
   - aggiunta **coda anti-rimbalzo** lato client: finestra 300ms, merge scope e ultimo reason
+  - soglia dinamica adattiva: passa a 600ms se arrivano >=4 eventi in 1s; torna a 300ms dopo 3s di traffico basso
 
 ### Verifica tecnica
 - Backend TypeScript compilato con successo (`npm run typecheck` e `npm run build`).
