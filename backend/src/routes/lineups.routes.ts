@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { supabaseDb } from '../lib/supabase';
 import { sendCreated, sendNoContent, sendOk } from '../lib/http';
+import { realtimeEventsBus } from '../lib/realtime-events';
 import { asyncHandler } from '../middleware/async-handler';
 import { requireAuth } from '../middleware/auth';
 import { LineupsService } from '../services/lineups.service';
@@ -57,6 +58,7 @@ lineupsRouter.post(
       lineupInputSchema.parse(req.body),
       req.principal!,
     );
+    realtimeEventsBus.publishChange(['lineups', 'attendance'], 'lineup_created');
     sendCreated(res, { lineup });
   }),
 );
@@ -75,6 +77,7 @@ lineupsRouter.put(
   asyncHandler(async (req, res) => {
     const { assignments } = lineupAssignmentsSchema.parse(req.body);
     await lineupsService.replaceLineupPlayers(req.params.id, assignments, req.principal!);
+    realtimeEventsBus.publishChange(['lineups', 'attendance'], 'lineup_players_updated');
     sendNoContent(res);
   }),
 );
@@ -88,6 +91,7 @@ lineupsRouter.put(
       lineupInputSchema.parse(req.body),
       req.principal!,
     );
+    realtimeEventsBus.publishChange(['lineups', 'attendance'], 'lineup_updated');
     sendOk(res, { lineup });
   }),
 );
@@ -97,6 +101,7 @@ lineupsRouter.delete(
   requireAuth,
   asyncHandler(async (req, res) => {
     await lineupsService.deleteLineup(req.params.id, req.principal!);
+    realtimeEventsBus.publishChange(['lineups', 'attendance'], 'lineup_deleted');
     sendNoContent(res);
   }),
 );

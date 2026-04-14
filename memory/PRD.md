@@ -53,3 +53,28 @@ Applicare i fix suggeriti dal report che segnalava assenza file Python in `/app/
 - Aggiunto script di verifica target analisi: `/app/scripts/verify_analysis_targets.sh`.
 - Aggiornata documentazione backend (`/app/backend/README.md`) con sezione esplicita su path e linguaggio reali.
 - Aggiornato `README.md` root con nota di struttura (backend TypeScript, non Python).
+
+---
+
+## Aggiornamento successivo - Realtime globale (richiesta: aggiornamento istantaneo rosa e tutta l'app)
+
+### Richiesta
+Aggiornare in tempo reale, senza refresh manuale, quando un altro utente crea/modifica contenuti (in particolare giocatori nella sezione Rosa).
+
+### Interventi effettuati
+- **Backend realtime via SSE**
+  - aggiunto bus eventi in memoria: `backend/src/lib/realtime-events.ts`
+  - aggiunto endpoint stream: `GET /api/realtime/events` in `backend/src/routes/realtime.routes.ts`
+  - routing attivato in `backend/src/routes/index.ts`
+- **Pubblicazione eventi su tutte le mutazioni**
+  - players, lineups, attendance, streams, team-info, vice-permissions ora emettono eventi realtime dopo le scritture.
+- **Frontend realtime globale e silenzioso**
+  - aggiunto bridge realtime web con `EventSource` (`lib/core/realtime/*`)
+  - aggiunto host globale `AppRealtimeSyncHost` che converte eventi backend in `AppDataSync.notifyDataChanged(...)`
+  - integrazione globale in `lib/app.dart`
+- **Comportamento UX**
+  - aggiornamento automatico senza toast/notifiche visive (come richiesto)
+  - approccio bilanciato performance: connessione persistente + heartbeat + reconnessione leggera
+
+### Verifica tecnica
+- Backend TypeScript compilato con successo (`npm run typecheck` e `npm run build`).

@@ -4,6 +4,7 @@ import 'core/app_session.dart';
 import 'core/app_theme.dart';
 import 'core/app_theme_controller.dart';
 import 'ui/pages/app_shell_page.dart';
+import 'ui/widgets/app_realtime_sync_host.dart';
 import 'ui/widgets/mobile_web_install_prompt_host.dart';
 
 class SquadraApp extends StatefulWidget {
@@ -45,8 +46,10 @@ class _SquadraAppState extends State<SquadraApp> {
               controller: themeController,
               child: AppSessionScope(
               controller: sessionController,
-                child: MobileWebInstallPromptHost(
-                  child: child ?? const SizedBox.shrink(),
+                child: AppRealtimeSyncHost(
+                  child: MobileWebInstallPromptHost(
+                    child: child ?? const SizedBox.shrink(),
+                  ),
                 ),
               ),
             );
