@@ -49,5 +49,7 @@ Applicare i fix suggeriti dal report che segnalava assenza file Python in `/app/
   - backend impostato correttamente su `/app/backend/src`
   - analisi TypeScript/Dart abilitate
   - analisi Python disabilitata per questo progetto
+- Aggiunta configurazione alternativa `.lintiq.yml` (stesso mapping) per compatibilità con naming diversi del tool.
+- Aggiunto script di verifica target analisi: `/app/scripts/verify_analysis_targets.sh`.
 - Aggiornata documentazione backend (`/app/backend/README.md`) con sezione esplicita su path e linguaggio reali.
 - Aggiornato `README.md` root con nota di struttura (backend TypeScript, non Python).
