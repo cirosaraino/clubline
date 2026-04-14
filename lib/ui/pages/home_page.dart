@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/app_session.dart';
@@ -620,14 +621,9 @@ class _AccessCard extends StatelessWidget {
                     ),
               ),
               const SizedBox(height: 12),
-              SizedBox(
-                width: compact ? double.infinity : null,
-                child: ElevatedButton.icon(
-                  key: const Key('home-complete-player-profile-button'),
-                  onPressed: onCreateProfile,
-                  icon: const Icon(Icons.person_add_alt_1_outlined),
-                  label: const Text('Completa Profilo giocatore'),
-                ),
+              _CompleteProfileCtaButton(
+                fullWidth: compact,
+                onPressed: onCreateProfile,
               ),
             ] else ...[
               Text(
@@ -689,6 +685,109 @@ class _AccessCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _CompleteProfileCtaButton extends StatefulWidget {
+  const _CompleteProfileCtaButton({
+    required this.onPressed,
+    required this.fullWidth,
+  });
+
+  final VoidCallback onPressed;
+  final bool fullWidth;
+
+  @override
+  State<_CompleteProfileCtaButton> createState() =>
+      _CompleteProfileCtaButtonState();
+}
+
+class _CompleteProfileCtaButtonState extends State<_CompleteProfileCtaButton>
+    with SingleTickerProviderStateMixin {
+  static const _seenKey = 'home_complete_profile_cta_pulse_seen_v1';
+
+  late final AnimationController _controller;
+  late final Animation<double> _scale;
+  bool _shouldAnimate = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    _scale = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1, end: 1.05)
+            .chain(CurveTween(curve: Curves.easeOutCubic)),
+        weight: 45,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.05, end: 1)
+            .chain(CurveTween(curve: Curves.easeOutCubic)),
+        weight: 55,
+      ),
+    ]).animate(_controller);
+
+    _startPulseIfFirstTime();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _startPulseIfFirstTime() async {
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      final alreadySeen = preferences.getBool(_seenKey) == true;
+      if (alreadySeen || !mounted) {
+        return;
+      }
+
+      setState(() {
+        _shouldAnimate = true;
+      });
+
+      await _controller.forward();
+      await preferences.setBool(_seenKey, true);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _shouldAnimate = false;
+      });
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final button = ElevatedButton.icon(
+      key: const Key('home-complete-player-profile-button'),
+      onPressed: widget.onPressed,
+      icon: const Icon(Icons.person_add_alt_1_outlined),
+      label: const Text('Completa Profilo giocatore'),
+    );
+
+    final animatedButton = _shouldAnimate
+        ? ScaleTransition(
+            scale: _scale,
+            child: button,
+          )
+        : button;
+
+    if (widget.fullWidth) {
+      return SizedBox(
+        width: double.infinity,
+        child: animatedButton,
+      );
+    }
+
+    return animatedButton;
   }
 }
 

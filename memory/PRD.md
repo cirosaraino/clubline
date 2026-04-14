@@ -234,6 +234,11 @@ Aggiornare in tempo reale, senza refresh manuale, quando un altro utente crea/mo
   - **Completa Profilo giocatore**
 - Obiettivo: rendere il percorso più intuitivo al primo accesso senza obbligare subito all'uso del menu profilo.
 
+### Micro-animazione CTA (one-shot)
+- Applicata al bottone **Completa Profilo giocatore** una pulse leggera di **900ms**.
+- Trigger: **solo una volta assoluta per dispositivo** (persistenza via `SharedPreferences`).
+- Dopo la prima visualizzazione, il bottone resta statico (niente animazioni ripetute).
+
 ---
 
 ## Aggiornamento successivo - Schermata Rosa: filtri collapsable + recap macroruoli
