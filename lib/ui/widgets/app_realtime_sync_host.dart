@@ -20,9 +20,14 @@ class AppRealtimeSyncHost extends StatefulWidget {
 }
 
 class _AppRealtimeSyncHostState extends State<AppRealtimeSyncHost> {
+  static const Duration _batchWindow = Duration(milliseconds: 300);
+
   StreamSubscription<String>? _messageSubscription;
   Timer? _reconnectTimer;
+  Timer? _dispatchTimer;
   int _lastReceivedRevision = 0;
+  final Set<AppDataScope> _pendingScopes = <AppDataScope>{};
+  String _lastPendingReason = 'remote_change';
 
   @override
   void initState() {
@@ -40,8 +45,31 @@ class _AppRealtimeSyncHostState extends State<AppRealtimeSyncHost> {
   void dispose() {
     _messageSubscription?.cancel();
     _reconnectTimer?.cancel();
+    _dispatchTimer?.cancel();
     appRealtimeBridge.disconnect();
     super.dispose();
+  }
+
+  void _scheduleDispatch() {
+    if (_dispatchTimer?.isActive == true) {
+      return;
+    }
+
+    _dispatchTimer = Timer(_batchWindow, () {
+      if (_pendingScopes.isEmpty) {
+        return;
+      }
+
+      final batchedScopes = Set<AppDataScope>.from(_pendingScopes);
+      final batchedReason = _lastPendingReason;
+
+      _pendingScopes.clear();
+
+      AppDataSync.instance.notifyDataChanged(
+        batchedScopes,
+        reason: 'remote_$batchedReason',
+      );
+    });
   }
 
   String _eventsUrl() {
@@ -115,10 +143,9 @@ class _AppRealtimeSyncHostState extends State<AppRealtimeSyncHost> {
     }
 
     final reason = decoded['reason']?.toString() ?? 'remote_change';
-    AppDataSync.instance.notifyDataChanged(
-      mappedScopes,
-      reason: 'remote_$reason',
-    );
+    _pendingScopes.addAll(mappedScopes);
+    _lastPendingReason = reason;
+    _scheduleDispatch();
   }
 
   @override
