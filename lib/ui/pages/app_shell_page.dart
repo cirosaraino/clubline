@@ -142,6 +142,10 @@ class _AppShellPageState extends State<AppShellPage> {
     required Widget child,
     required AppSessionController session,
   }) {
+    if (!session.isAuthenticated) {
+      return child;
+    }
+
     final showInitialOverlay = _showInitialAccessOverlay(session);
     final showSyncOverlay = _showSyncProfileOverlay(session);
     final overlayVisible = showInitialOverlay || showSyncOverlay;
