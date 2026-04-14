@@ -169,6 +169,11 @@ Aggiornare in tempo reale, senza refresh manuale, quando un altro utente crea/mo
   - mostrato solo quando la sessione risulta autenticata
   - fallback: resta "Sincronizzazione profilo..." se auth non ancora confermata
 
+### Correzione successiva (regressione click login/registrazione)
+- Ripristinata la piena cliccabilità di **Accedi/Registrati** per utenti realmente non autenticati.
+- Il mini-overlay di sincronizzazione post-verifica ora si mostra solo quando la sessione è già autenticata (evita blocchi inutili in stato guest).
+- Rimossa la barriera logica che bloccava l'apertura del foglio auth quando `session.isLoading` era ancora true ma l'utente non era loggato.
+
 ---
 
 ## Aggiornamento successivo - Schermata Rosa: filtri collapsable + recap macroruoli

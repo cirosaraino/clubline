@@ -107,18 +107,6 @@ class _AppShellPageState extends State<AppShellPage> {
       return;
     }
 
-    if (session.isLoading) {
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Stiamo verificando la sessione. Attendi un attimo.'),
-        ),
-      );
-      return;
-    }
-
     final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -143,11 +131,11 @@ class _AppShellPageState extends State<AppShellPage> {
       return false;
     }
 
-    if (_isPostVerificationGuardActive) {
+    if (_isPostVerificationGuardActive && session.isAuthenticated) {
       return true;
     }
 
-    return session.isLoading;
+    return false;
   }
 
   Widget _wrapHomeWithInitialOverlay({
