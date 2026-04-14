@@ -22,7 +22,6 @@ services:
   - type: web
     name: squadra-web
     runtime: static
-    plan: free
     buildCommand: ./scripts/render-build-web.sh
     staticPublishPath: build/web
     routes:

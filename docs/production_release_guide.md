@@ -82,6 +82,8 @@ Controllo rapido:
 
 Sempre da Blueprint Render verra creato anche il servizio `squadra-web`.
 
+Per il sito statico non impostare manualmente un `plan` nel blueprint: Render lo gestisce come static site.
+
 Variabile da inserire:
 
 - `API_BASE_URL=https://squadra-backend.onrender.com/api`
