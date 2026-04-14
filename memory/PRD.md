@@ -241,6 +241,22 @@ Aggiornare in tempo reale, senza refresh manuale, quando un altro utente crea/mo
 
 ---
 
+## Aggiornamento successivo - Selettore orario formazioni stile iPhone
+
+### Richiesta utente
+- Dopo scelta giorno, rendere la scelta orario più intuitiva come sveglia iPhone, con ruote ore/minuti.
+- Formato 24h, minuti liberi (00-59), valido sia in creazione che modifica.
+
+### Implementazione
+- In `AddLineupPage` sostituito `showTimePicker` con picker a ruote (`CupertinoDatePickerMode.time`) dentro bottom sheet.
+- Configurazione applicata:
+  - **24h** (`use24hFormat: true`)
+  - **minuteInterval: 1** (ogni minuto)
+  - CTA chiare: **Annulla** / **Conferma**
+- Il flusso vale automaticamente sia per **nuova formazione** che **modifica formazione**.
+
+---
+
 ## Aggiornamento successivo - Schermata Rosa: filtri collapsable + recap macroruoli
 
 ### Richiesta

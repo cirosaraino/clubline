@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/app_data_sync.dart';
@@ -84,9 +85,14 @@ class _AddLineupPageState extends State<AddLineupPage> {
 
     if (selectedDate == null || !mounted) return;
 
-    final selectedTime = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(selectedMatchDateTime ?? now),
+    final selectedTime = await _pickMatchTimeWithWheel(
+      DateTime(
+        selectedDate.year,
+        selectedDate.month,
+        selectedDate.day,
+        (selectedMatchDateTime ?? now).hour,
+        (selectedMatchDateTime ?? now).minute,
+      ),
     );
 
     if (selectedTime == null) return;
@@ -101,6 +107,71 @@ class _AddLineupPageState extends State<AddLineupPage> {
       );
       matchDateTimeError = null;
     });
+  }
+
+  Future<TimeOfDay?> _pickMatchTimeWithWheel(DateTime initialDateTime) async {
+    var tempDateTime = initialDateTime;
+
+    final result = await showModalBottomSheet<DateTime>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return SafeArea(
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Annulla'),
+                    ),
+                    const Spacer(),
+                    Text(
+                      'Seleziona orario',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, tempDateTime),
+                      child: const Text('Conferma'),
+                    ),
+                  ],
+                ),
+                SizedBox(
+                  height: 220,
+                  child: CupertinoDatePicker(
+                    mode: CupertinoDatePickerMode.time,
+                    use24hFormat: true,
+                    minuteInterval: 1,
+                    initialDateTime: initialDateTime,
+                    onDateTimeChanged: (value) {
+                      tempDateTime = DateTime(
+                        initialDateTime.year,
+                        initialDateTime.month,
+                        initialDateTime.day,
+                        value.hour,
+                        value.minute,
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (result == null) {
+      return null;
+    }
+
+    return TimeOfDay(hour: result.hour, minute: result.minute);
   }
 
   Future<void> _saveLineup() async {
