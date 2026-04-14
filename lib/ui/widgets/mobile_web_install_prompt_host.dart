@@ -29,16 +29,17 @@ class _MobileWebInstallPromptHostState
   StreamSubscription<void>? _bridgeSubscription;
   bool _hasPromptedThisSession = false;
   bool _isShowingPrompt = false;
+  bool _showInstallBanner = false;
 
   @override
   void initState() {
     super.initState();
     _bridgeSubscription = mobileWebInstall.changes.listen((_) {
-      _maybePromptForInstall();
+      _refreshInstallUi();
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _maybePromptForInstall();
+      _refreshInstallUi();
     });
   }
 
@@ -48,33 +49,87 @@ class _MobileWebInstallPromptHostState
     super.dispose();
   }
 
+  Future<void> _refreshInstallUi() async {
+    final shouldShow = await _shouldShowInstallUi();
+    if (!mounted) {
+      return;
+    }
+
+    if (_showInstallBanner != shouldShow) {
+      setState(() {
+        _showInstallBanner = shouldShow;
+      });
+    }
+
+    if (shouldShow) {
+      Future<void>.delayed(const Duration(milliseconds: 700), () {
+        if (!mounted) {
+          return;
+        }
+        _maybePromptForInstall();
+      });
+    }
+  }
+
+  Future<bool> _shouldShowInstallUi() async {
+    if (!mobileWebInstall.canSuggestInstall || mobileWebInstall.isStandalone) {
+      return false;
+    }
+
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      if (preferences.getBool(_acceptedKey) == true) {
+        return false;
+      }
+
+      final dismissedAtRaw = preferences.getInt(_dismissedAtKey);
+      if (dismissedAtRaw == null) {
+        return true;
+      }
+
+      final dismissedAt =
+          DateTime.fromMillisecondsSinceEpoch(dismissedAtRaw, isUtc: true);
+      return DateTime.now().toUtc().difference(dismissedAt) >=
+          _dismissCooldown;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  Future<void> _persistPromptDismissed() async {
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setInt(
+        _dismissedAtKey,
+        DateTime.now().toUtc().millisecondsSinceEpoch,
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _persistPromptAccepted() async {
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setBool(_acceptedKey, true);
+    } catch (_) {}
+  }
+
   Future<void> _maybePromptForInstall() async {
     if (!mounted ||
         _isShowingPrompt ||
         _hasPromptedThisSession ||
-        !mobileWebInstall.canSuggestInstall) {
+        !_showInstallBanner) {
       return;
-    }
-
-    final preferences = await SharedPreferences.getInstance();
-    if (!mounted || mobileWebInstall.isStandalone) {
-      return;
-    }
-
-    if (preferences.getBool(_acceptedKey) == true) {
-      return;
-    }
-
-    final dismissedAtRaw = preferences.getInt(_dismissedAtKey);
-    if (dismissedAtRaw != null) {
-      final dismissedAt =
-          DateTime.fromMillisecondsSinceEpoch(dismissedAtRaw, isUtc: true);
-      if (DateTime.now().toUtc().difference(dismissedAt) < _dismissCooldown) {
-        return;
-      }
     }
 
     _hasPromptedThisSession = true;
+    await _openInstallPromptSheet();
+  }
+
+  Future<void> _openInstallPromptSheet() async {
+    if (!mounted || _isShowingPrompt) {
+      return;
+    }
+
     _isShowingPrompt = true;
 
     final action = await showModalBottomSheet<_InstallPromptAction>(
@@ -92,8 +147,13 @@ class _MobileWebInstallPromptHostState
       return;
     }
 
-    if (action == _InstallPromptAction.install &&
-        mobileWebInstall.canPromptInstall) {
+    if (action == null || action == _InstallPromptAction.dismiss) {
+      await _persistPromptDismissed();
+      await _refreshInstallUi();
+      return;
+    }
+
+    if (mobileWebInstall.canPromptInstall) {
       final result = await mobileWebInstall.promptInstall();
       if (!mounted) {
         return;
@@ -101,8 +161,11 @@ class _MobileWebInstallPromptHostState
 
       switch (result) {
         case MobileWebInstallPromptResult.accepted:
-          await preferences.setBool(_acceptedKey, true);
+          await _persistPromptAccepted();
           if (!mounted) return;
+          setState(() {
+            _showInstallBanner = false;
+          });
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
@@ -114,31 +177,49 @@ class _MobileWebInstallPromptHostState
         case MobileWebInstallPromptResult.dismissed:
         case MobileWebInstallPromptResult.unavailable:
         case MobileWebInstallPromptResult.unsupported:
-          await preferences.setInt(
-            _dismissedAtKey,
-            DateTime.now().toUtc().millisecondsSinceEpoch,
-          );
+          await _persistPromptDismissed();
+          await _refreshInstallUi();
           return;
       }
     }
 
-    if (action == _InstallPromptAction.install && mobileWebInstall.isIosSafari) {
-      await preferences.setInt(
-        _dismissedAtKey,
-        DateTime.now().toUtc().millisecondsSinceEpoch,
-      );
-      return;
-    }
-
-    await preferences.setInt(
-      _dismissedAtKey,
-      DateTime.now().toUtc().millisecondsSinceEpoch,
-    );
+    await _persistPromptDismissed();
+    await _refreshInstallUi();
   }
 
   @override
   Widget build(BuildContext context) {
-    return widget.child;
+    return Stack(
+      children: [
+        widget.child,
+        if (_showInstallBanner && !_isShowingPrompt)
+          Positioned(
+            left: AppResponsive.horizontalPadding(context),
+            right: AppResponsive.horizontalPadding(context),
+            bottom: 16,
+            child: SafeArea(
+              top: false,
+              child: _MobileWebInstallBanner(
+                canPromptInstall: mobileWebInstall.canPromptInstall,
+                isIosSafari: mobileWebInstall.isIosSafari,
+                onTap: () {
+                  _hasPromptedThisSession = true;
+                  _openInstallPromptSheet();
+                },
+                onDismiss: () async {
+                  await _persistPromptDismissed();
+                  if (!mounted) {
+                    return;
+                  }
+                  setState(() {
+                    _showInstallBanner = false;
+                  });
+                },
+              ),
+            ),
+          ),
+      ],
+    );
   }
 }
 
@@ -269,6 +350,97 @@ class _MobileWebInstallSheet extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MobileWebInstallBanner extends StatelessWidget {
+  const _MobileWebInstallBanner({
+    required this.canPromptInstall,
+    required this.isIosSafari,
+    required this.onTap,
+    required this.onDismiss,
+  });
+
+  final bool canPromptInstall;
+  final bool isIosSafari;
+  final VoidCallback onTap;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final installLabel = canPromptInstall
+        ? 'Installa app'
+        : isIosSafari
+            ? 'Aggiungi a Home'
+            : 'Apri istruzioni';
+
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        decoration: BoxDecoration(
+          color: UltrasAppTheme.surfaceRaised.withValues(alpha: 0.96),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: UltrasAppTheme.outlineSoft),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.22),
+              blurRadius: 22,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const AppIconBadge(
+              icon: Icons.download_for_offline_outlined,
+              size: 42,
+              iconSize: 18,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Installa Ultras sul telefono',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    isIosSafari
+                        ? 'Puoi aggiungerla alla schermata Home e aprirla come una vera app.'
+                        : 'Salva l icona sul telefono per aprire l app piu velocemente.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: UltrasAppTheme.textMuted,
+                          height: 1.3,
+                        ),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      FilledButton.tonal(
+                        onPressed: onTap,
+                        child: Text(installLabel),
+                      ),
+                      TextButton(
+                        onPressed: onDismiss,
+                        child: const Text('Chiudi'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
         ),
