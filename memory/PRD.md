@@ -149,3 +149,9 @@ Aggiornare in tempo reale, senza refresh manuale, quando un altro utente crea/mo
 ### Risultato atteso
 - Niente più effetto “finto disconnesso” nei primi istanti.
 - Niente apertura inutile della pagina di accesso quando sei già autenticato.
+
+### Miglioria UX successiva
+- Transizione ingresso resa più “native” tra overlay bootstrap e Home:
+  - durata **420ms**
+  - effetto **fade + slide-up delicata**
+  - curva **easeOutCubic**

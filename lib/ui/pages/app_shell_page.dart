@@ -25,6 +25,7 @@ class AppShellPage extends StatefulWidget {
 
 class _AppShellPageState extends State<AppShellPage> {
   static const Duration _initialAccessOverlayTimeout = Duration(milliseconds: 1500);
+  static const Duration _initialAccessTransitionDuration = Duration(milliseconds: 420);
 
   int selectedIndex = 0;
   bool _hasAutoOpenedRecoverySheet = false;
@@ -110,38 +111,52 @@ class _AppShellPageState extends State<AppShellPage> {
     required Widget child,
     required AppSessionController session,
   }) {
-    if (!_showInitialAccessOverlay(session)) {
-      return child;
-    }
+    final overlayVisible = _showInitialAccessOverlay(session);
 
     return Stack(
       children: [
-        child,
+        AnimatedSlide(
+          duration: _initialAccessTransitionDuration,
+          curve: Curves.easeOutCubic,
+          offset: overlayVisible ? const Offset(0, 0.018) : Offset.zero,
+          child: AnimatedOpacity(
+            duration: _initialAccessTransitionDuration,
+            curve: Curves.easeOutCubic,
+            opacity: overlayVisible ? 0.92 : 1,
+            child: child,
+          ),
+        ),
         Positioned.fill(
           child: AbsorbPointer(
-            child: Container(
-              color: Colors.black.withValues(alpha: 0.22),
-              alignment: Alignment.center,
+            absorbing: overlayVisible,
+            child: AnimatedOpacity(
+              duration: _initialAccessTransitionDuration,
+              curve: Curves.easeOutCubic,
+              opacity: overlayVisible ? 1 : 0,
               child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 22),
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2.2),
-                    ),
-                    SizedBox(width: 12),
-                    Flexible(
-                      child: Text('Verifica accesso in corso...'),
-                    ),
-                  ],
+                color: Colors.black.withValues(alpha: 0.22),
+                alignment: Alignment.center,
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 22),
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2.2),
+                      ),
+                      SizedBox(width: 12),
+                      Flexible(
+                        child: Text('Verifica accesso in corso...'),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
