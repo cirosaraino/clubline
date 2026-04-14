@@ -22,8 +22,8 @@ void main() {
 
     await tester.pump(const Duration(milliseconds: 250));
 
-    final signInButton = find.widgetWithText(ElevatedButton, 'Accedi');
-    final signUpButton = find.widgetWithText(OutlinedButton, 'Registrati');
+    final signInButton = find.byKey(const Key('home-guest-sign-in-button'));
+    final signUpButton = find.byKey(const Key('home-guest-sign-up-button'));
 
     expect(signInButton, findsOneWidget);
     expect(signUpButton, findsOneWidget);

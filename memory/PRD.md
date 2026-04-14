@@ -203,6 +203,34 @@ Aggiornare in tempo reale, senza refresh manuale, quando un altro utente crea/mo
 
 ---
 
+## Aggiornamento successivo - Home riorganizzata con menu profilo in AppBar
+
+### Richiesta utente
+- Icona profilo in alto a destra (stile app moderne) con azioni account centralizzate.
+- Voci richieste nel menu:
+  - Cambia password
+  - Esci
+  - Modifica profilo giocatore (se profilo esiste)
+  - Completa Profilo giocatore (se profilo non esiste)
+  - Solo capitano: Gestione permessi vice
+
+### Implementazione
+- Aggiunta icona profilo con `PopupMenuButton` nell’`AppBar` della Home (solo utente autenticato).
+- Regole menu implementate puntualmente:
+  - `currentUser != null` → **Modifica profilo giocatore**
+  - `currentUser == null` → **Completa Profilo giocatore**
+  - sempre presenti: **Cambia password**, **Esci**
+  - solo `isCaptain == true`: **Gestione permessi vice**
+- Aggiunto flusso edit profilo corrente in `AppShellPage` (`_openEditCurrentProfile`).
+- Pulizia Home per maggiore ordine:
+  - rimosse azioni account duplicate dalla card centrale (ora guidano al menu profilo)
+  - rimossa card permessi vice dalla Home per ridurre rumore visivo
+
+### Hardening anti-regressione
+- Aggiunti `Key` stabili su pulsanti guest e voci menu profilo per test automation robusta.
+
+---
+
 ## Aggiornamento successivo - Schermata Rosa: filtri collapsable + recap macroruoli
 
 ### Richiesta

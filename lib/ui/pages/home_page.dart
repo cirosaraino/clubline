@@ -111,6 +111,7 @@ class HomePage extends StatelessWidget {
         actions: [
           if (canShowProfileMenu)
             PopupMenuButton<_HomeProfileMenuAction>(
+              key: const Key('home-profile-menu-button'),
               tooltip: 'Menu profilo',
               icon: const CircleAvatar(
                 radius: 16,
@@ -121,6 +122,7 @@ class HomePage extends StatelessWidget {
               itemBuilder: (_) => [
                 if (currentUser != null)
                   const PopupMenuItem<_HomeProfileMenuAction>(
+                    key: Key('home-profile-menu-edit-player'),
                     value: _HomeProfileMenuAction.editProfile,
                     child: ListTile(
                       contentPadding: EdgeInsets.zero,
@@ -130,6 +132,7 @@ class HomePage extends StatelessWidget {
                   )
                 else
                   const PopupMenuItem<_HomeProfileMenuAction>(
+                    key: Key('home-profile-menu-complete-player'),
                     value: _HomeProfileMenuAction.completeProfile,
                     child: ListTile(
                       contentPadding: EdgeInsets.zero,
@@ -138,6 +141,7 @@ class HomePage extends StatelessWidget {
                     ),
                   ),
                 const PopupMenuItem<_HomeProfileMenuAction>(
+                  key: Key('home-profile-menu-change-password'),
                   value: _HomeProfileMenuAction.changePassword,
                   child: ListTile(
                     contentPadding: EdgeInsets.zero,
@@ -147,6 +151,7 @@ class HomePage extends StatelessWidget {
                 ),
                 if (canManageVicePermissions)
                   const PopupMenuItem<_HomeProfileMenuAction>(
+                    key: Key('home-profile-menu-manage-vice-permissions'),
                     value: _HomeProfileMenuAction.manageVicePermissions,
                     child: ListTile(
                       contentPadding: EdgeInsets.zero,
@@ -156,6 +161,7 @@ class HomePage extends StatelessWidget {
                   ),
                 const PopupMenuDivider(),
                 const PopupMenuItem<_HomeProfileMenuAction>(
+                  key: Key('home-profile-menu-sign-out'),
                   value: _HomeProfileMenuAction.signOut,
                   child: ListTile(
                     contentPadding: EdgeInsets.zero,
@@ -552,6 +558,7 @@ class _AccessCard extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
+                    key: const Key('home-guest-sign-in-button'),
                     onPressed: onOpenSignIn,
                     icon: const Icon(Icons.login_outlined),
                     label: const Text('Accedi'),
@@ -561,6 +568,7 @@ class _AccessCard extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
+                    key: const Key('home-guest-sign-up-button'),
                     onPressed: onOpenSignUp,
                     icon: const Icon(Icons.person_add_alt_1_outlined),
                     label: const Text('Registrati'),
@@ -572,11 +580,13 @@ class _AccessCard extends StatelessWidget {
                   runSpacing: 10,
                   children: [
                     ElevatedButton.icon(
+                      key: const Key('home-guest-sign-in-button'),
                       onPressed: onOpenSignIn,
                       icon: const Icon(Icons.login_outlined),
                       label: const Text('Accedi'),
                     ),
                     OutlinedButton.icon(
+                      key: const Key('home-guest-sign-up-button'),
                       onPressed: onOpenSignUp,
                       icon: const Icon(Icons.person_add_alt_1_outlined),
                       label: const Text('Registrati'),
