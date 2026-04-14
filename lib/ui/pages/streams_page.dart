@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -30,6 +32,8 @@ class _StreamsPageState extends State<StreamsPage> {
   bool isDeletingAll = false;
   String? errorMessage;
   int lastHandledSyncRevision = 0;
+  bool _isLoadingRequest = false;
+  bool _reloadRequested = false;
 
   @override
   void initState() {
@@ -51,16 +55,26 @@ class _StreamsPageState extends State<StreamsPage> {
     if (!change.affects({AppDataScope.streams})) return;
 
     lastHandledSyncRevision = change.revision;
-    _loadStreamLinks();
+    unawaited(_loadStreamLinks(silent: true));
   }
 
-  Future<void> _loadStreamLinks() async {
+  Future<void> _loadStreamLinks({bool silent = false}) async {
     if (!mounted) {
       return;
     }
 
+    if (_isLoadingRequest) {
+      _reloadRequested = true;
+      return;
+    }
+
+    _isLoadingRequest = true;
+    final showBlockingLoader = !silent || streamLinks.isEmpty;
+
     setState(() {
-      isLoading = true;
+      if (showBlockingLoader) {
+        isLoading = true;
+      }
       errorMessage = null;
     });
 
@@ -88,10 +102,18 @@ class _StreamsPageState extends State<StreamsPage> {
       if (!mounted) {
         return;
       }
-      setState(() {
-        errorMessage = e.toString();
-        isLoading = false;
-      });
+      if (showBlockingLoader) {
+        setState(() {
+          errorMessage = e.toString();
+          isLoading = false;
+        });
+      }
+    } finally {
+      _isLoadingRequest = false;
+      if (_reloadRequested) {
+        _reloadRequested = false;
+        unawaited(_loadStreamLinks(silent: true));
+      }
     }
   }
 

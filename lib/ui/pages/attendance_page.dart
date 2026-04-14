@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/app_data_sync.dart';
@@ -34,6 +36,8 @@ class _AttendancePageState extends State<AttendancePage> {
   String? errorMessage;
   final Set<String> savingEntryKeys = {};
   int lastHandledSyncRevision = 0;
+  bool _isLoadingRequest = false;
+  bool _reloadRequested = false;
 
   @override
   void initState() {
@@ -77,16 +81,26 @@ class _AttendancePageState extends State<AttendancePage> {
     }
 
     lastHandledSyncRevision = change.revision;
-    _loadData();
+    unawaited(_loadData(silent: true));
   }
 
-  Future<void> _loadData() async {
+  Future<void> _loadData({bool silent = false}) async {
     if (!mounted) {
       return;
     }
 
+    if (_isLoadingRequest) {
+      _reloadRequested = true;
+      return;
+    }
+
+    _isLoadingRequest = true;
+    final showBlockingLoader = !silent || (entries.isEmpty && activeWeek == null);
+
     setState(() {
-      isLoading = true;
+      if (showBlockingLoader) {
+        isLoading = true;
+      }
       errorMessage = null;
     });
 
@@ -107,10 +121,18 @@ class _AttendancePageState extends State<AttendancePage> {
       if (!mounted) {
         return;
       }
-      setState(() {
-        errorMessage = e.toString();
-        isLoading = false;
-      });
+      if (showBlockingLoader) {
+        setState(() {
+          errorMessage = e.toString();
+          isLoading = false;
+        });
+      }
+    } finally {
+      _isLoadingRequest = false;
+      if (_reloadRequested) {
+        _reloadRequested = false;
+        unawaited(_loadData(silent: true));
+      }
     }
   }
 
@@ -119,7 +141,6 @@ class _AttendancePageState extends State<AttendancePage> {
       return [];
     }
 
-    await attendanceRepository.syncWeekEntries(week.id);
     return attendanceRepository.fetchEntriesForWeek(week.id);
   }
 

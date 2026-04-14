@@ -60,13 +60,6 @@ class AttendanceRepository {
     return AttendanceWeek.fromMap(rawWeek);
   }
 
-  Future<void> syncWeekEntries(dynamic weekId) async {
-    await _apiClient.post(
-      '/attendance/weeks/$weekId/sync',
-      authenticated: true,
-    );
-  }
-
   Future<void> archiveWeek(dynamic weekId) async {
     await _apiClient.post(
       '/attendance/weeks/$weekId/archive',

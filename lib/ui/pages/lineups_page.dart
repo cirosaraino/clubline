@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/app_data_sync.dart';
@@ -26,6 +28,8 @@ class _LineupsPageState extends State<LineupsPage> {
   bool isLoading = true;
   String? errorMessage;
   int lastHandledSyncRevision = 0;
+  bool _isLoadingRequest = false;
+  bool _reloadRequested = false;
 
   @override
   void initState() {
@@ -47,16 +51,26 @@ class _LineupsPageState extends State<LineupsPage> {
     if (!change.affects({AppDataScope.lineups})) return;
 
     lastHandledSyncRevision = change.revision;
-    _loadLineups();
+    unawaited(_loadLineups(silent: true));
   }
 
-  Future<void> _loadLineups() async {
+  Future<void> _loadLineups({bool silent = false}) async {
     if (!mounted) {
       return;
     }
 
+    if (_isLoadingRequest) {
+      _reloadRequested = true;
+      return;
+    }
+
+    _isLoadingRequest = true;
+    final showBlockingLoader = !silent || lineups.isEmpty;
+
     setState(() {
-      isLoading = true;
+      if (showBlockingLoader) {
+        isLoading = true;
+      }
       errorMessage = null;
     });
 
@@ -77,10 +91,18 @@ class _LineupsPageState extends State<LineupsPage> {
       if (!mounted) {
         return;
       }
-      setState(() {
-        errorMessage = e.toString();
-        isLoading = false;
-      });
+      if (showBlockingLoader) {
+        setState(() {
+          errorMessage = e.toString();
+          isLoading = false;
+        });
+      }
+    } finally {
+      _isLoadingRequest = false;
+      if (_reloadRequested) {
+        _reloadRequested = false;
+        unawaited(_loadLineups(silent: true));
+      }
     }
   }
 

@@ -80,3 +80,33 @@ Aggiornare in tempo reale, senza refresh manuale, quando un altro utente crea/mo
 
 ### Verifica tecnica
 - Backend TypeScript compilato con successo (`npm run typecheck` e `npm run build`).
+
+---
+
+## Aggiornamento successivo - "fixa tutto" (audit completo)
+
+### Interventi applicati
+- **Sicurezza realtime**
+  - endpoint SSE `GET /api/realtime/events` ora richiede token valido (`token` query param) e verifica sessione.
+  - centralizzata la risoluzione utente da token in middleware auth (`resolvePrincipalFromToken`) per riuso.
+- **Riduzione storm su presenze**
+  - rimossa sincronizzazione doppia lato client in `AttendancePage` (niente chiamata esplicita `/weeks/:id/sync` prima del fetch entries).
+  - rimosso broadcast realtime dall'endpoint manuale `/attendance/weeks/:id/sync` per evitare cascata eventi non necessaria.
+- **Anti-rimbalzo fetch pagine**
+  - introdotta coda reload con coalescing e refresh silenzioso in:
+    - `PlayersPage`
+    - `StreamsPage`
+    - `LineupsPage`
+    - `AttendancePage`
+    - `AttendanceArchivePage`
+  - eliminato effetto spinner full-page aggressivo durante refresh realtime quando i dati sono già presenti.
+- **Realtime client più robusto**
+  - `AppRealtimeSyncHost` ora apre stream solo con sessione valida letta da `AuthSessionStore`.
+  - riconnessione più rapida (4s) e gestione login/logout più consistente.
+- **Performance API mobile**
+  - `ApiClient` con retry leggero per GET (2 tentativi, delay 250ms) in caso di timeout/errori rete transienti.
+- **Ottimizzazione backend query giocatori**
+  - filtri `id_console`, `nome`, `cognome`, `q` spostati a livello query Supabase per ridurre payload e lavoro in memoria.
+
+### Verifica tecnica aggiuntiva
+- Backend ricompilato con successo dopo i fix (`npm run typecheck`, `npm run build`).

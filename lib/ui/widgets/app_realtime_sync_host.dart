@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../core/app_backend_config.dart';
 import '../../core/app_data_sync.dart';
 import '../../core/realtime/app_realtime_bridge.dart';
+import '../../data/auth_session_store.dart';
 
 class AppRealtimeSyncHost extends StatefulWidget {
   const AppRealtimeSyncHost({
@@ -30,6 +31,7 @@ class _AppRealtimeSyncHostState extends State<AppRealtimeSyncHost> {
   Timer? _reconnectTimer;
   Timer? _dispatchTimer;
   int _lastReceivedRevision = 0;
+  final AuthSessionStore _sessionStore = AuthSessionStore();
   final Set<AppDataScope> _pendingScopes = <AppDataScope>{};
   final List<DateTime> _recentEventTimestamps = <DateTime>[];
   String _lastPendingReason = 'remote_change';
@@ -39,12 +41,12 @@ class _AppRealtimeSyncHostState extends State<AppRealtimeSyncHost> {
   @override
   void initState() {
     super.initState();
-    _connectRealtime();
-    _reconnectTimer = Timer.periodic(const Duration(seconds: 8), (_) {
+    unawaited(_connectRealtime());
+    _reconnectTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (appRealtimeBridge.isConnected) {
         return;
       }
-      _connectRealtime();
+      unawaited(_connectRealtime());
     });
   }
 
@@ -102,13 +104,24 @@ class _AppRealtimeSyncHostState extends State<AppRealtimeSyncHost> {
     }
   }
 
-  String _eventsUrl() {
-    final baseUrl = AppBackendConfig.baseUrl;
-    return '$baseUrl/realtime/events?since=$_lastReceivedRevision';
-  }
-
   Future<void> _connectRealtime() async {
-    await appRealtimeBridge.connect(_eventsUrl());
+    final session = await _sessionStore.readSession();
+    final accessToken = session?.accessToken.trim() ?? '';
+
+    if (accessToken.isEmpty) {
+      appRealtimeBridge.disconnect();
+      return;
+    }
+
+    final baseEventsUri = Uri.parse('${AppBackendConfig.baseUrl}/realtime/events');
+    final eventsUri = baseEventsUri.replace(
+      queryParameters: {
+        'since': '$_lastReceivedRevision',
+        'token': accessToken,
+      },
+    );
+
+    await appRealtimeBridge.connect(eventsUri.toString());
 
     _messageSubscription ??= appRealtimeBridge.messages.listen(_handleRawMessage);
   }

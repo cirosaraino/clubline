@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/app_data_sync.dart';
@@ -33,6 +35,8 @@ class _AttendanceArchivePageState extends State<AttendanceArchivePage> {
   bool isLoading = true;
   String? errorMessage;
   int lastHandledSyncRevision = 0;
+  bool _isLoadingRequest = false;
+  bool _reloadRequested = false;
 
   @override
   void initState() {
@@ -59,16 +63,26 @@ class _AttendanceArchivePageState extends State<AttendanceArchivePage> {
 
     lastHandledSyncRevision = change.revision;
     entriesByWeekId.clear();
-    _loadArchive();
+    unawaited(_loadArchive(silent: true));
   }
 
-  Future<void> _loadArchive() async {
+  Future<void> _loadArchive({bool silent = false}) async {
     if (!mounted) {
       return;
     }
 
+    if (_isLoadingRequest) {
+      _reloadRequested = true;
+      return;
+    }
+
+    _isLoadingRequest = true;
+    final showBlockingLoader = !silent || weeks.isEmpty;
+
     setState(() {
-      isLoading = true;
+      if (showBlockingLoader) {
+        isLoading = true;
+      }
       errorMessage = null;
     });
 
@@ -90,10 +104,18 @@ class _AttendanceArchivePageState extends State<AttendanceArchivePage> {
       if (!mounted) {
         return;
       }
-      setState(() {
-        errorMessage = e.toString();
-        isLoading = false;
-      });
+      if (showBlockingLoader) {
+        setState(() {
+          errorMessage = e.toString();
+          isLoading = false;
+        });
+      }
+    } finally {
+      _isLoadingRequest = false;
+      if (_reloadRequested) {
+        _reloadRequested = false;
+        unawaited(_loadArchive(silent: true));
+      }
     }
   }
 

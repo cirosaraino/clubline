@@ -5,7 +5,11 @@ import { supabaseAuth, supabaseDb } from '../lib/supabase';
 import { UnauthorizedError } from '../lib/errors';
 import type { AuthUserDto } from '../domain/types';
 
-function extractBearerToken(authorizationHeader: string | undefined): string | null {
+const accessService = new AccessService(supabaseDb);
+
+export function extractBearerToken(
+  authorizationHeader: string | undefined,
+): string | null {
   if (!authorizationHeader) {
     return null;
   }
@@ -18,6 +22,20 @@ function extractBearerToken(authorizationHeader: string | undefined): string | n
   return token.trim();
 }
 
+export async function resolvePrincipalFromToken(token: string) {
+  const response = await supabaseAuth.auth.getUser(token);
+  if (response.error || !response.data.user) {
+    throw new UnauthorizedError('Sessione non valida');
+  }
+
+  const authUser: AuthUserDto = {
+    id: response.data.user.id,
+    email: response.data.user.email ?? null,
+  };
+
+  return accessService.resolvePrincipal(authUser);
+}
+
 export const requireAuth: RequestHandler = async (req, _res, next) => {
   try {
     const token = extractBearerToken(req.headers.authorization);
@@ -25,18 +43,7 @@ export const requireAuth: RequestHandler = async (req, _res, next) => {
       throw new UnauthorizedError('Token mancante');
     }
 
-    const authService = new AccessService(supabaseDb);
-    const response = await supabaseAuth.auth.getUser(token);
-    if (response.error || !response.data.user) {
-      throw new UnauthorizedError('Sessione non valida');
-    }
-
-    const authUser: AuthUserDto = {
-      id: response.data.user.id,
-      email: response.data.user.email ?? null,
-    };
-
-    const principal = await authService.resolvePrincipal(authUser);
+    const principal = await resolvePrincipalFromToken(token);
     req.principal = principal;
     next();
   } catch (error) {

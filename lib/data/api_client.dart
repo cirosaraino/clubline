@@ -29,6 +29,7 @@ class ApiClient {
 
   static final ApiClient shared = ApiClient();
   static const Duration _requestTimeout = Duration(seconds: 15);
+  static const Duration _retryDelay = Duration(milliseconds: 250);
 
   final http.Client _httpClient;
   final AuthSessionStore _sessionStore;
@@ -114,40 +115,55 @@ class ApiClient {
 
     late final http.Response response;
     final encodedBody = body == null ? null : jsonEncode(body);
+    final maxAttempts = method == 'GET' ? 2 : 1;
+    var attempt = 0;
 
-    try {
-      switch (method) {
-        case 'GET':
-          response = await _httpClient
-              .get(uri, headers: headers)
-              .timeout(_requestTimeout);
-          break;
-        case 'POST':
-          response = await _httpClient
-              .post(uri, headers: headers, body: encodedBody)
-              .timeout(_requestTimeout);
-          break;
-        case 'PUT':
-          response = await _httpClient
-              .put(uri, headers: headers, body: encodedBody)
-              .timeout(_requestTimeout);
-          break;
-        case 'DELETE':
-          response = await _httpClient
-              .delete(uri, headers: headers, body: encodedBody)
-              .timeout(_requestTimeout);
-          break;
-        default:
-          throw ApiException('Metodo HTTP non supportato: $method');
+    while (true) {
+      attempt += 1;
+      try {
+        switch (method) {
+          case 'GET':
+            response = await _httpClient
+                .get(uri, headers: headers)
+                .timeout(_requestTimeout);
+            break;
+          case 'POST':
+            response = await _httpClient
+                .post(uri, headers: headers, body: encodedBody)
+                .timeout(_requestTimeout);
+            break;
+          case 'PUT':
+            response = await _httpClient
+                .put(uri, headers: headers, body: encodedBody)
+                .timeout(_requestTimeout);
+            break;
+          case 'DELETE':
+            response = await _httpClient
+                .delete(uri, headers: headers, body: encodedBody)
+                .timeout(_requestTimeout);
+            break;
+          default:
+            throw ApiException('Metodo HTTP non supportato: $method');
+        }
+
+        break;
+      } on TimeoutException {
+        if (attempt < maxAttempts) {
+          await Future<void>.delayed(_retryDelay);
+          continue;
+        }
+        throw const ApiException(
+          'Connessione lenta o non disponibile. Riprova tra qualche secondo.',
+        );
+      } on http.ClientException {
+        if (attempt < maxAttempts) {
+          await Future<void>.delayed(_retryDelay);
+          continue;
+        }
+        throw const ApiException(
+          'Impossibile raggiungere il server. Controlla la connessione e riprova.',
+        );
       }
-    } on TimeoutException {
-      throw const ApiException(
-        'Connessione lenta o non disponibile. Riprova tra qualche secondo.',
-      );
-    } on http.ClientException {
-      throw const ApiException(
-        'Impossibile raggiungere il server. Controlla la connessione e riprova.',
-      );
     }
 
     if (response.statusCode == 204 || response.body.trim().isEmpty) {

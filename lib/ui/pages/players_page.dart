@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/app_session.dart';
@@ -31,6 +33,8 @@ class _PlayersPageState extends State<PlayersPage> {
   String? errorMessage;
   int lastHandledSyncRevision = 0;
   dynamic pendingScrollPlayerId;
+  bool _isLoadingRequest = false;
+  bool _reloadRequested = false;
 
   @override
   void initState() {
@@ -56,16 +60,26 @@ class _PlayersPageState extends State<PlayersPage> {
     if (!change.affects({AppDataScope.players})) return;
 
     lastHandledSyncRevision = change.revision;
-    _loadPlayers();
+    unawaited(_loadPlayers(silent: true));
   }
 
-  Future<void> _loadPlayers() async {
+  Future<void> _loadPlayers({bool silent = false}) async {
     if (!mounted) {
       return;
     }
 
+    if (_isLoadingRequest) {
+      _reloadRequested = true;
+      return;
+    }
+
+    _isLoadingRequest = true;
+    final showBlockingLoader = !silent || players.isEmpty;
+
     setState(() {
-      isLoading = true;
+      if (showBlockingLoader) {
+        isLoading = true;
+      }
       errorMessage = null;
     });
 
@@ -83,10 +97,18 @@ class _PlayersPageState extends State<PlayersPage> {
       if (!mounted) {
         return;
       }
-      setState(() {
-        errorMessage = e.toString();
-        isLoading = false;
-      });
+      if (showBlockingLoader) {
+        setState(() {
+          errorMessage = e.toString();
+          isLoading = false;
+        });
+      }
+    } finally {
+      _isLoadingRequest = false;
+      if (_reloadRequested) {
+        _reloadRequested = false;
+        unawaited(_loadPlayers(silent: true));
+      }
     }
   }
 

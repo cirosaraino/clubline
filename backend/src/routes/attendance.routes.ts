@@ -50,7 +50,6 @@ attendanceRouter.post(
   requireAuth,
   asyncHandler(async (req, res) => {
     await attendanceService.syncWeekEntries(req.params.id);
-    realtimeEventsBus.publishChange(['attendance', 'lineups'], 'attendance_entries_synced');
     sendNoContent(res);
   }),
 );

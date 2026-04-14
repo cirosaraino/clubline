@@ -8,6 +8,13 @@ function normalize(value: string | null | undefined): string {
   return value?.trim() ?? '';
 }
 
+function escapeIlike(value: string): string {
+  return value
+    .replaceAll('\\', '\\\\')
+    .replaceAll('%', '\\%')
+    .replaceAll('_', '\\_');
+}
+
 function normalizeEmail(value: string | null | undefined): string | null {
   const normalized = normalize(value).toLowerCase();
   return normalized.length > 0 ? normalized : null;
@@ -50,27 +57,49 @@ export class PlayerService {
     cognome?: string;
     q?: string;
   } = {}): Promise<PlayerProfileRow[]> {
-    const response = await this.db
+    let query = this.db
       .from('player_profiles')
       .select('*')
       .order('created_at', { ascending: true });
 
-    let players = (optionalData(response) as PlayerProfileRow[] | null) ?? [];
-
     if (filters.id_console) {
-      const needle = filters.id_console.trim().toLowerCase();
-      players = players.filter((player) => (player.id_console ?? '').toLowerCase().includes(needle));
+      const needle = escapeIlike(filters.id_console.trim());
+      if (needle.length > 0) {
+        query = query.ilike('id_console', `%${needle}%`);
+      }
     }
 
     if (filters.nome) {
-      const needle = filters.nome.trim().toLowerCase();
-      players = players.filter((player) => player.nome.toLowerCase().includes(needle));
+      const needle = escapeIlike(filters.nome.trim());
+      if (needle.length > 0) {
+        query = query.ilike('nome', `%${needle}%`);
+      }
     }
 
     if (filters.cognome) {
-      const needle = filters.cognome.trim().toLowerCase();
-      players = players.filter((player) => player.cognome.toLowerCase().includes(needle));
+      const needle = escapeIlike(filters.cognome.trim());
+      if (needle.length > 0) {
+        query = query.ilike('cognome', `%${needle}%`);
+      }
     }
+
+    if (filters.q) {
+      const needle = escapeIlike(filters.q.trim()).replaceAll(',', ' ');
+      if (needle.length > 0) {
+        query = query.or(
+          [
+            `nome.ilike.%${needle}%`,
+            `cognome.ilike.%${needle}%`,
+            `id_console.ilike.%${needle}%`,
+            `primary_role.ilike.%${needle}%`,
+          ].join(','),
+        );
+      }
+    }
+
+    const response = await query;
+
+    let players = (optionalData(response) as PlayerProfileRow[] | null) ?? [];
 
     if (filters.q) {
       const needle = filters.q.trim().toLowerCase();
