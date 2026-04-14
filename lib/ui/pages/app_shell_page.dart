@@ -169,42 +169,43 @@ class _AppShellPageState extends State<AppShellPage> {
             child: child,
           ),
         ),
-        Positioned.fill(
-          child: AbsorbPointer(
-            absorbing: overlayVisible,
-            child: AnimatedOpacity(
-              duration: _initialAccessTransitionDuration,
-              curve: Curves.easeOutCubic,
-              opacity: overlayVisible ? 1 : 0,
-              child: Container(
-                color: Colors.black.withValues(alpha: overlayBackgroundAlpha),
-                alignment: Alignment.center,
+        if (overlayVisible)
+          Positioned.fill(
+            child: IgnorePointer(
+              ignoring: false,
+              child: AnimatedOpacity(
+                duration: _initialAccessTransitionDuration,
+                curve: Curves.easeOutCubic,
+                opacity: 1,
                 child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 22),
-                  padding: panelPadding,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        width: spinnerSize,
-                        height: spinnerSize,
-                        child: const CircularProgressIndicator(strokeWidth: 2.2),
-                      ),
-                      SizedBox(width: 12),
-                      Flexible(
-                        child: Text(overlayMessage),
-                      ),
-                    ],
+                  color: Colors.black.withValues(alpha: overlayBackgroundAlpha),
+                  alignment: Alignment.center,
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 22),
+                    padding: panelPadding,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: spinnerSize,
+                          height: spinnerSize,
+                          child: const CircularProgressIndicator(strokeWidth: 2.2),
+                        ),
+                        const SizedBox(width: 12),
+                        Flexible(
+                          child: Text(overlayMessage),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
       ],
     );
   }

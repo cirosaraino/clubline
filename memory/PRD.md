@@ -174,6 +174,11 @@ Aggiornare in tempo reale, senza refresh manuale, quando un altro utente crea/mo
 - Il mini-overlay di sincronizzazione post-verifica ora si mostra solo quando la sessione è già autenticata (evita blocchi inutili in stato guest).
 - Rimossa la barriera logica che bloccava l'apertura del foglio auth quando `session.isLoading` era ancora true ma l'utente non era loggato.
 
+### Correzione definitiva blocco pulsanti Home
+- Sistemato il layer overlay: viene montato solo quando davvero visibile.
+- In stato guest (non loggato) senza overlay attivo, non c'è più nessun layer trasparente a intercettare i tap.
+- Risolto il caso in cui i pulsanti Home risultavano visivamente presenti ma non cliccabili.
+
 ---
 
 ## Aggiornamento successivo - Schermata Rosa: filtri collapsable + recap macroruoli
