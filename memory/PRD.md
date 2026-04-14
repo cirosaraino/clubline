@@ -187,6 +187,14 @@ Aggiornare in tempo reale, senza refresh manuale, quando un altro utente crea/mo
   - in stato guest overlay eventualmente visibile ma **non** intercetta tap (`IgnorePointer` non bloccante)
 - Esito atteso: `Accedi` / `Registrati` sempre cliccabili quando non loggato.
 
+### Test automatico anti-regressione aggiunto
+- Creato `integration_test/guest_home_buttons_clickable_test.dart` con 2 scenari E2E:
+  1. `guest-home-buttons-clickable-browser`
+  2. `guest-home-buttons-clickable-standalone-simulated`
+- Verifica automatica: da utente guest i pulsanti **Accedi** e **Registrati** sono cliccabili e aprono correttamente il foglio auth.
+- Aggiunta dipendenza `integration_test` in `pubspec.yaml`.
+- Aggiunto supporto simulazione standalone web per E2E (`e2e_force_standalone` / `e2e_standalone=1`) in `mobile_web_install_bridge_web.dart`.
+
 ---
 
 ## Aggiornamento successivo - Schermata Rosa: filtri collapsable + recap macroruoli

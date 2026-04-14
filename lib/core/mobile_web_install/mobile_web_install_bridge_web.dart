@@ -134,11 +134,29 @@ class _WebMobileInstallBridge implements MobileWebInstallBridge {
   }
 
   bool _computeStandalone() {
+    if (_isStandaloneForcedForE2E()) {
+      return true;
+    }
+
     final standalone = web.window.navigator.getProperty<JSAny?>(
       'standalone'.toJS,
     );
     final displayModeStandalone =
         web.window.matchMedia('(display-mode: standalone)').matches;
     return displayModeStandalone || standalone?.dartify() == true;
+  }
+
+  bool _isStandaloneForcedForE2E() {
+    try {
+      if (Uri.base.queryParameters['e2e_standalone'] == '1') {
+        return true;
+      }
+
+      final localStorageValue =
+          web.window.localStorage.getItem('e2e_force_standalone');
+      return localStorageValue == '1';
+    } catch (_) {
+      return false;
+    }
   }
 }
