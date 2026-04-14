@@ -173,3 +173,6 @@ Aggiornare in tempo reale, senza refresh manuale, quando un altro utente crea/mo
   - default **chiusi**
   - stato visibile `visibili/totali` mantenuto in header
   - messaggio compatto quando filtri attivi ma pannello chiuso
+
+### Ritocco successivo richiesto
+- Rimossi i numeri dalle intestazioni delle sezioni ruolo nella terza sezione della schermata Rosa (PORTIERI, DIFENSORI, ecc.), mantenendo invariati i conteggi nello schema recap in alto.

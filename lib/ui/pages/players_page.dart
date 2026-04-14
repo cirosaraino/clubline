@@ -509,6 +509,7 @@ class _PlayersPageState extends State<PlayersPage> {
           title: section.title,
           count: section.players.length,
           icon: section.icon,
+          showCount: false,
         ),
         const SizedBox(height: 8),
         for (final player in section.players)

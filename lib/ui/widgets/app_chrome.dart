@@ -256,11 +256,13 @@ class AppSectionHeader extends StatelessWidget {
     required this.title,
     required this.count,
     required this.icon,
+    this.showCount = true,
   });
 
   final String title;
   final int count;
   final IconData icon;
+  final bool showCount;
 
   @override
   Widget build(BuildContext context) {
@@ -285,11 +287,13 @@ class AppSectionHeader extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          AppCountPill(
-            label: '$count',
-            emphasized: true,
-          ),
+          if (showCount) ...[
+            const SizedBox(height: 10),
+            AppCountPill(
+              label: '$count',
+              emphasized: true,
+            ),
+          ],
         ],
       );
     }
@@ -307,10 +311,11 @@ class AppSectionHeader extends StatelessWidget {
                 ),
           ),
         ),
-        AppCountPill(
-          label: '$count',
-          emphasized: true,
-        ),
+        if (showCount)
+          AppCountPill(
+            label: '$count',
+            emphasized: true,
+          ),
       ],
     );
   }
