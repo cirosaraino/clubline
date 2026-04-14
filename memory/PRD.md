@@ -110,3 +110,24 @@ Aggiornare in tempo reale, senza refresh manuale, quando un altro utente crea/mo
 
 ### Verifica tecnica aggiuntiva
 - Backend ricompilato con successo dopo i fix (`npm run typecheck`, `npm run build`).
+
+---
+
+## Aggiornamento successivo - Fix realtime iPhone Home Screen (PWA standalone)
+
+### Problema segnalato
+- In Safari Home Screen su iPhone il realtime non partiva oppure riprendeva solo dopo refresh manuale.
+
+### Fix applicati
+- **Bridge SSE web più robusto** (`lib/core/realtime/app_realtime_bridge_web.dart`):
+  - evitata riapertura continua della connessione durante stato `connecting` (finestra di stabilizzazione 10s)
+  - reconnessione forzata quando il canale entra in stato `closed`
+  - gestione migliore di `readyState` per evitare stream “bloccati”
+- **Host realtime lifecycle-aware** (`lib/ui/widgets/app_realtime_sync_host.dart`):
+  - observer lifecycle app aggiunto
+  - su `resumed` viene forzata reconnessione completa
+  - su `paused/inactive/detached` il canale viene chiuso pulitamente
+  - watchdog periodic reconnection mantenuto per massima affidabilità
+
+### Obiettivo UX
+- Aggiornamenti istantanei affidabili anche in modalità app Home Screen iOS, senza refresh manuale.

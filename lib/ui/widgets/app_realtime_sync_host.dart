@@ -20,7 +20,8 @@ class AppRealtimeSyncHost extends StatefulWidget {
   State<AppRealtimeSyncHost> createState() => _AppRealtimeSyncHostState();
 }
 
-class _AppRealtimeSyncHostState extends State<AppRealtimeSyncHost> {
+class _AppRealtimeSyncHostState extends State<AppRealtimeSyncHost>
+    with WidgetsBindingObserver {
   static const Duration _baseBatchWindow = Duration(milliseconds: 300);
   static const Duration _highTrafficBatchWindow = Duration(milliseconds: 600);
   static const Duration _trafficObservationWindow = Duration(seconds: 1);
@@ -37,11 +38,13 @@ class _AppRealtimeSyncHostState extends State<AppRealtimeSyncHost> {
   String _lastPendingReason = 'remote_change';
   DateTime? _lastHighTrafficDetectedAt;
   Duration _currentBatchWindow = _baseBatchWindow;
+  bool _isConnecting = false;
 
   @override
   void initState() {
     super.initState();
-    unawaited(_connectRealtime());
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(_forceReconnect());
     _reconnectTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (appRealtimeBridge.isConnected) {
         return;
@@ -52,11 +55,42 @@ class _AppRealtimeSyncHostState extends State<AppRealtimeSyncHost> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _messageSubscription?.cancel();
     _reconnectTimer?.cancel();
     _dispatchTimer?.cancel();
     appRealtimeBridge.disconnect();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_forceReconnect());
+      return;
+    }
+
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached ||
+        state == AppLifecycleState.inactive) {
+      appRealtimeBridge.disconnect();
+    }
+  }
+
+  Future<void> _forceReconnect() async {
+    if (_isConnecting) {
+      return;
+    }
+
+    _isConnecting = true;
+    try {
+      appRealtimeBridge.disconnect();
+      await _messageSubscription?.cancel();
+      _messageSubscription = null;
+      await _connectRealtime();
+    } finally {
+      _isConnecting = false;
+    }
   }
 
   void _scheduleDispatch() {
