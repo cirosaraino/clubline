@@ -33,6 +33,7 @@ class _PlayersPageState extends State<PlayersPage> {
   String? errorMessage;
   int lastHandledSyncRevision = 0;
   dynamic pendingScrollPlayerId;
+  bool isFiltersExpanded = false;
   bool _isLoadingRequest = false;
   bool _reloadRequested = false;
 
@@ -328,6 +329,23 @@ class _PlayersPageState extends State<PlayersPage> {
     }
   }
 
+  Map<String, int> _primaryRoleCategoryTotals(List<PlayerProfile> sourcePlayers) {
+    final totals = {
+      for (final category in kPrimaryRoleCategoryOrder) category: 0,
+    };
+
+    for (final player in sourcePlayers) {
+      final category = player.primaryRoleCategory;
+      if (category == null || !totals.containsKey(category)) {
+        continue;
+      }
+
+      totals[category] = (totals[category] ?? 0) + 1;
+    }
+
+    return totals;
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentUser = AppSessionScope.of(context).currentUser;
@@ -402,10 +420,22 @@ class _PlayersPageState extends State<PlayersPage> {
 
     final filteredPlayers = _filteredPlayers;
     final sections = _buildSections(filteredPlayers);
+    final totalsByCategory = _primaryRoleCategoryTotals(players);
 
     if (filteredPlayers.isEmpty) {
       return _buildScrollableBody([
+        _PlayersMacroRoleRecapCard(
+          totalPlayers: players.length,
+          totalsByCategory: totalsByCategory,
+        ),
+        const SizedBox(height: 14),
         _PlayersFilterCard(
+          isExpanded: isFiltersExpanded,
+          onToggle: () {
+            setState(() {
+              isFiltersExpanded = !isFiltersExpanded;
+            });
+          },
           selectedMacroRoleFilter: selectedMacroRoleFilter,
           selectedRoleFilter: selectedRoleFilter,
           idController: idController,
@@ -439,7 +469,18 @@ class _PlayersPageState extends State<PlayersPage> {
     }
 
     return _buildScrollableBody([
+      _PlayersMacroRoleRecapCard(
+        totalPlayers: players.length,
+        totalsByCategory: totalsByCategory,
+      ),
+      const SizedBox(height: 14),
       _PlayersFilterCard(
+        isExpanded: isFiltersExpanded,
+        onToggle: () {
+          setState(() {
+            isFiltersExpanded = !isFiltersExpanded;
+          });
+        },
         selectedMacroRoleFilter: selectedMacroRoleFilter,
         selectedRoleFilter: selectedRoleFilter,
         idController: idController,
@@ -498,8 +539,77 @@ class _PlayerSectionData {
   final IconData icon;
 }
 
+class _PlayersMacroRoleRecapCard extends StatelessWidget {
+  const _PlayersMacroRoleRecapCard({
+    required this.totalPlayers,
+    required this.totalsByCategory,
+  });
+
+  final int totalPlayers;
+  final Map<String, int> totalsByCategory;
+
+  IconData _iconForCategory(String category) {
+    switch (category) {
+      case 'Portiere':
+        return Icons.sports_handball_outlined;
+      case 'Difensore':
+        return Icons.shield_outlined;
+      case 'Centrocampista':
+        return Icons.hub_outlined;
+      case 'Attaccante':
+        return Icons.bolt_outlined;
+      default:
+        return Icons.groups_2_outlined;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: EdgeInsets.all(AppResponsive.cardPadding(context)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const AppIconBadge(icon: Icons.groups_2_outlined),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Rosa totale: $totalPlayers giocatori',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                for (final category in kPrimaryRoleCategoryOrder)
+                  AppCountPill(
+                    label: category,
+                    value: '${totalsByCategory[category] ?? 0}',
+                    icon: _iconForCategory(category),
+                    emphasized: true,
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _PlayersFilterCard extends StatelessWidget {
   const _PlayersFilterCard({
+    required this.isExpanded,
+    required this.onToggle,
     required this.selectedMacroRoleFilter,
     required this.selectedRoleFilter,
     required this.idController,
@@ -513,6 +623,8 @@ class _PlayersFilterCard extends StatelessWidget {
     required this.onClearFilters,
   });
 
+  final bool isExpanded;
+  final VoidCallback onToggle;
   final String? selectedMacroRoleFilter;
   final String? selectedRoleFilter;
   final TextEditingController idController;
@@ -545,145 +657,131 @@ class _PlayersFilterCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final compact = AppResponsive.isCompact(context);
 
+    final filtersForm = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 12),
+        DropdownButtonFormField<String>(
+          key: ValueKey('players-filter-macro-$selectedMacroRoleFilter'),
+          initialValue: selectedMacroRoleFilter,
+          decoration: _inputDecoration(
+            'Macroruolo',
+            Icons.category_outlined,
+          ),
+          hint: const Text('Tutti i macroruoli'),
+          items: kPrimaryRoleCategoryOrder
+              .map(
+                (category) => DropdownMenuItem<String>(
+                  value: category,
+                  child: Text(category),
+                ),
+              )
+              .toList(),
+          onChanged: onMacroRoleChanged,
+        ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<String>(
+          key: ValueKey('players-filter-role-$selectedRoleFilter'),
+          initialValue: selectedRoleFilter,
+          decoration: _inputDecoration('Ruolo', Icons.swap_horiz_rounded),
+          hint: const Text('Tutti i ruoli'),
+          items: kPlayerRoles
+              .map(
+                (role) => DropdownMenuItem<String>(
+                  value: role,
+                  child: Text('$role - ${kRoleCategories[role]}'),
+                ),
+              )
+              .toList(),
+          onChanged: onRoleChanged,
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: idController,
+          onChanged: (_) => onFiltersChanged(),
+          decoration: _inputDecoration('ID console', Icons.badge_outlined),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: nomeController,
+          onChanged: (_) => onFiltersChanged(),
+          decoration: _inputDecoration('Nome', Icons.person_outline),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: cognomeController,
+          onChanged: (_) => onFiltersChanged(),
+          decoration: _inputDecoration('Cognome', Icons.person_search_outlined),
+        ),
+        if (hasActiveFilters) ...[
+          const SizedBox(height: 14),
+          SizedBox(
+            width: compact ? double.infinity : null,
+            child: OutlinedButton.icon(
+              onPressed: onClearFilters,
+              icon: const Icon(Icons.close_outlined),
+              label: const Text('Rimuovi filtri'),
+            ),
+          ),
+        ],
+      ],
+    );
+
     return Card(
       child: Padding(
         padding: EdgeInsets.all(AppResponsive.cardPadding(context)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (compact) ...[
-              Text(
-                'Filtri rosa',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
+            InkWell(
+              onTap: onToggle,
+              borderRadius: BorderRadius.circular(16),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Filtri rosa',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                      ),
                     ),
-              ),
-              const SizedBox(height: 10),
-              AppCountPill(
-                label: '$visiblePlayers / $totalPlayers',
-                emphasized: true,
-              ),
-            ] else
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Filtri rosa',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
+                    AppCountPill(
+                      label: '$visiblePlayers / $totalPlayers',
+                      emphasized: true,
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  AppCountPill(
-                    label: '$visiblePlayers / $totalPlayers',
-                    emphasized: true,
-                  ),
-                ],
-              ),
-            const SizedBox(height: 16),
-            if (compact) ...[
-              DropdownButtonFormField<String>(
-                key: ValueKey('players-filter-macro-$selectedMacroRoleFilter'),
-                initialValue: selectedMacroRoleFilter,
-                decoration: _inputDecoration(
-                  'Macroruolo',
-                  Icons.category_outlined,
-                ),
-                hint: const Text('Tutti i macroruoli'),
-                items: kPrimaryRoleCategoryOrder
-                    .map(
-                      (category) => DropdownMenuItem<String>(
-                        value: category,
-                        child: Text(category),
-                      ),
-                    )
-                    .toList(),
-                onChanged: onMacroRoleChanged,
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                key: ValueKey('players-filter-role-$selectedRoleFilter'),
-                initialValue: selectedRoleFilter,
-                decoration: _inputDecoration('Ruolo', Icons.swap_horiz_rounded),
-                hint: const Text('Tutti i ruoli'),
-                items: kPlayerRoles
-                    .map(
-                      (role) => DropdownMenuItem<String>(
-                        value: role,
-                        child: Text('$role - ${kRoleCategories[role]}'),
-                      ),
-                    )
-                    .toList(),
-                onChanged: onRoleChanged,
-              ),
-            ] else ...[
-              DropdownButtonFormField<String>(
-                key: ValueKey('players-filter-macro-$selectedMacroRoleFilter'),
-                initialValue: selectedMacroRoleFilter,
-                decoration: _inputDecoration(
-                  'Macroruolo',
-                  Icons.category_outlined,
-                ),
-                hint: const Text('Tutti i macroruoli'),
-                items: kPrimaryRoleCategoryOrder
-                    .map(
-                      (category) => DropdownMenuItem<String>(
-                        value: category,
-                        child: Text(category),
-                      ),
-                    )
-                    .toList(),
-                onChanged: onMacroRoleChanged,
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                key: ValueKey('players-filter-role-$selectedRoleFilter'),
-                initialValue: selectedRoleFilter,
-                decoration: _inputDecoration('Ruolo', Icons.swap_horiz_rounded),
-                hint: const Text('Tutti i ruoli'),
-                items: kPlayerRoles
-                    .map(
-                      (role) => DropdownMenuItem<String>(
-                        value: role,
-                        child: Text('$role - ${kRoleCategories[role]}'),
-                      ),
-                    )
-                    .toList(),
-                onChanged: onRoleChanged,
-              ),
-            ],
-            const SizedBox(height: 12),
-            TextField(
-              controller: idController,
-              onChanged: (_) => onFiltersChanged(),
-              decoration: _inputDecoration('ID console', Icons.badge_outlined),
-            ),
-            const SizedBox(height: 16),
-            
-            TextField(
-              controller: nomeController,
-              onChanged: (_) => onFiltersChanged(),
-              decoration: _inputDecoration('Nome', Icons.person_outline),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: cognomeController,
-              onChanged: (_) => onFiltersChanged(),
-              decoration: _inputDecoration('Cognome', Icons.person_search_outlined),
-            ),
-            if (hasActiveFilters) ...[
-              const SizedBox(height: 14),
-              SizedBox(
-                width: compact ? double.infinity : null,
-                child: OutlinedButton.icon(
-                  onPressed: onClearFilters,
-                  icon: const Icon(Icons.close_outlined),
-                  label: const Text('Rimuovi filtri'),
+                    const SizedBox(width: 8),
+                    AnimatedRotation(
+                      turns: isExpanded ? 0.5 : 0,
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
+                      child: const Icon(Icons.keyboard_arrow_down_rounded),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
+            AnimatedCrossFade(
+              duration: const Duration(milliseconds: 220),
+              crossFadeState: isExpanded
+                  ? CrossFadeState.showSecond
+                  : CrossFadeState.showFirst,
+              firstChild: hasActiveFilters
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        'Filtri attivi: apri per modificarli',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.primary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+              secondChild: filtersForm,
+            ),
           ],
         ),
       ),

@@ -155,3 +155,21 @@ Aggiornare in tempo reale, senza refresh manuale, quando un altro utente crea/mo
   - durata **420ms**
   - effetto **fade + slide-up delicata**
   - curva **easeOutCubic**
+
+---
+
+## Aggiornamento successivo - Schermata Rosa: filtri collapsable + recap macroruoli
+
+### Richiesta
+- Filtri apribili/chiudibili con default chiuso.
+- Recap in alto del totale giocatori per macroruolo (solo ruolo principale), sempre sul totale squadra.
+
+### Implementazione
+- Aggiunta card recap in alto con:
+  - totale giocatori squadra
+  - 4 pillole conteggio: Portiere, Difensore, Centrocampista, Attaccante
+- Filtri trasformati in sezione collapsable:
+  - header "Filtri rosa" con chevron apri/chiudi
+  - default **chiusi**
+  - stato visibile `visibili/totali` mantenuto in header
+  - messaggio compatto quando filtri attivi ma pannello chiuso
