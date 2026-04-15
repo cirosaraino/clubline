@@ -198,15 +198,14 @@ class LineupPitchView extends StatelessWidget {
 
   double _minimumHorizontalSeparation(int rowSize, double spotWidth, List<String> row) {
     final hasOnlyEsEd =
-      rowSize == 2 &&
-      row.length == 2 &&
+      rowSize == 5 &&
       row.contains('ES') &&
       row.contains('ED');
 
     if (hasOnlyEsEd) {
       return spotWidth * 0.24;
     }
-    
+
     if (rowSize >= 5) {
       return spotWidth * 0.08;
     }
