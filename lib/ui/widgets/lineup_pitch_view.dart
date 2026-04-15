@@ -97,7 +97,7 @@ class LineupPitchView extends StatelessWidget {
       final startLeft = (constraints.maxWidth - totalRowWidth) / 2;
       final minLeft = 8.0;
       final maxLeft = constraints.maxWidth - rowSpotWidth - 8.0;
-      final minSpacing = _minimumHorizontalSeparation(row.length, rowSpotWidth);
+      final minSpacing = _minimumHorizontalSeparation(row.length, rowSpotWidth, row);
 
       final desiredLefts = List<double>.generate(row.length, (index) {
         final positionCode = row[index];
@@ -196,7 +196,17 @@ class LineupPitchView extends StatelessWidget {
     return 0;
   }
 
-  double _minimumHorizontalSeparation(int rowSize, double spotWidth) {
+  double _minimumHorizontalSeparation(int rowSize, double spotWidth, List<String> row) {
+    final hasOnlyEsEd =
+      rowSize == 2 &&
+      row.length == 2 &&
+      row.contains('ES') &&
+      row.contains('ED');
+
+    if (hasOnlyEsEd) {
+      return spotWidth * 0.24;
+    }
+    
     if (rowSize >= 5) {
       return spotWidth * 0.08;
     }
