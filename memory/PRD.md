@@ -388,6 +388,16 @@ Aggiornare in tempo reale, senza refresh manuale, quando un altro utente crea/mo
 - Corretto il calcolo span interno del solver (coordinate di partenza) per preservare separazione e offset desiderati senza comprimere prematuramente.
 - In `lineup_players_page.dart` compattato ulteriormente l’header (meta/formazione) per dare più spazio utile al campo.
 
+### Calibrazione successiva (stile 4-1-2-1-2 largo)
+- Su richiesta utente, i ruoli esterni hanno ora **larghezza fissa indipendente dal modulo** tramite ancore campo dedicate:
+  - `TS/TD`
+  - `ES/ED`
+  - `AS/AD`
+- Implementazione in `lineup_pitch_view.dart`:
+  - introdotta funzione `_anchoredLeftForPositionCode(...)` con lane orizzontali costanti
+  - mantenuto margine anti-overlap attraverso il solver `_resolveRowLefts`
+- Obiettivo: ottenere sempre l’ampiezza “modulo largo” anche quando cambia il modulo selezionato.
+
 ### Hotfix compilazione Web
 - Corretto errore di compile-time in `attendance_overview_cards.dart`:
   - `AppCountPill` del badge "Completato" non può essere `const` con colore tema runtime.
