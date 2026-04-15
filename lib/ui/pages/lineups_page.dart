@@ -24,12 +24,15 @@ class _LineupsPageState extends State<LineupsPage> {
   late final LineupRepository repository;
 
   List<Lineup> lineups = [];
+  final Set<String> collapsedDayKeys = <String>{};
   Map<dynamic, List<LineupPlayerAssignment>> assignmentsByLineupId = {};
   bool isLoading = true;
+  bool isDeletingAll = false;
   String? errorMessage;
   int lastHandledSyncRevision = 0;
   bool _isLoadingRequest = false;
   bool _reloadRequested = false;
+  bool _hasInitializedDayCollapses = false;
 
   @override
   void initState() {
@@ -85,7 +88,9 @@ class _LineupsPageState extends State<LineupsPage> {
       setState(() {
         lineups = response;
         assignmentsByLineupId = assignments;
+        _syncCollapsedDayKeys(response);
         isLoading = false;
+        isDeletingAll = false;
       });
     } catch (e) {
       if (!mounted) {
@@ -95,6 +100,7 @@ class _LineupsPageState extends State<LineupsPage> {
         setState(() {
           errorMessage = e.toString();
           isLoading = false;
+          isDeletingAll = false;
         });
       }
     } finally {
@@ -102,6 +108,44 @@ class _LineupsPageState extends State<LineupsPage> {
       if (_reloadRequested) {
         _reloadRequested = false;
         unawaited(_loadLineups(silent: true));
+      }
+    }
+  }
+
+  String _dayKey(DateTime value) {
+    final local = value.toLocal();
+    return '${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')}';
+  }
+
+  String _formatDayLabel(DateTime value) {
+    final local = value.toLocal();
+    final day = local.day.toString().padLeft(2, '0');
+    final month = local.month.toString().padLeft(2, '0');
+    final year = local.year.toString();
+    return '$day/$month/$year';
+  }
+
+  void _syncCollapsedDayKeys(List<Lineup> nextLineups) {
+    final allDayKeys = nextLineups.map((lineup) => _dayKey(lineup.matchDateTime)).toSet();
+
+    if (!_hasInitializedDayCollapses) {
+      collapsedDayKeys
+        ..clear()
+        ..addAll(allDayKeys);
+
+      final todayKey = _dayKey(DateTime.now());
+      if (collapsedDayKeys.contains(todayKey)) {
+        collapsedDayKeys.remove(todayKey);
+      }
+
+      _hasInitializedDayCollapses = true;
+      return;
+    }
+
+    collapsedDayKeys.removeWhere((dayKey) => !allDayKeys.contains(dayKey));
+    for (final dayKey in allDayKeys) {
+      if (!collapsedDayKeys.contains(dayKey)) {
+        collapsedDayKeys.add(dayKey);
       }
     }
   }
@@ -248,6 +292,59 @@ class _LineupsPageState extends State<LineupsPage> {
     }
   }
 
+  Future<void> _deleteAllLineups() async {
+    final currentUser = AppSessionScope.read(context).currentUser;
+    if (currentUser?.canManageLineups != true) return;
+    if (lineups.isEmpty) return;
+
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Eliminazione totale formazioni'),
+        content: const Text(
+          'Vuoi davvero eliminare tutte le formazioni create? Questa azione non si può annullare.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annulla'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Elimina tutto'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete != true) return;
+
+    setState(() {
+      isDeletingAll = true;
+      errorMessage = null;
+    });
+
+    try {
+      await repository.deleteAllLineups();
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tutte le formazioni sono state eliminate')),
+      );
+      AppDataSync.instance.notifyDataChanged(
+        {AppDataScope.lineups},
+        reason: 'lineup_deleted_all',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        errorMessage = e.toString();
+        isDeletingAll = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentUser = AppSessionScope.of(context).currentUser;
@@ -257,6 +354,20 @@ class _LineupsPageState extends State<LineupsPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Formazioni'),
+        actions: [
+          if (canManageLineups && lineups.isNotEmpty)
+            IconButton(
+              tooltip: 'Elimina tutte le formazioni',
+              onPressed: isDeletingAll ? null : _deleteAllLineups,
+              icon: isDeletingAll
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2.2),
+                    )
+                  : const Icon(Icons.delete_sweep_outlined),
+            ),
+        ],
       ),
       floatingActionButton: canManageLineups
           ? compact
@@ -327,23 +438,66 @@ class _LineupsPageState extends State<LineupsPage> {
       );
     }
 
+    final groupedByDay = <String, List<Lineup>>{};
+    final dayDateByKey = <String, DateTime>{};
+    final sortedLineups = [...lineups]
+      ..sort((first, second) => first.matchDateTime.compareTo(second.matchDateTime));
+
+    for (final lineup in sortedLineups) {
+      final key = _dayKey(lineup.matchDateTime);
+      groupedByDay.putIfAbsent(key, () => []).add(lineup);
+      dayDateByKey.putIfAbsent(
+        key,
+        () {
+          final local = lineup.matchDateTime.toLocal();
+          return DateTime(local.year, local.month, local.day);
+        },
+      );
+    }
+
+    final orderedDayKeys = groupedByDay.keys.toList()
+      ..sort((first, second) {
+        final firstDate = dayDateByKey[first] ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final secondDate = dayDateByKey[second] ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return secondDate.compareTo(firstDate);
+      });
+
     return _buildScrollableBody([
-      for (final lineup in lineups)
-        LineupListCard(
-          lineup: lineup,
-          onOpenDetails: () => _openLineupPlayers(lineup),
-          isManageMode: canManageLineups,
-          onDuplicate: canManageLineups ? () => _duplicateLineup(lineup) : null,
-          onEdit: canManageLineups ? () => _openLineupForm(lineup: lineup) : null,
-          onDelete: canManageLineups ? () => _deleteLineup(lineup) : null,
-          assignedPlayersCount: assignmentsByLineupId[lineup.id]?.length ?? 0,
-          viewerLineupStatusLabel: _viewerLineupStatusLabel(
-            currentUser,
-            assignmentsByLineupId[lineup.id] ?? const [],
-          ),
-          viewerLineupStatusPositive: _isViewerInLineup(
-            currentUser,
-            assignmentsByLineupId[lineup.id] ?? const [],
+      for (final dayKey in orderedDayKeys)
+        _LineupsDayGroupCard(
+          dayLabel: _formatDayLabel(dayDateByKey[dayKey]!),
+          lineupsCount: groupedByDay[dayKey]!.length,
+          isExpanded: !collapsedDayKeys.contains(dayKey),
+          onToggle: () {
+            setState(() {
+              if (collapsedDayKeys.contains(dayKey)) {
+                collapsedDayKeys.remove(dayKey);
+              } else {
+                collapsedDayKeys.add(dayKey);
+              }
+            });
+          },
+          child: Column(
+            children: [
+              for (final lineup in groupedByDay[dayKey]!)
+                LineupListCard(
+                  lineup: lineup,
+                  onOpenDetails: () => _openLineupPlayers(lineup),
+                  isManageMode: canManageLineups,
+                  onDuplicate: canManageLineups ? () => _duplicateLineup(lineup) : null,
+                  onEdit: canManageLineups ? () => _openLineupForm(lineup: lineup) : null,
+                  onDelete: canManageLineups ? () => _deleteLineup(lineup) : null,
+                  assignedPlayersCount: assignmentsByLineupId[lineup.id]?.length ?? 0,
+                  viewerLineupStatusLabel: _viewerLineupStatusLabel(
+                    currentUser,
+                    assignmentsByLineupId[lineup.id] ?? const [],
+                  ),
+                  viewerLineupStatusPositive: _isViewerInLineup(
+                    currentUser,
+                    assignmentsByLineupId[lineup.id] ?? const [],
+                  ),
+                ),
+            ],
           ),
         ),
     ]);
@@ -400,6 +554,69 @@ class _LineupsStatusCard extends StatelessWidget {
       icon: icon,
       title: title,
       message: message,
+    );
+  }
+}
+
+class _LineupsDayGroupCard extends StatelessWidget {
+  const _LineupsDayGroupCard({
+    required this.dayLabel,
+    required this.lineupsCount,
+    required this.isExpanded,
+    required this.onToggle,
+    required this.child,
+  });
+
+  final String dayLabel;
+  final int lineupsCount;
+  final bool isExpanded;
+  final VoidCallback onToggle;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: EdgeInsets.all(AppResponsive.cardPadding(context)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            InkWell(
+              onTap: onToggle,
+              borderRadius: BorderRadius.circular(14),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        dayLabel,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                      ),
+                    ),
+                    AppCountPill(
+                      label: '$lineupsCount',
+                      emphasized: true,
+                    ),
+                    const SizedBox(width: 6),
+                    Icon(
+                      isExpanded
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.keyboard_arrow_down_rounded,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (isExpanded) ...[
+              const SizedBox(height: 8),
+              child,
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

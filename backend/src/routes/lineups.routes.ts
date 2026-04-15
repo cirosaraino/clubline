@@ -97,6 +97,16 @@ lineupsRouter.put(
 );
 
 lineupsRouter.delete(
+  '/all',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await lineupsService.deleteAllLineups(req.principal!);
+    realtimeEventsBus.publishChange(['lineups', 'attendance'], 'lineup_deleted_all');
+    sendNoContent(res);
+  }),
+);
+
+lineupsRouter.delete(
   '/:id',
   requireAuth,
   asyncHandler(async (req, res) => {

@@ -73,6 +73,27 @@ export class LineupsService {
     ensureSuccess(response);
   }
 
+  async deleteAllLineups(principal: RequestPrincipal): Promise<void> {
+    this.ensureCanManageLineups(principal);
+
+    const lineupsResponse = await this.db.from('lineups').select('id');
+    const lineups = (optionalData(lineupsResponse) as Array<{ id: number | string }> | null) ?? [];
+    const lineupIds = lineups.map((lineup) => lineup.id);
+
+    if (lineupIds.length === 0) {
+      return;
+    }
+
+    const deleteAssignmentsResponse = await this.db
+      .from('lineup_players')
+      .delete()
+      .in('lineup_id', lineupIds);
+    ensureSuccess(deleteAssignmentsResponse);
+
+    const deleteLineupsResponse = await this.db.from('lineups').delete().in('id', lineupIds);
+    ensureSuccess(deleteLineupsResponse);
+  }
+
   async listLineupPlayers(lineupId: string | number): Promise<LineupPlayerRow[]> {
     const response = await this.db
       .from('lineup_players')
