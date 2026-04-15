@@ -367,6 +367,12 @@ Aggiornare in tempo reale, senza refresh manuale, quando un altro utente crea/mo
   - `CDCS/CDCD` più arretrati
   - `COC` più avanzato
 
+### Refinement UI successivo (compattazione sezioni)
+- Compattate con livello medio le due sezioni in alto su gestione formazione:
+  1. Banner stato utente (incluso/non incluso)
+  2. Card "Disponibilità filtrate"
+- Ridotti padding, gap verticali, dimensioni icona e raggio bordi per migliorare densità visiva mantenendo leggibilità.
+
 ### Hotfix compilazione Web
 - Corretto errore di compile-time in `attendance_overview_cards.dart`:
   - `AppCountPill` del badge "Completato" non può essere `const` con colore tema runtime.

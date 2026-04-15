@@ -499,13 +499,13 @@ class _LineupPlayersPageState extends State<LineupPlayersPage> {
                             ),
                       ),
                       if (currentUser != null) ...[
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 8),
                         _ViewerPresenceBanner(isIncluded: isViewerIncluded),
                       ],
                       if (canViewManagerFilters &&
                           (absentFilteredPlayers.isNotEmpty ||
                               pendingFilteredPlayers.isNotEmpty)) ...[
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 8),
                         _AttendanceFilterNotice(
                           matchDateTime: widget.lineup.matchDateTime,
                           absentPlayers: absentFilteredPlayers,
@@ -590,16 +590,16 @@ class _ViewerPresenceBanner extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: backgroundColor,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: borderColor),
       ),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: contentColor),
-          const SizedBox(width: 8),
+          Icon(icon, size: 16, color: contentColor),
+          const SizedBox(width: 7),
           Expanded(
             child: Text(
               isIncluded
@@ -608,6 +608,7 @@ class _ViewerPresenceBanner extends StatelessWidget {
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: contentColor,
                     fontWeight: FontWeight.w700,
+                    height: 1.2,
                   ),
             ),
           ),
@@ -649,34 +650,34 @@ class _AttendanceFilterNotice extends StatelessWidget {
       width: double.infinity,
       decoration: BoxDecoration(
         color: UltrasAppTheme.surfaceAlt.withValues(alpha: 0.78),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: UltrasAppTheme.outlineSoft),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           InkWell(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(14),
             onTap: onToggle,
             child: Padding(
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(10),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    width: 38,
-                    height: 38,
+                    width: 32,
+                    height: 32,
                     decoration: BoxDecoration(
                       color: UltrasAppTheme.gold.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
                       Icons.event_busy_outlined,
                       color: UltrasAppTheme.goldSoft,
-                      size: 18,
+                      size: 16,
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -688,7 +689,7 @@ class _AttendanceFilterNotice extends StatelessWidget {
                                     fontWeight: FontWeight.w800,
                                   ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 2),
                         Text(
                           formatMatchDateTime(matchDateTime),
                           style:
@@ -696,7 +697,7 @@ class _AttendanceFilterNotice extends StatelessWidget {
                                     color: UltrasAppTheme.textMuted,
                                   ),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 6),
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
@@ -725,7 +726,7 @@ class _AttendanceFilterNotice extends StatelessWidget {
                           ],
                         ),
                         if (!isExpanded) ...[
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 6),
                           Text(
                             'Tocca per vedere chi e stato filtrato.',
                             style:
@@ -757,7 +758,7 @@ class _AttendanceFilterNotice extends StatelessWidget {
               color: UltrasAppTheme.outlineSoft,
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+              padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
