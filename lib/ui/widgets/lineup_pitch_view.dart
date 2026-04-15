@@ -158,9 +158,9 @@ class LineupPitchView extends StatelessWidget {
       case 'TD':
         return spotWidth * 0.24;
       case 'ES':
-        return -(spotWidth * 0.20);
+        return -(spotWidth * 0.24);
       case 'ED':
-        return spotWidth * 0.20;
+        return spotWidth * 0.24;
       case 'AS':
         return -(spotWidth * 0.18);
       case 'AD':
@@ -185,16 +185,12 @@ class LineupPitchView extends StatelessWidget {
       return -(spotHeight * 0.16);
     }
 
-    if (positionCode == 'CDCS' || positionCode == 'CDCD') {
+    if (positionCode == 'CDCS' || positionCode == 'CDCD' || positionCode == 'CDC') {
       return spotHeight * 0.18;
     }
 
     if (positionCode == 'CCS' || positionCode == 'CCD') {
       return spotHeight * 0.06;
-    }
-
-    if (positionCode == 'CDC') {
-      return spotHeight * 0.13;
     }
 
     return 0;
