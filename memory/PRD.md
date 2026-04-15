@@ -398,6 +398,14 @@ Aggiornare in tempo reale, senza refresh manuale, quando un altro utente crea/mo
   - mantenuto margine anti-overlap attraverso il solver `_resolveRowLefts`
 - Obiettivo: ottenere sempre l’ampiezza “modulo largo” anche quando cambia il modulo selezionato.
 
+### Rollback successivo richiesto
+- Rimossa la larghezza fissa ancorata per i ruoli esterni (TS/TD, ES/ED, AS/AD).
+- Ripristinata la larghezza orizzontale precedente (pre-ancoraggio), mantenendo invariato il solver anti-overlap.
+- Confermata la sola gerarchia verticale richiesta:
+  - `CDCS/CDCD` più arretrati
+  - `CCS/CCD` intermedi
+  - `COC` più avanzato
+
 ### Hotfix compilazione Web
 - Corretto errore di compile-time in `attendance_overview_cards.dart`:
   - `AppCountPill` del badge "Completato" non può essere `const` con colore tema runtime.

@@ -103,15 +103,6 @@ class LineupPitchView extends StatelessWidget {
         final positionCode = row[index];
         final baseLeft = startLeft + (index * (rowSpotWidth + rowGap));
 
-        final anchoredLeft = _anchoredLeftForPositionCode(
-          positionCode,
-          rowSpotWidth,
-          constraints.maxWidth,
-        );
-        if (anchoredLeft != null) {
-          return anchoredLeft;
-        }
-
         final horizontalOffset = _horizontalOffsetForPositionCode(
           positionCode,
           rowSpotWidth,
@@ -162,6 +153,18 @@ class LineupPitchView extends StatelessWidget {
 
   double _horizontalOffsetForPositionCode(String positionCode, double spotWidth) {
     switch (positionCode) {
+      case 'TS':
+        return -(spotWidth * 0.24);
+      case 'TD':
+        return spotWidth * 0.24;
+      case 'ES':
+        return -(spotWidth * 0.20);
+      case 'ED':
+        return spotWidth * 0.20;
+      case 'AS':
+        return -(spotWidth * 0.18);
+      case 'AD':
+        return spotWidth * 0.18;
       case 'CCS':
         return -(spotWidth * 0.12);
       case 'CCD':
@@ -173,28 +176,6 @@ class LineupPitchView extends StatelessWidget {
       default:
         return 0;
     }
-  }
-
-  double? _anchoredLeftForPositionCode(
-    String positionCode,
-    double spotWidth,
-    double totalWidth,
-  ) {
-    final centerFraction = switch (positionCode) {
-      'TS' => 0.10,
-      'TD' => 0.90,
-      'ES' => 0.18,
-      'ED' => 0.82,
-      'AS' => 0.24,
-      'AD' => 0.76,
-      _ => null,
-    };
-
-    if (centerFraction == null) {
-      return null;
-    }
-
-    return (totalWidth * centerFraction) - (spotWidth / 2);
   }
 
   double _verticalOffsetForPositionCode(String positionCode, double spotHeight) {
