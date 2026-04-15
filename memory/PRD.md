@@ -312,8 +312,10 @@ Aggiornare in tempo reale, senza refresh manuale, quando un altro utente crea/mo
 ### Refinement richiesto successivo (colorazione riepilogo)
 - Ripristinato il blocco hero presenze come prima (rimosso verde/completato in alto).
 - Nuova logica colore applicata **solo ai tab giorno-per-giorno**:
-  - quando `Risposte == Totale` (es. `21/21`) i tab di quel giorno vanno in verde
-  - quando non completo (es. `20/21`) resta la colorazione attuale
+  - `Risposte X/Y`: **giallo di default**, **verde solo** quando `X == Y`
+  - `Sì`: sempre verde
+  - `No`: sempre rosso
+  - `Attesa`: sempre giallo
 
 ### Ritocchi UI successivi richiesti
 - Rinominata la sezione filtri capitano in: **"Filtro presenza giocatore"**.

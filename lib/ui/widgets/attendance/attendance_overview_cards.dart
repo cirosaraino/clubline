@@ -184,7 +184,7 @@ class AttendanceDaySummaryCard extends StatelessWidget {
               AppCountPill(
                 label: 'Risposte',
                 value: '${summary.answeredCount}/${summary.totalPlayers}',
-                color: isComplete ? UltrasAppTheme.success : null,
+                color: isComplete ? UltrasAppTheme.success : UltrasAppTheme.warning,
                 emphasized: true,
               ),
               AppCountPill(
@@ -195,12 +195,12 @@ class AttendanceDaySummaryCard extends StatelessWidget {
               AppCountPill(
                 label: 'No',
                 value: '${summary.absentCount}',
-                color: isComplete ? UltrasAppTheme.success : UltrasAppTheme.danger,
+                color: UltrasAppTheme.danger,
               ),
               AppCountPill(
                 label: 'Attesa',
                 value: '${summary.pendingCount}',
-                color: isComplete ? UltrasAppTheme.success : UltrasAppTheme.warning,
+                color: UltrasAppTheme.warning,
               ),
             ],
           ),
