@@ -98,8 +98,23 @@ class LineupPitchView extends StatelessWidget {
 
       for (var index = 0; index < row.length; index++) {
         final positionCode = row[index];
-        final left = startLeft + (index * (rowSpotWidth + rowGap));
-        final top = (constraints.maxHeight * topFraction) - (rowSpotHeight / 2);
+        final baseLeft = startLeft + (index * (rowSpotWidth + rowGap));
+        final baseTop = (constraints.maxHeight * topFraction) - (rowSpotHeight / 2);
+        final horizontalOffset = _horizontalOffsetForPositionCode(
+          positionCode,
+          rowSpotWidth,
+        );
+        final verticalOffset = _verticalOffsetForPositionCode(
+          positionCode,
+          rowSpotHeight,
+        );
+
+        final left = (baseLeft + horizontalOffset)
+            .clamp(8.0, constraints.maxWidth - rowSpotWidth - 8.0)
+            .toDouble();
+        final top = (baseTop + verticalOffset)
+            .clamp(6.0, constraints.maxHeight - rowSpotHeight - 6.0)
+            .toDouble();
 
         widgets.add(
           Positioned(
@@ -119,6 +134,55 @@ class LineupPitchView extends StatelessWidget {
     }
 
     return widgets;
+  }
+
+  double _horizontalOffsetForPositionCode(String positionCode, double spotWidth) {
+    switch (positionCode) {
+      case 'TS':
+        return -(spotWidth * 0.28);
+      case 'TD':
+        return spotWidth * 0.28;
+      case 'ES':
+        return -(spotWidth * 0.24);
+      case 'ED':
+        return spotWidth * 0.24;
+      case 'AS':
+        return -(spotWidth * 0.22);
+      case 'AD':
+        return spotWidth * 0.22;
+      case 'CCS':
+        return spotWidth * 0.16;
+      case 'CCD':
+        return -(spotWidth * 0.16);
+      case 'CDCS':
+        return spotWidth * 0.20;
+      case 'CDCD':
+        return -(spotWidth * 0.20);
+      default:
+        return 0;
+    }
+  }
+
+  double _verticalOffsetForPositionCode(String positionCode, double spotHeight) {
+    if (positionCode == 'COC' ||
+        positionCode == 'COCS' ||
+        positionCode == 'COCD') {
+      return -(spotHeight * 0.16);
+    }
+
+    if (positionCode == 'CDCS' || positionCode == 'CDCD') {
+      return spotHeight * 0.18;
+    }
+
+    if (positionCode == 'CCS' || positionCode == 'CCD') {
+      return spotHeight * 0.06;
+    }
+
+    if (positionCode == 'CDC') {
+      return spotHeight * 0.13;
+    }
+
+    return 0;
   }
 
   Widget _buildGoalkeeper(
