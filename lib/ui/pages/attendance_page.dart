@@ -646,6 +646,7 @@ class _CaptainAttendanceFiltersCard extends StatelessWidget {
     final compact = AppResponsive.isCompact(context);
 
     return Card(
+      key: const Key('attendance-captain-filters-card'),
       child: Padding(
         padding: EdgeInsets.all(AppResponsive.cardPadding(context)),
         child: Column(
@@ -686,12 +687,14 @@ class _CaptainAttendanceFiltersCard extends StatelessWidget {
             if (isExpanded) ...[
               const SizedBox(height: 12),
               TextField(
+                key: const Key('attendance-captain-filter-nome-input'),
                 controller: nomeController,
                 onChanged: (_) => onChanged(),
                 decoration: _inputDecoration('Filtra per nome', Icons.person_outline),
               ),
               const SizedBox(height: 12),
               TextField(
+                key: const Key('attendance-captain-filter-cognome-input'),
                 controller: cognomeController,
                 onChanged: (_) => onChanged(),
                 decoration: _inputDecoration(
@@ -701,6 +704,7 @@ class _CaptainAttendanceFiltersCard extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               TextField(
+                key: const Key('attendance-captain-filter-console-id-input'),
                 controller: consoleIdController,
                 onChanged: (_) => onChanged(),
                 decoration: _inputDecoration(
@@ -713,6 +717,7 @@ class _CaptainAttendanceFiltersCard extends StatelessWidget {
                 SizedBox(
                   width: compact ? double.infinity : null,
                   child: OutlinedButton.icon(
+                    key: const Key('attendance-captain-filters-clear-button'),
                     onPressed: onClearFilters,
                     icon: const Icon(Icons.close_outlined),
                     label: const Text('Rimuovi filtri'),

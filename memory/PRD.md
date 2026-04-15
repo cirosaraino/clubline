@@ -281,6 +281,36 @@ Aggiornare in tempo reale, senza refresh manuale, quando un altro utente crea/mo
 
 ---
 
+## Aggiornamento successivo - Presenze: filtri capitano + riepilogo verde
+
+### Richiesta finale confermata
+- Rimosso filtro "in attesa" (non desiderato).
+- Aggiunto filtro **solo capitano**, collassabile (default chiuso), con 3 campi separati:
+  - nome
+  - cognome
+  - id console
+- Riepilogo in alto verde quando tutti hanno risposto nel periodo selezionato.
+
+### Implementazione
+- In `AttendancePage`:
+  - nuovo pannello `_CaptainAttendanceFiltersCard` visibile **solo** se `viewer.isCaptain == true`
+  - filtri applicati alle card giocatore (`AttendancePlayerEntries`) per nome/cognome/id console
+  - stato collapse persistente in pagina con default chiuso
+  - stato vuoto dedicato quando i filtri non trovano risultati
+- In `AttendanceHeroCard`:
+  - tinta verde card + badge **Completato** quando `pendingCount == 0` su tutti i giorni del periodo
+
+### Hardening anti-regressione
+- Aggiunte key stabili per automation:
+  - `attendance-captain-filters-card`
+  - `attendance-captain-filter-nome-input`
+  - `attendance-captain-filter-cognome-input`
+  - `attendance-captain-filter-console-id-input`
+  - `attendance-captain-filters-clear-button`
+  - `attendance-hero-completed-badge`
+
+---
+
 ## Aggiornamento successivo - Schermata Rosa: filtri collapsable + recap macroruoli
 
 ### Richiesta
