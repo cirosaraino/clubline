@@ -58,7 +58,6 @@ class LineupPitchView extends StatelessWidget {
                 context,
                 constraints,
                 rows,
-                goalkeeperHeight,
               ),
               _buildGoalkeeper(
                 constraints,
@@ -76,16 +75,9 @@ class LineupPitchView extends StatelessWidget {
     BuildContext context,
     BoxConstraints constraints,
     List<List<String>> rows,
-    double goalkeeperHeight,
   ) {
-    if (rows.isEmpty) {
-      return const <Widget>[];
-    }
-
     final rowTopFractions = _rowTopFractions(rows.length);
     final widgets = <Widget>[];
-
-    final rowLayouts = <_RowLayoutData>[];
 
     for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) {
       final row = rows[rowIndex];
@@ -126,52 +118,26 @@ class LineupPitchView extends StatelessWidget {
         minSpacing: minSpacing,
       );
 
-      final desiredCenterY = constraints.maxHeight * topFraction;
-      final desiredTop = desiredCenterY - (rowSpotHeight / 2);
-
-      final minOffset = _minimumVerticalOffsetForRow(row, rowSpotHeight);
-      final maxOffset = _maximumVerticalOffsetForRow(row, rowSpotHeight);
-
-      rowLayouts.add(
-        _RowLayoutData(
-          row: row,
-          lefts: resolvedLefts,
-          spotWidth: rowSpotWidth,
-          spotHeight: rowSpotHeight,
-          desiredTop: desiredTop,
-          minOffset: minOffset,
-          maxOffset: maxOffset,
-        ),
-      );
-    }
-
-    final resolvedTops = _resolveRowTops(
-      rows: rowLayouts,
-      maxHeight: constraints.maxHeight,
-      goalkeeperHeight: goalkeeperHeight,
-    );
-
-    for (var rowIndex = 0; rowIndex < rowLayouts.length; rowIndex++) {
-      final layout = rowLayouts[rowIndex];
-      final rowTop = resolvedTops[rowIndex];
-
-      for (var index = 0; index < layout.row.length; index++) {
-        final positionCode = layout.row[index];
+      for (var index = 0; index < row.length; index++) {
+        final positionCode = row[index];
+        final baseTop =
+            (constraints.maxHeight * topFraction) - (rowSpotHeight / 2);
         final verticalOffset = _verticalOffsetForPositionCode(
           positionCode,
-          layout.spotHeight,
+          rowSpotHeight,
         );
 
-        final top = (rowTop + verticalOffset)
-            .clamp(6.0, constraints.maxHeight - layout.spotHeight - 6.0)
+        final left = resolvedLefts[index];
+        final top = (baseTop + verticalOffset)
+            .clamp(6.0, constraints.maxHeight - rowSpotHeight - 6.0)
             .toDouble();
 
         widgets.add(
           Positioned(
-            left: layout.lefts[index],
+            left: left,
             top: top,
-            width: layout.spotWidth,
-            height: layout.spotHeight,
+            width: rowSpotWidth,
+            height: rowSpotHeight,
             child: _PitchSpot(
               positionCode: positionCode,
               player: selectedPlayersByPosition[positionCode],
@@ -368,28 +334,6 @@ class LineupPitchView extends StatelessWidget {
     return 0;
   }
 
-  double _minimumVerticalOffsetForRow(List<String> row, double spotHeight) {
-    var minOffset = 0.0;
-    for (final positionCode in row) {
-      final offset = _verticalOffsetForPositionCode(positionCode, spotHeight);
-      if (offset < minOffset) {
-        minOffset = offset;
-      }
-    }
-    return minOffset;
-  }
-
-  double _maximumVerticalOffsetForRow(List<String> row, double spotHeight) {
-    var maxOffset = 0.0;
-    for (final positionCode in row) {
-      final offset = _verticalOffsetForPositionCode(positionCode, spotHeight);
-      if (offset > maxOffset) {
-        maxOffset = offset;
-      }
-    }
-    return maxOffset;
-  }
-
   double _minimumHorizontalSeparation(int rowSize, double spotWidth) {
     return switch (rowSize) {
       2 => spotWidth * 0.28,
@@ -398,10 +342,6 @@ class LineupPitchView extends StatelessWidget {
       5 => spotWidth * 0.06,
       _ => spotWidth * 0.08,
     };
-  }
-
-  double _minimumVerticalSeparation(double maxHeight) {
-    return (maxHeight * 0.035).clamp(8.0, 18.0).toDouble();
   }
 
   List<double> _resolveRowLefts({
@@ -490,91 +430,6 @@ class LineupPitchView extends StatelessWidget {
     return backToOriginalOrder;
   }
 
-  List<double> _resolveRowTops({
-    required List<_RowLayoutData> rows,
-    required double maxHeight,
-    required double goalkeeperHeight,
-  }) {
-    if (rows.isEmpty) {
-      return const <double>[];
-    }
-
-    final indexed = rows.asMap().entries.map((entry) {
-      return (index: entry.key, data: entry.value);
-    }).toList();
-
-    indexed.sort((a, b) => a.data.desiredTop.compareTo(b.data.desiredTop));
-
-    final sortedTops = indexed.map((e) => e.data.desiredTop).toList();
-    final minVerticalSpacing = _minimumVerticalSeparation(maxHeight);
-
-    final topBoundary = 6.0;
-    final bottomBoundary = maxHeight - goalkeeperHeight - 24.0;
-
-    for (var i = 0; i < indexed.length; i++) {
-      final row = indexed[i].data;
-      final minTop = topBoundary - row.minOffset;
-      final maxTop = bottomBoundary - row.spotHeight - row.maxOffset;
-      sortedTops[i] = sortedTops[i].clamp(minTop, maxTop).toDouble();
-    }
-
-    for (var i = 1; i < indexed.length; i++) {
-      final previous = indexed[i - 1].data;
-      final current = indexed[i].data;
-
-      final previousBottom =
-          sortedTops[i - 1] + previous.spotHeight + previous.maxOffset;
-      final currentTop = sortedTops[i] + current.minOffset;
-
-      final minAllowedTop =
-          previousBottom + minVerticalSpacing - current.minOffset;
-
-      if (currentTop < previousBottom + minVerticalSpacing) {
-        sortedTops[i] = minAllowedTop;
-      }
-    }
-
-    for (var i = indexed.length - 1; i >= 0; i--) {
-      final row = indexed[i].data;
-      final maxTop = bottomBoundary - row.spotHeight - row.maxOffset;
-      if (sortedTops[i] > maxTop) {
-        final overflow = sortedTops[i] - maxTop;
-        for (var j = 0; j <= i; j++) {
-          sortedTops[j] -= overflow;
-        }
-      }
-    }
-
-    for (var i = indexed.length - 2; i >= 0; i--) {
-      final current = indexed[i].data;
-      final next = indexed[i + 1].data;
-
-      final currentBottom =
-          sortedTops[i] + current.spotHeight + current.maxOffset;
-      final nextTop = sortedTops[i + 1] + next.minOffset;
-      final maxAllowedTop =
-          nextTop - minVerticalSpacing - current.spotHeight - current.maxOffset;
-
-      if (currentBottom > nextTop - minVerticalSpacing) {
-        sortedTops[i] = maxAllowedTop;
-      }
-    }
-
-    for (var i = 0; i < indexed.length; i++) {
-      final row = indexed[i].data;
-      final minTop = topBoundary - row.minOffset;
-      final maxTop = bottomBoundary - row.spotHeight - row.maxOffset;
-      sortedTops[i] = sortedTops[i].clamp(minTop, maxTop).toDouble();
-    }
-
-    final backToOriginalOrder = List<double>.filled(rows.length, 0);
-    for (var i = 0; i < indexed.length; i++) {
-      backToOriginalOrder[indexed[i].index] = sortedTops[i];
-    }
-
-    return backToOriginalOrder;
-  }
-
   Widget _buildGoalkeeper(
     BoxConstraints constraints,
     double spotWidth,
@@ -632,26 +487,6 @@ class LineupPitchView extends StatelessWidget {
     final heightCap = (maxHeight * 0.14).clamp(48.0, 70.0).toDouble();
     return calculatedHeight.clamp(48.0, heightCap).toDouble();
   }
-}
-
-class _RowLayoutData {
-  const _RowLayoutData({
-    required this.row,
-    required this.lefts,
-    required this.spotWidth,
-    required this.spotHeight,
-    required this.desiredTop,
-    required this.minOffset,
-    required this.maxOffset,
-  });
-
-  final List<String> row;
-  final List<double> lefts;
-  final double spotWidth;
-  final double spotHeight;
-  final double desiredTop;
-  final double minOffset;
-  final double maxOffset;
 }
 
 class _PitchSpot extends StatelessWidget {
