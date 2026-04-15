@@ -64,8 +64,8 @@ class AttendanceHeroCard extends StatelessWidget {
                   ),
                 ),
                 if (isFullyAnswered)
-                  const AppCountPill(
-                    key: Key('attendance-hero-completed-badge'),
+                  AppCountPill(
+                    key: const Key('attendance-hero-completed-badge'),
                     label: 'Completato',
                     icon: Icons.check_circle_outline,
                     color: UltrasAppTheme.success,

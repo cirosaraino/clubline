@@ -309,6 +309,11 @@ Aggiornare in tempo reale, senza refresh manuale, quando un altro utente crea/mo
   - `attendance-captain-filters-clear-button`
   - `attendance-hero-completed-badge`
 
+### Hotfix compilazione Web
+- Corretto errore di compile-time in `attendance_overview_cards.dart`:
+  - `AppCountPill` del badge "Completato" non può essere `const` con colore tema runtime.
+  - Rimosso `const` dal widget specifico mantenendo invariata la UI.
+
 ---
 
 ## Aggiornamento successivo - Schermata Rosa: filtri collapsable + recap macroruoli
