@@ -373,6 +373,12 @@ Aggiornare in tempo reale, senza refresh manuale, quando un altro utente crea/mo
   2. Card "Disponibilità filtrate"
 - Ridotti padding, gap verticali, dimensioni icona e raggio bordi per migliorare densità visiva mantenendo leggibilità.
 
+### Refinement successivo (coerenza header)
+- Reso più uniforme l’header meta della schermata gestione formazione:
+  - modulo e data/ora ora sono allineati nello stesso blocco `Wrap` con pill consistenti
+  - introdotta icona modulo per coerenza visiva con data/ora
+  - ridotti ulteriormente gap verticali per look più compatto e ordinato
+
 ### Hotfix compilazione Web
 - Corretto errore di compile-time in `attendance_overview_cards.dart`:
   - `AppCountPill` del badge "Completato" non può essere `const` con colore tema runtime.

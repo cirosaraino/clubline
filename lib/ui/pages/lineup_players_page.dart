@@ -456,7 +456,7 @@ class _LineupPlayersPageState extends State<LineupPlayersPage> {
                               fontWeight: FontWeight.w800,
                             ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
@@ -464,31 +464,16 @@ class _LineupPlayersPageState extends State<LineupPlayersPage> {
                           AppCountPill(
                             label: 'Modulo',
                             value: widget.lineup.formationModule,
+                            icon: Icons.grid_view_rounded,
                             emphasized: true,
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(
-                            Icons.schedule_outlined,
-                            size: 18,
-                            color: UltrasAppTheme.textMuted,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              widget.lineup.matchDateTimeDisplay,
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: UltrasAppTheme.textMuted,
-                                  ),
-                            ),
+                          AppCountPill(
+                            label: widget.lineup.matchDateTimeDisplay,
+                            icon: Icons.schedule_outlined,
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
                       Text(
                         isReadOnly
                             ? readOnlyDescription
