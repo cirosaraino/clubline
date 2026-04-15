@@ -160,19 +160,39 @@ class LineupPitchView extends StatelessWidget {
         row.length == 2 && row.contains('ES') && row.contains('ED');
 
     if (isWideExternalPair) {
-      return List<double>.generate(row.length, (index) {
-        final positionCode = row[index];
+      final virtualRowCount = 4;
+      final virtualGap = _horizontalGap(virtualRowCount);
+      final virtualSpotWidth = _spotWidthForRow(
+        constraints.maxWidth,
+        virtualRowCount,
+        virtualGap,
+      );
 
+      final virtualTotalRowWidth =
+          (virtualSpotWidth * virtualRowCount) +
+          (virtualGap * (virtualRowCount - 1));
+
+      final virtualStartLeft =
+          (constraints.maxWidth - virtualTotalRowWidth) / 2;
+
+      final leftWingBase = virtualStartLeft;
+      final rightWingBase =
+          virtualStartLeft + (3 * (virtualSpotWidth + virtualGap));
+
+      final leftWing =
+          leftWingBase + _horizontalOffsetForPositionCode('TS', virtualSpotWidth);
+      final rightWing =
+          rightWingBase + _horizontalOffsetForPositionCode('TD', virtualSpotWidth);
+
+      return row.map((positionCode) {
         if (positionCode == 'ES') {
-          return constraints.maxWidth * 0.18;
+          return leftWing;
         }
-
         if (positionCode == 'ED') {
-          return (constraints.maxWidth * 0.82) - rowSpotWidth;
+          return rightWing;
         }
-
-        return startLeft + (index * (rowSpotWidth + rowGap));
-      });
+        return startLeft;
+      }).toList();
     }
 
     return List<double>.generate(row.length, (index) {
@@ -411,7 +431,8 @@ class _PitchSpot extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final compact = constraints.maxHeight < 64 || constraints.maxWidth < 70;
+            final compact =
+                constraints.maxHeight < 64 || constraints.maxWidth < 70;
             final ultraCompact =
                 constraints.maxHeight < 60 || constraints.maxWidth < 78;
             final showFullName =
