@@ -95,23 +95,37 @@ class LineupPitchView extends StatelessWidget {
       final totalRowWidth =
           (rowSpotWidth * row.length) + (rowGap * (row.length - 1));
       final startLeft = (constraints.maxWidth - totalRowWidth) / 2;
+      final minLeft = 8.0;
+      final maxLeft = constraints.maxWidth - rowSpotWidth - 8.0;
+      final minSpacing = _minimumHorizontalSeparation(row.length, rowSpotWidth);
 
-      for (var index = 0; index < row.length; index++) {
+      final desiredLefts = List<double>.generate(row.length, (index) {
         final positionCode = row[index];
         final baseLeft = startLeft + (index * (rowSpotWidth + rowGap));
-        final baseTop = (constraints.maxHeight * topFraction) - (rowSpotHeight / 2);
         final horizontalOffset = _horizontalOffsetForPositionCode(
           positionCode,
           rowSpotWidth,
         );
+        return baseLeft + horizontalOffset;
+      });
+
+      final resolvedLefts = _resolveRowLefts(
+        desiredLefts: desiredLefts,
+        spotWidth: rowSpotWidth,
+        minLeft: minLeft,
+        maxLeft: maxLeft,
+        minSpacing: minSpacing,
+      );
+
+      for (var index = 0; index < row.length; index++) {
+        final positionCode = row[index];
+        final baseTop = (constraints.maxHeight * topFraction) - (rowSpotHeight / 2);
         final verticalOffset = _verticalOffsetForPositionCode(
           positionCode,
           rowSpotHeight,
         );
 
-        final left = (baseLeft + horizontalOffset)
-            .clamp(8.0, constraints.maxWidth - rowSpotWidth - 8.0)
-            .toDouble();
+        final left = resolvedLefts[index];
         final top = (baseTop + verticalOffset)
             .clamp(6.0, constraints.maxHeight - rowSpotHeight - 6.0)
             .toDouble();
@@ -139,25 +153,25 @@ class LineupPitchView extends StatelessWidget {
   double _horizontalOffsetForPositionCode(String positionCode, double spotWidth) {
     switch (positionCode) {
       case 'TS':
-        return -(spotWidth * 0.28);
-      case 'TD':
-        return spotWidth * 0.28;
-      case 'ES':
         return -(spotWidth * 0.24);
-      case 'ED':
+      case 'TD':
         return spotWidth * 0.24;
-      case 'AS':
-        return -(spotWidth * 0.22);
-      case 'AD':
-        return spotWidth * 0.22;
-      case 'CCS':
-        return -(spotWidth * 0.16);
-      case 'CCD':
-        return spotWidth * 0.16;
-      case 'CDCS':
+      case 'ES':
         return -(spotWidth * 0.20);
-      case 'CDCD':
+      case 'ED':
         return spotWidth * 0.20;
+      case 'AS':
+        return -(spotWidth * 0.18);
+      case 'AD':
+        return spotWidth * 0.18;
+      case 'CCS':
+        return -(spotWidth * 0.12);
+      case 'CCD':
+        return spotWidth * 0.12;
+      case 'CDCS':
+        return -(spotWidth * 0.15);
+      case 'CDCD':
+        return spotWidth * 0.15;
       default:
         return 0;
     }
@@ -183,6 +197,95 @@ class LineupPitchView extends StatelessWidget {
     }
 
     return 0;
+  }
+
+  double _minimumHorizontalSeparation(int rowSize, double spotWidth) {
+    if (rowSize >= 5) {
+      return spotWidth * 0.08;
+    }
+
+    if (rowSize == 4) {
+      return spotWidth * 0.10;
+    }
+
+    return spotWidth * 0.12;
+  }
+
+  List<double> _resolveRowLefts({
+    required List<double> desiredLefts,
+    required double spotWidth,
+    required double minLeft,
+    required double maxLeft,
+    required double minSpacing,
+  }) {
+    if (desiredLefts.isEmpty) {
+      return const <double>[];
+    }
+
+    final availableSpan = maxLeft - minLeft;
+    final requiredSpan = (spotWidth * desiredLefts.length) +
+        (minSpacing * (desiredLefts.length - 1));
+
+    if (requiredSpan > availableSpan && desiredLefts.length > 1) {
+      final compressedSpacing =
+          ((availableSpan - (spotWidth * desiredLefts.length)) /
+                  (desiredLefts.length - 1))
+              .clamp(0.0, minSpacing)
+              .toDouble();
+
+      return List<double>.generate(
+        desiredLefts.length,
+        (index) => minLeft + (index * (spotWidth + compressedSpacing)),
+      );
+    }
+
+    final resolved = desiredLefts
+        .map((value) => value.clamp(minLeft, maxLeft).toDouble())
+        .toList();
+
+    for (var i = 1; i < resolved.length; i++) {
+      final minimumCurrent = resolved[i - 1] + spotWidth + minSpacing;
+      if (resolved[i] < minimumCurrent) {
+        resolved[i] = minimumCurrent;
+      }
+    }
+
+    if (resolved.last > maxLeft) {
+      resolved[resolved.length - 1] = maxLeft;
+      for (var i = resolved.length - 2; i >= 0; i--) {
+        final maximumCurrent = resolved[i + 1] - spotWidth - minSpacing;
+        if (resolved[i] > maximumCurrent) {
+          resolved[i] = maximumCurrent;
+        }
+      }
+    }
+
+    if (resolved.first < minLeft) {
+      final shiftRight = minLeft - resolved.first;
+      for (var i = 0; i < resolved.length; i++) {
+        resolved[i] += shiftRight;
+      }
+    }
+
+    if (resolved.last > maxLeft) {
+      final shiftLeft = resolved.last - maxLeft;
+      for (var i = 0; i < resolved.length; i++) {
+        resolved[i] -= shiftLeft;
+      }
+    }
+
+    for (var i = 1; i < resolved.length; i++) {
+      final minimumCurrent = resolved[i - 1] + spotWidth + minSpacing;
+      if (resolved[i] < minimumCurrent) {
+        resolved[i] = minimumCurrent;
+      }
+    }
+
+    for (var i = 0; i < resolved.length; i++) {
+      resolved[i] = resolved[i].clamp(minLeft, maxLeft).toDouble();
+    }
+
+    return resolved;
   }
 
   Widget _buildGoalkeeper(
@@ -232,14 +335,14 @@ class LineupPitchView extends StatelessWidget {
   ) {
     const sidePadding = 18.0;
     final availableWidth = totalWidth - (sidePadding * 2) - (gap * (itemCount - 1));
-    final calculatedWidth = availableWidth / itemCount;
-    return calculatedWidth.clamp(54.0, 90.0).toDouble();
+    final calculatedWidth = (availableWidth / itemCount) * 0.96;
+    return calculatedWidth.clamp(50.0, 88.0).toDouble();
   }
 
   double _spotHeightForWidth(double spotWidth, double maxHeight) {
     final calculatedHeight = spotWidth * 0.78;
-    final heightCap = (maxHeight * 0.14).clamp(52.0, 72.0).toDouble();
-    return calculatedHeight.clamp(52.0, heightCap).toDouble();
+    final heightCap = (maxHeight * 0.14).clamp(48.0, 70.0).toDouble();
+    return calculatedHeight.clamp(48.0, heightCap).toDouble();
   }
 }
 

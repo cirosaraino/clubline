@@ -401,6 +401,7 @@ class _LineupPlayersPageState extends State<LineupPlayersPage> {
     final canViewManagerFilters = _canManageLineups;
     final compact = AppResponsive.isCompact(context);
     final horizontalPadding = AppResponsive.horizontalPadding(context);
+    final headerCardPadding = compact ? 10.0 : 12.0;
     final isViewerIncluded = currentUser != null &&
         selectedPlayerIdsByPosition.values.any((playerId) => playerId == currentUser.id);
     final readOnlyDescription = currentUser == null
@@ -444,9 +445,9 @@ class _LineupPlayersPageState extends State<LineupPlayersPage> {
           child: Column(
             children: [
               Card(
-                margin: EdgeInsets.fromLTRB(horizontalPadding, 12, horizontalPadding, 12),
+                margin: EdgeInsets.fromLTRB(horizontalPadding, 8, horizontalPadding, 8),
                 child: Padding(
-                  padding: EdgeInsets.all(AppResponsive.cardPadding(context)),
+                  padding: EdgeInsets.all(headerCardPadding),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -511,7 +512,7 @@ class _LineupPlayersPageState extends State<LineupPlayersPage> {
               ),
               if (errorMessage != null)
                 Padding(
-                  padding: EdgeInsets.fromLTRB(horizontalPadding, 0, horizontalPadding, 12),
+                  padding: EdgeInsets.fromLTRB(horizontalPadding, 0, horizontalPadding, 8),
                   child: Text(
                     errorMessage!,
                     style: const TextStyle(color: Colors.red),
@@ -519,7 +520,7 @@ class _LineupPlayersPageState extends State<LineupPlayersPage> {
                 ),
               Expanded(
                 child: Padding(
-                  padding: EdgeInsets.fromLTRB(horizontalPadding, 0, horizontalPadding, 12),
+                  padding: EdgeInsets.fromLTRB(horizontalPadding, 0, horizontalPadding, 8),
                   child: LineupPitchView(
                     formationModule: widget.lineup.formationModule,
                     selectedPlayersByPosition: _selectedPlayersByPosition(),

@@ -1,0 +1,63 @@
+{
+  "summary": "Frontend-only verification attempted for lineup anti-overlap/compaction update. Public app loads, but runtime navigation is blocked by non-selectable Flutter canvas controls in Playwright (3 selector attempts failed). Static code review confirms anti-overlap solver integration and compact header changes, but reveals a likely span-calculation bug that can over-compress row spacing and weaken role separation.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Guest access card buttons (Accedi/Registrati)",
+        "issue": "Buttons are visible but not selectable through Playwright locators (role/text), preventing deterministic E2E progression to lineup screens.",
+        "selector": "get_by_role('button', name='Registrati', exact=True), get_by_text('Registrati', exact=True)",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Home -> signup/login -> lineup_players_page visual/runtime checks",
+        "issue": "Blocked at first interaction due to inaccessible automation surface; could not execute end-to-end validation of tap-on-pitch and real rendered slot geometry.",
+        "affected_selectors": [
+          "button[Registrati]",
+          "button[Accedi]"
+        ]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/lib/ui/widgets/lineup_pitch_view.dart",
+    "/app/lib/ui/pages/lineup_players_page.dart",
+    "/app/lib/core/lineup_pitch_layouts.dart",
+    "/app/test/lineup_pitch_view_layout_test.dart",
+    "/root/.emergent/automation_output/20260415_094532/console_20260415_094532.log",
+    "/root/.emergent/automation_output/20260415_094627/console_20260415_094627.log",
+    "/root/.emergent/automation_output/20260415_094725/console_20260415_094725.log"
+  ],
+  "action_items": [
+    "Fix testability of Flutter web controls (expose semantics/test hooks) so auth and lineup flows are automatable.",
+    "Review _resolveRowLefts span math in lineup_pitch_view.dart: requiredSpan currently includes n*spotWidth while availableSpan is left-coordinate span (maxLeft-minLeft), likely forcing premature compression and zero spacing.",
+    "After span-math fix, retest role split clarity specifically for CCS/CCD and CDCS/CDCD across dense modules (4-2-2-2, 3-5-2, 5-2-3).",
+    "Run manual visual smoke on lineup_players_page until semantic hooks are available: confirm no overlap + spot tap opens picker in editable mode."
+  ],
+  "critical_code_review_comments": [
+    "Anti-overlap solver _resolveRowLefts is correctly integrated and called for every outfield row.",
+    "Potential logic defect: availableSpan uses left-bound range (maxLeft-minLeft), but requiredSpan compares against total row width including all spot widths; this mismatch can trigger compression path unnecessarily and discard desired offsets by rebuilding evenly from minLeft.",
+    "Role offset sign mapping appears corrected for split roles in current file (CCS/CDCS negative, CCD/CDCD positive).",
+    "Header/meta block in lineup_players_page is compacted (reduced card margin/padding and tighter spacing) while pitch remains in Expanded area."
+  ],
+  "updated_files": [
+    "/app/test/lineup_pitch_view_layout_test.dart",
+    "/app/test_reports/iteration_6.json"
+  ],
+  "success_rate": {
+    "backend": "N/A (skipped by request)",
+    "frontend": "40%"
+  },
+  "test_credentials": "Checked /app/memory/test_credentials.md; no persisted test credentials available.",
+  "seed_data_creation": "",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Public URL tested: https://squadra-web.onrender.com. Page loads and renders expected UI text, but Playwright cannot interact with visible Flutter controls (3 attempts: role-based, text-based, semantics inspection). Also note flutter CLI is unavailable in this container (flutter: command not found), so added widget test file could not be executed here.",
+  "rca of the issue": "Repro (code-level): in _resolveRowLefts, availableSpan=maxLeft-minLeft is compared against requiredSpan=(spotWidth*n)+(minSpacing*(n-1)). These are different units of span (left-coordinate span vs full row width), which can force the compression branch even when row can fit. Compression branch rebuilds lefts from minLeft with compressed spacing and ignores desired offsets, reducing intended side separation. Mitigation: compare compatible spans (e.g., include +spotWidth in available capacity, or compare left-position span using (n-1)*(spotWidth+spacing)) and preserve desired offset ordering during compression."
+}
