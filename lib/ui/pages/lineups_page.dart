@@ -357,6 +357,7 @@ class _LineupsPageState extends State<LineupsPage> {
         actions: [
           if (canManageLineups && lineups.isNotEmpty)
             IconButton(
+              key: const Key('lineups-delete-all-button'),
               tooltip: 'Elimina tutte le formazioni',
               onPressed: isDeletingAll ? null : _deleteAllLineups,
               icon: isDeletingAll
@@ -465,6 +466,7 @@ class _LineupsPageState extends State<LineupsPage> {
     return _buildScrollableBody([
       for (final dayKey in orderedDayKeys)
         _LineupsDayGroupCard(
+          dayKey: dayKey,
           dayLabel: _formatDayLabel(dayDateByKey[dayKey]!),
           lineupsCount: groupedByDay[dayKey]!.length,
           isExpanded: !collapsedDayKeys.contains(dayKey),
@@ -560,6 +562,7 @@ class _LineupsStatusCard extends StatelessWidget {
 
 class _LineupsDayGroupCard extends StatelessWidget {
   const _LineupsDayGroupCard({
+    required this.dayKey,
     required this.dayLabel,
     required this.lineupsCount,
     required this.isExpanded,
@@ -567,6 +570,7 @@ class _LineupsDayGroupCard extends StatelessWidget {
     required this.child,
   });
 
+  final String dayKey;
   final String dayLabel;
   final int lineupsCount;
   final bool isExpanded;
@@ -582,6 +586,7 @@ class _LineupsDayGroupCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             InkWell(
+              key: Key('lineups-day-group-toggle-$dayKey'),
               onTap: onToggle,
               borderRadius: BorderRadius.circular(14),
               child: Padding(

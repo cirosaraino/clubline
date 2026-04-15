@@ -322,6 +322,33 @@ Aggiornare in tempo reale, senza refresh manuale, quando un altro utente crea/mo
 - In sezione **"Chi manca ancora"** rimosso il testo "Mostra/Nascondi dettagli":
   - lasciata solo la freccia come controllo di apertura/chiusura dropdown.
 
+---
+
+## Aggiornamento successivo - Formazioni: eliminazione totale + raggruppamento per giornata
+
+### Richiesta
+- Pulsante eliminazione totale formazioni (solo utenti con permesso gestione formazioni: capitano + vice abilitato).
+- Raggruppamento formazioni per giornata con dropdown collassabili.
+- Stato iniziale: aperto solo giorno corrente; se il giorno corrente non esiste, tutti chiusi.
+
+### Implementazione backend
+- Nuovo endpoint: `DELETE /api/lineups/all` (auth required).
+- Logica service: cancella tutte le formazioni e relative assegnazioni (`lineup_players`) con controllo permessi.
+- Route order sicuro: `/all` definita prima di `/:id` per evitare shadowing.
+
+### Implementazione frontend
+- `LineupRepository.deleteAllLineups()` aggiunto.
+- In `LineupsPage`:
+  - nuovo pulsante AppBar `delete_sweep` con dialog conferma semplice
+  - feedback loading/snackbar e sync realtime dopo eliminazione totale
+  - grouping per giorno con card `_LineupsDayGroupCard` collassabili
+  - default collapses all e apre solo il giorno corrente se presente; altrimenti tutti chiusi
+
+### Hardening
+- Test hooks aggiunti:
+  - `lineups-delete-all-button`
+  - `lineups-day-group-toggle-<dayKey>`
+
 ### Hotfix compilazione Web
 - Corretto errore di compile-time in `attendance_overview_cards.dart`:
   - `AppCountPill` del badge "Completato" non può essere `const` con colore tema runtime.
