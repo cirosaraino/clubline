@@ -58,6 +58,7 @@ class LineupPitchView extends StatelessWidget {
                 context,
                 constraints,
                 rows,
+                goalkeeperHeight,
               ),
               _buildGoalkeeper(
                 constraints,
@@ -75,13 +76,21 @@ class LineupPitchView extends StatelessWidget {
     BuildContext context,
     BoxConstraints constraints,
     List<List<String>> rows,
+    double goalkeeperHeight,
   ) {
+    if (rows.isEmpty) {
+      return const <Widget>[];
+    }
+
     final rowTopFractions = _rowTopFractions(rows.length);
     final widgets = <Widget>[];
+
+    final rowLayouts = <_RowLayoutData>[];
 
     for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) {
       final row = rows[rowIndex];
       final topFraction = rowTopFractions[rowIndex];
+
       final rowGap = _horizontalGap(row.length);
       final rowSpotWidth = _spotWidthForRow(
         constraints.maxWidth,
@@ -92,9 +101,11 @@ class LineupPitchView extends StatelessWidget {
         rowSpotWidth,
         constraints.maxHeight,
       );
+
       final totalRowWidth =
           (rowSpotWidth * row.length) + (rowGap * (row.length - 1));
       final startLeft = (constraints.maxWidth - totalRowWidth) / 2;
+
       final minLeft = 8.0;
       final maxLeft = constraints.maxWidth - rowSpotWidth - 8.0;
       final minSpacing = _minimumHorizontalSeparation(row.length, rowSpotWidth);
@@ -115,26 +126,52 @@ class LineupPitchView extends StatelessWidget {
         minSpacing: minSpacing,
       );
 
-      for (var index = 0; index < row.length; index++) {
-        final positionCode = row[index];
-        final baseTop =
-            (constraints.maxHeight * topFraction) - (rowSpotHeight / 2);
+      final desiredCenterY = constraints.maxHeight * topFraction;
+      final desiredTop = desiredCenterY - (rowSpotHeight / 2);
+
+      final minOffset = _minimumVerticalOffsetForRow(row, rowSpotHeight);
+      final maxOffset = _maximumVerticalOffsetForRow(row, rowSpotHeight);
+
+      rowLayouts.add(
+        _RowLayoutData(
+          row: row,
+          lefts: resolvedLefts,
+          spotWidth: rowSpotWidth,
+          spotHeight: rowSpotHeight,
+          desiredTop: desiredTop,
+          minOffset: minOffset,
+          maxOffset: maxOffset,
+        ),
+      );
+    }
+
+    final resolvedTops = _resolveRowTops(
+      rows: rowLayouts,
+      maxHeight: constraints.maxHeight,
+      goalkeeperHeight: goalkeeperHeight,
+    );
+
+    for (var rowIndex = 0; rowIndex < rowLayouts.length; rowIndex++) {
+      final layout = rowLayouts[rowIndex];
+      final rowTop = resolvedTops[rowIndex];
+
+      for (var index = 0; index < layout.row.length; index++) {
+        final positionCode = layout.row[index];
         final verticalOffset = _verticalOffsetForPositionCode(
           positionCode,
-          rowSpotHeight,
+          layout.spotHeight,
         );
 
-        final left = resolvedLefts[index];
-        final top = (baseTop + verticalOffset)
-            .clamp(6.0, constraints.maxHeight - rowSpotHeight - 6.0)
+        final top = (rowTop + verticalOffset)
+            .clamp(6.0, constraints.maxHeight - layout.spotHeight - 6.0)
             .toDouble();
 
         widgets.add(
           Positioned(
-            left: left,
+            left: layout.lefts[index],
             top: top,
-            width: rowSpotWidth,
-            height: rowSpotHeight,
+            width: layout.spotWidth,
+            height: layout.spotHeight,
             child: _PitchSpot(
               positionCode: positionCode,
               player: selectedPlayersByPosition[positionCode],
@@ -156,55 +193,130 @@ class LineupPitchView extends StatelessWidget {
     required double rowGap,
     required double startLeft,
   }) {
-    final isWideExternalPair =
-        row.length == 2 && row.contains('ES') && row.contains('ED');
-
-    if (isWideExternalPair) {
-      final virtualRowCount = 4;
-      final virtualGap = _horizontalGap(virtualRowCount);
-      final virtualSpotWidth = _spotWidthForRow(
-        constraints.maxWidth,
-        virtualRowCount,
-        virtualGap,
-      );
-
-      final virtualTotalRowWidth =
-          (virtualSpotWidth * virtualRowCount) +
-          (virtualGap * (virtualRowCount - 1));
-
-      final virtualStartLeft =
-          (constraints.maxWidth - virtualTotalRowWidth) / 2;
-
-      final leftWingBase = virtualStartLeft;
-      final rightWingBase =
-          virtualStartLeft + (3 * (virtualSpotWidth + virtualGap));
-
-      final leftWing =
-          leftWingBase + _horizontalOffsetForPositionCode('TS', virtualSpotWidth);
-      final rightWing =
-          rightWingBase + _horizontalOffsetForPositionCode('TD', virtualSpotWidth);
-
-      return row.map((positionCode) {
-        if (positionCode == 'ES') {
-          return leftWing;
-        }
-        if (positionCode == 'ED') {
-          return rightWing;
-        }
-        return startLeft;
-      }).toList();
+    if (row.isEmpty) {
+      return const <double>[];
     }
+
+    final rowSpan = _targetRowSpan(
+      row: row,
+      maxWidth: constraints.maxWidth,
+      spotWidth: rowSpotWidth,
+    );
+
+    final centerX = constraints.maxWidth / 2;
+
+    final usableLeft =
+        (centerX - (rowSpan / 2)).clamp(8.0, constraints.maxWidth).toDouble();
+    final usableRight = (centerX + (rowSpan / 2))
+        .clamp(0.0, constraints.maxWidth - 8.0)
+        .toDouble();
+
+    final slotCenters = _distributedCenters(
+      count: row.length,
+      minCenter: usableLeft + (rowSpotWidth / 2),
+      maxCenter: usableRight - (rowSpotWidth / 2),
+    );
 
     return List<double>.generate(row.length, (index) {
       final positionCode = row[index];
-      final baseLeft = startLeft + (index * (rowSpotWidth + rowGap));
+      final baseLeft = slotCenters[index] - (rowSpotWidth / 2);
 
-      final horizontalOffset = _horizontalOffsetForPositionCode(
-        positionCode,
-        rowSpotWidth,
+      final horizontalOffset = _horizontalOffsetForRowPosition(
+        row: row,
+        positionCode: positionCode,
+        spotWidth: rowSpotWidth,
+        maxWidth: constraints.maxWidth,
       );
+
       return baseLeft + horizontalOffset;
     });
+  }
+
+  double _targetRowSpan({
+    required List<String> row,
+    required double maxWidth,
+    required double spotWidth,
+  }) {
+    final count = row.length;
+    final horizontalPadding = 16.0 * 2;
+    final maxUsableSpan = maxWidth - horizontalPadding;
+
+    if (count == 1) {
+      return spotWidth;
+    }
+
+    final isOnlyWidePair =
+        count == 2 && row.contains('ES') && row.contains('ED');
+
+    if (isOnlyWidePair) {
+      return (maxWidth * 0.46).clamp(
+        spotWidth * 2.4,
+        maxUsableSpan,
+      ).toDouble();
+    }
+
+    final wideRoles = {'TS', 'TD', 'ES', 'ED', 'AS', 'AD'};
+    final hasWideRoles = row.any(wideRoles.contains);
+
+    final baseSpacingMultiplier = switch (count) {
+      2 => hasWideRoles ? 1.55 : 1.25,
+      3 => hasWideRoles ? 1.18 : 1.05,
+      4 => 1.0,
+      5 => 0.94,
+      _ => 0.90,
+    };
+
+    final span =
+        (spotWidth * count) + (spotWidth * (count - 1) * baseSpacingMultiplier);
+
+    return span.clamp(
+      spotWidth * count,
+      maxUsableSpan,
+    ).toDouble();
+  }
+
+  List<double> _distributedCenters({
+    required int count,
+    required double minCenter,
+    required double maxCenter,
+  }) {
+    if (count <= 0) {
+      return const <double>[];
+    }
+
+    if (count == 1) {
+      return <double>[(minCenter + maxCenter) / 2];
+    }
+
+    final step = (maxCenter - minCenter) / (count - 1);
+
+    return List<double>.generate(
+      count,
+      (index) => minCenter + (step * index),
+    );
+  }
+
+  double _horizontalOffsetForRowPosition({
+    required List<String> row,
+    required String positionCode,
+    required double spotWidth,
+    required double maxWidth,
+  }) {
+    final isOnlyWidePair =
+        row.length == 2 && row.contains('ES') && row.contains('ED');
+
+    if (isOnlyWidePair) {
+      switch (positionCode) {
+        case 'ES':
+          return -(spotWidth * 0.10);
+        case 'ED':
+          return spotWidth * 0.10;
+        default:
+          return 0;
+      }
+    }
+
+    return _horizontalOffsetForPositionCode(positionCode, spotWidth);
   }
 
   double _horizontalOffsetForPositionCode(String positionCode, double spotWidth) {
@@ -256,16 +368,40 @@ class LineupPitchView extends StatelessWidget {
     return 0;
   }
 
+  double _minimumVerticalOffsetForRow(List<String> row, double spotHeight) {
+    var minOffset = 0.0;
+    for (final positionCode in row) {
+      final offset = _verticalOffsetForPositionCode(positionCode, spotHeight);
+      if (offset < minOffset) {
+        minOffset = offset;
+      }
+    }
+    return minOffset;
+  }
+
+  double _maximumVerticalOffsetForRow(List<String> row, double spotHeight) {
+    var maxOffset = 0.0;
+    for (final positionCode in row) {
+      final offset = _verticalOffsetForPositionCode(positionCode, spotHeight);
+      if (offset > maxOffset) {
+        maxOffset = offset;
+      }
+    }
+    return maxOffset;
+  }
+
   double _minimumHorizontalSeparation(int rowSize, double spotWidth) {
-    if (rowSize >= 5) {
-      return spotWidth * 0.08;
-    }
+    return switch (rowSize) {
+      2 => spotWidth * 0.28,
+      3 => spotWidth * 0.18,
+      4 => spotWidth * 0.10,
+      5 => spotWidth * 0.06,
+      _ => spotWidth * 0.08,
+    };
+  }
 
-    if (rowSize == 4) {
-      return spotWidth * 0.10;
-    }
-
-    return spotWidth * 0.12;
+  double _minimumVerticalSeparation(double maxHeight) {
+    return (maxHeight * 0.035).clamp(8.0, 18.0).toDouble();
   }
 
   List<double> _resolveRowLefts({
@@ -279,69 +415,164 @@ class LineupPitchView extends StatelessWidget {
       return const <double>[];
     }
 
-    final availableStartSpan = maxLeft - minLeft;
-    final requiredStartSpan =
-        (desiredLefts.length - 1) * (spotWidth + minSpacing);
+    final indexed = desiredLefts.asMap().entries.map((entry) {
+      return (index: entry.key, left: entry.value);
+    }).toList();
 
-    if (requiredStartSpan > availableStartSpan && desiredLefts.length > 1) {
+    indexed.sort((a, b) => a.left.compareTo(b.left));
+
+    final count = indexed.length;
+    final sortedLefts = indexed.map((e) => e.left).toList();
+
+    final totalRequiredWidth =
+        (count * spotWidth) + ((count - 1) * minSpacing);
+    final availableWidth = (maxLeft - minLeft) + spotWidth;
+
+    if (totalRequiredWidth > availableWidth && count > 1) {
       final compressedSpacing =
-          ((availableStartSpan / (desiredLefts.length - 1)) - spotWidth)
+          ((availableWidth - (count * spotWidth)) / (count - 1))
               .clamp(0.0, minSpacing)
               .toDouble();
 
-      return List<double>.generate(
-        desiredLefts.length,
-        (index) => minLeft + (index * (spotWidth + compressedSpacing)),
+      final compressed = List<double>.generate(
+        count,
+        (index) => minLeft + index * (spotWidth + compressedSpacing),
       );
+
+      final backToOriginalOrder = List<double>.filled(count, 0);
+      for (var i = 0; i < count; i++) {
+        backToOriginalOrder[indexed[i].index] = compressed[i];
+      }
+      return backToOriginalOrder;
     }
 
-    final resolved = desiredLefts
-        .map((value) => value.clamp(minLeft, maxLeft).toDouble())
-        .toList();
+    for (var i = 0; i < count; i++) {
+      sortedLefts[i] = sortedLefts[i].clamp(minLeft, maxLeft).toDouble();
+    }
 
-    for (var i = 1; i < resolved.length; i++) {
-      final minimumCurrent = resolved[i - 1] + spotWidth + minSpacing;
-      if (resolved[i] < minimumCurrent) {
-        resolved[i] = minimumCurrent;
+    for (var i = 1; i < count; i++) {
+      final minAllowed = sortedLefts[i - 1] + spotWidth + minSpacing;
+      if (sortedLefts[i] < minAllowed) {
+        sortedLefts[i] = minAllowed;
       }
     }
 
-    if (resolved.last > maxLeft) {
-      resolved[resolved.length - 1] = maxLeft;
-      for (var i = resolved.length - 2; i >= 0; i--) {
-        final maximumCurrent = resolved[i + 1] - spotWidth - minSpacing;
-        if (resolved[i] > maximumCurrent) {
-          resolved[i] = maximumCurrent;
+    if (sortedLefts.last > maxLeft) {
+      final overflow = sortedLefts.last - maxLeft;
+      for (var i = 0; i < count; i++) {
+        sortedLefts[i] -= overflow;
+      }
+    }
+
+    if (sortedLefts.first < minLeft) {
+      final underflow = minLeft - sortedLefts.first;
+      for (var i = 0; i < count; i++) {
+        sortedLefts[i] += underflow;
+      }
+    }
+
+    for (var i = count - 2; i >= 0; i--) {
+      final maxAllowed = sortedLefts[i + 1] - spotWidth - minSpacing;
+      if (sortedLefts[i] > maxAllowed) {
+        sortedLefts[i] = maxAllowed;
+      }
+    }
+
+    for (var i = 0; i < count; i++) {
+      sortedLefts[i] = sortedLefts[i].clamp(minLeft, maxLeft).toDouble();
+    }
+
+    final backToOriginalOrder = List<double>.filled(count, 0);
+    for (var i = 0; i < count; i++) {
+      backToOriginalOrder[indexed[i].index] = sortedLefts[i];
+    }
+
+    return backToOriginalOrder;
+  }
+
+  List<double> _resolveRowTops({
+    required List<_RowLayoutData> rows,
+    required double maxHeight,
+    required double goalkeeperHeight,
+  }) {
+    if (rows.isEmpty) {
+      return const <double>[];
+    }
+
+    final indexed = rows.asMap().entries.map((entry) {
+      return (index: entry.key, data: entry.value);
+    }).toList();
+
+    indexed.sort((a, b) => a.data.desiredTop.compareTo(b.data.desiredTop));
+
+    final sortedTops = indexed.map((e) => e.data.desiredTop).toList();
+    final minVerticalSpacing = _minimumVerticalSeparation(maxHeight);
+
+    final topBoundary = 6.0;
+    final bottomBoundary = maxHeight - goalkeeperHeight - 24.0;
+
+    for (var i = 0; i < indexed.length; i++) {
+      final row = indexed[i].data;
+      final minTop = topBoundary - row.minOffset;
+      final maxTop = bottomBoundary - row.spotHeight - row.maxOffset;
+      sortedTops[i] = sortedTops[i].clamp(minTop, maxTop).toDouble();
+    }
+
+    for (var i = 1; i < indexed.length; i++) {
+      final previous = indexed[i - 1].data;
+      final current = indexed[i].data;
+
+      final previousBottom =
+          sortedTops[i - 1] + previous.spotHeight + previous.maxOffset;
+      final currentTop = sortedTops[i] + current.minOffset;
+
+      final minAllowedTop =
+          previousBottom + minVerticalSpacing - current.minOffset;
+
+      if (currentTop < previousBottom + minVerticalSpacing) {
+        sortedTops[i] = minAllowedTop;
+      }
+    }
+
+    for (var i = indexed.length - 1; i >= 0; i--) {
+      final row = indexed[i].data;
+      final maxTop = bottomBoundary - row.spotHeight - row.maxOffset;
+      if (sortedTops[i] > maxTop) {
+        final overflow = sortedTops[i] - maxTop;
+        for (var j = 0; j <= i; j++) {
+          sortedTops[j] -= overflow;
         }
       }
     }
 
-    if (resolved.first < minLeft) {
-      final shiftRight = minLeft - resolved.first;
-      for (var i = 0; i < resolved.length; i++) {
-        resolved[i] += shiftRight;
+    for (var i = indexed.length - 2; i >= 0; i--) {
+      final current = indexed[i].data;
+      final next = indexed[i + 1].data;
+
+      final currentBottom =
+          sortedTops[i] + current.spotHeight + current.maxOffset;
+      final nextTop = sortedTops[i + 1] + next.minOffset;
+      final maxAllowedTop =
+          nextTop - minVerticalSpacing - current.spotHeight - current.maxOffset;
+
+      if (currentBottom > nextTop - minVerticalSpacing) {
+        sortedTops[i] = maxAllowedTop;
       }
     }
 
-    if (resolved.last > maxLeft) {
-      final shiftLeft = resolved.last - maxLeft;
-      for (var i = 0; i < resolved.length; i++) {
-        resolved[i] -= shiftLeft;
-      }
+    for (var i = 0; i < indexed.length; i++) {
+      final row = indexed[i].data;
+      final minTop = topBoundary - row.minOffset;
+      final maxTop = bottomBoundary - row.spotHeight - row.maxOffset;
+      sortedTops[i] = sortedTops[i].clamp(minTop, maxTop).toDouble();
     }
 
-    for (var i = 1; i < resolved.length; i++) {
-      final minimumCurrent = resolved[i - 1] + spotWidth + minSpacing;
-      if (resolved[i] < minimumCurrent) {
-        resolved[i] = minimumCurrent;
-      }
+    final backToOriginalOrder = List<double>.filled(rows.length, 0);
+    for (var i = 0; i < indexed.length; i++) {
+      backToOriginalOrder[indexed[i].index] = sortedTops[i];
     }
 
-    for (var i = 0; i < resolved.length; i++) {
-      resolved[i] = resolved[i].clamp(minLeft, maxLeft).toDouble();
-    }
-
-    return resolved;
+    return backToOriginalOrder;
   }
 
   Widget _buildGoalkeeper(
@@ -401,6 +632,26 @@ class LineupPitchView extends StatelessWidget {
     final heightCap = (maxHeight * 0.14).clamp(48.0, 70.0).toDouble();
     return calculatedHeight.clamp(48.0, heightCap).toDouble();
   }
+}
+
+class _RowLayoutData {
+  const _RowLayoutData({
+    required this.row,
+    required this.lefts,
+    required this.spotWidth,
+    required this.spotHeight,
+    required this.desiredTop,
+    required this.minOffset,
+    required this.maxOffset,
+  });
+
+  final List<String> row;
+  final List<double> lefts;
+  final double spotWidth;
+  final double spotHeight;
+  final double desiredTop;
+  final double minOffset;
+  final double maxOffset;
 }
 
 class _PitchSpot extends StatelessWidget {
