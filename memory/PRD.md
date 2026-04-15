@@ -315,6 +315,11 @@ Aggiornare in tempo reale, senza refresh manuale, quando un altro utente crea/mo
   - quando `Risposte == Totale` (es. `21/21`) i tab di quel giorno vanno in verde
   - quando non completo (es. `20/21`) resta la colorazione attuale
 
+### Ritocchi UI successivi richiesti
+- Rinominata la sezione filtri capitano in: **"Filtro presenza giocatore"**.
+- In sezione **"Chi manca ancora"** rimosso il testo "Mostra/Nascondi dettagli":
+  - lasciata solo la freccia come controllo di apertura/chiusura dropdown.
+
 ### Hotfix compilazione Web
 - Corretto errore di compile-time in `attendance_overview_cards.dart`:
   - `AppCountPill` del badge "Completato" non può essere `const` con colore tema runtime.

@@ -224,7 +224,6 @@ class AttendancePendingSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final toggleLabel = isExpanded ? 'Nascondi dettagli' : 'Mostra dettagli';
     final compact = AppResponsive.isCompact(context);
 
     return Card(
@@ -248,10 +247,9 @@ class AttendancePendingSection extends StatelessWidget {
                                   fontWeight: FontWeight.w800,
                                 ),
                           ),
-                          const SizedBox(height: 10),
-                          AppCountPill(
-                            label: toggleLabel,
-                            icon: isExpanded
+                          const SizedBox(height: 8),
+                          Icon(
+                            isExpanded
                                 ? Icons.keyboard_arrow_up_rounded
                                 : Icons.keyboard_arrow_down_rounded,
                           ),
@@ -267,10 +265,9 @@ class AttendancePendingSection extends StatelessWidget {
                                   ),
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          AppCountPill(
-                            label: toggleLabel,
-                            icon: isExpanded
+                          const SizedBox(width: 8),
+                          Icon(
+                            isExpanded
                                 ? Icons.keyboard_arrow_up_rounded
                                 : Icons.keyboard_arrow_down_rounded,
                           ),

@@ -658,7 +658,7 @@ class _CaptainAttendanceFiltersCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        'Filtri capitano',
+                        'Filtro presenza giocatore',
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w800,
                             ),
