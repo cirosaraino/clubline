@@ -25,6 +25,7 @@ class _LineupsPageState extends State<LineupsPage> {
 
   List<Lineup> lineups = [];
   final Set<String> collapsedDayKeys = <String>{};
+  final Set<String> deletingDayKeys = <String>{};
   Map<dynamic, List<LineupPlayerAssignment>> assignmentsByLineupId = {};
   bool isLoading = true;
   bool isDeletingAll = false;
@@ -89,6 +90,7 @@ class _LineupsPageState extends State<LineupsPage> {
         lineups = response;
         assignmentsByLineupId = assignments;
         _syncCollapsedDayKeys(response);
+        deletingDayKeys.clear();
         isLoading = false;
         isDeletingAll = false;
       });
@@ -101,6 +103,7 @@ class _LineupsPageState extends State<LineupsPage> {
           errorMessage = e.toString();
           isLoading = false;
           isDeletingAll = false;
+          deletingDayKeys.clear();
         });
       }
     } finally {
@@ -345,6 +348,63 @@ class _LineupsPageState extends State<LineupsPage> {
     }
   }
 
+  Future<void> _deleteLineupsForDay(String dayLabel, List<Lineup> dayLineups, String dayKey) async {
+    final currentUser = AppSessionScope.read(context).currentUser;
+    if (currentUser?.canManageLineups != true) return;
+
+    final lineupIds = dayLineups.map((lineup) => lineup.id).whereType<dynamic>().toList();
+    if (lineupIds.isEmpty) {
+      return;
+    }
+
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Elimina formazioni del giorno'),
+        content: Text(
+          'Vuoi davvero eliminare tutte le formazioni del giorno $dayLabel?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annulla'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Elimina'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete != true) return;
+
+    setState(() {
+      deletingDayKeys.add(dayKey);
+      errorMessage = null;
+    });
+
+    try {
+      await repository.deleteLineupsByIds(lineupIds);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Formazioni del giorno $dayLabel eliminate')),
+      );
+      AppDataSync.instance.notifyDataChanged(
+        {AppDataScope.lineups},
+        reason: 'lineup_deleted_day',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        errorMessage = e.toString();
+        deletingDayKeys.remove(dayKey);
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentUser = AppSessionScope.of(context).currentUser;
@@ -470,6 +530,15 @@ class _LineupsPageState extends State<LineupsPage> {
           dayLabel: _formatDayLabel(dayDateByKey[dayKey]!),
           lineupsCount: groupedByDay[dayKey]!.length,
           isExpanded: !collapsedDayKeys.contains(dayKey),
+          canDeleteDay: canManageLineups,
+          isDeletingDay: deletingDayKeys.contains(dayKey),
+          onDeleteDay: canManageLineups
+              ? () => _deleteLineupsForDay(
+                    _formatDayLabel(dayDateByKey[dayKey]!),
+                    groupedByDay[dayKey]!,
+                    dayKey,
+                  )
+              : null,
           onToggle: () {
             setState(() {
               if (collapsedDayKeys.contains(dayKey)) {
@@ -509,17 +578,24 @@ class _LineupsPageState extends State<LineupsPage> {
     PlayerProfile? viewer,
     List<LineupPlayerAssignment> assignments,
   ) {
+    return _viewerAssignment(viewer, assignments) != null;
+  }
+
+  LineupPlayerAssignment? _viewerAssignment(
+    PlayerProfile? viewer,
+    List<LineupPlayerAssignment> assignments,
+  ) {
     if (viewer == null) {
-      return false;
+      return null;
     }
 
     for (final assignment in assignments) {
       if (assignment.playerId == viewer.id) {
-        return true;
+        return assignment;
       }
     }
 
-    return false;
+    return null;
   }
 
   String? _viewerLineupStatusLabel(
@@ -533,9 +609,13 @@ class _LineupsPageState extends State<LineupsPage> {
       return 'Formazione ancora da completare';
     }
 
-    return _isViewerInLineup(viewer, assignments)
-        ? 'Sei in formazione'
-        : 'Non sei in formazione';
+    final assignment = _viewerAssignment(viewer, assignments);
+    if (assignment != null) {
+      final role = assignment.positionCode.trim().toUpperCase();
+      return 'Sei in formazione come $role';
+    }
+
+    return 'Non sei in formazione';
   }
 }
 
@@ -566,6 +646,9 @@ class _LineupsDayGroupCard extends StatelessWidget {
     required this.dayLabel,
     required this.lineupsCount,
     required this.isExpanded,
+    required this.canDeleteDay,
+    required this.isDeletingDay,
+    required this.onDeleteDay,
     required this.onToggle,
     required this.child,
   });
@@ -574,6 +657,9 @@ class _LineupsDayGroupCard extends StatelessWidget {
   final String dayLabel;
   final int lineupsCount;
   final bool isExpanded;
+  final bool canDeleteDay;
+  final bool isDeletingDay;
+  final VoidCallback? onDeleteDay;
   final VoidCallback onToggle;
   final Widget child;
 
@@ -606,6 +692,43 @@ class _LineupsDayGroupCard extends StatelessWidget {
                       emphasized: true,
                     ),
                     const SizedBox(width: 6),
+                    if (canDeleteDay) ...[
+                      GestureDetector(
+                        key: Key('lineups-day-delete-$dayKey'),
+                        onTap: isDeletingDay ? null : onDeleteDay,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            isDeletingDay
+                                ? const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : const Icon(
+                                    Icons.delete_outline,
+                                    size: 18,
+                                  ),
+                            AnimatedSize(
+                              duration: const Duration(milliseconds: 200),
+                              curve: Curves.easeOutCubic,
+                              child: isExpanded
+                                  ? Padding(
+                                      padding: const EdgeInsets.only(left: 6, right: 8),
+                                      child: Text(
+                                        'elimina tutte le formazioni del giorno',
+                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                      ),
+                                    )
+                                  : const SizedBox.shrink(),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                    ],
                     Icon(
                       isExpanded
                           ? Icons.keyboard_arrow_up_rounded

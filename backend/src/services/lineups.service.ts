@@ -94,6 +94,26 @@ export class LineupsService {
     ensureSuccess(deleteLineupsResponse);
   }
 
+  async deleteLineupsByIds(
+    lineupIds: Array<string | number>,
+    principal: RequestPrincipal,
+  ): Promise<void> {
+    this.ensureCanManageLineups(principal);
+
+    if (lineupIds.length === 0) {
+      return;
+    }
+
+    const deleteAssignmentsResponse = await this.db
+      .from('lineup_players')
+      .delete()
+      .in('lineup_id', lineupIds);
+    ensureSuccess(deleteAssignmentsResponse);
+
+    const deleteLineupsResponse = await this.db.from('lineups').delete().in('id', lineupIds);
+    ensureSuccess(deleteLineupsResponse);
+  }
+
   async listLineupPlayers(lineupId: string | number): Promise<LineupPlayerRow[]> {
     const response = await this.db
       .from('lineup_players')

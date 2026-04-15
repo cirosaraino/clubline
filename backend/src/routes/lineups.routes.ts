@@ -25,6 +25,10 @@ const lineupAssignmentsSchema = z.object({
   ),
 });
 
+const deleteLineupsByIdsSchema = z.object({
+  lineup_ids: z.array(z.union([z.string().min(1), z.number()])).min(1),
+});
+
 export const lineupsRouter = Router();
 const lineupsService = new LineupsService(supabaseDb);
 
@@ -102,6 +106,17 @@ lineupsRouter.delete(
   asyncHandler(async (req, res) => {
     await lineupsService.deleteAllLineups(req.principal!);
     realtimeEventsBus.publishChange(['lineups', 'attendance'], 'lineup_deleted_all');
+    sendNoContent(res);
+  }),
+);
+
+lineupsRouter.delete(
+  '/day',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { lineup_ids: lineupIds } = deleteLineupsByIdsSchema.parse(req.body);
+    await lineupsService.deleteLineupsByIds(lineupIds, req.principal!);
+    realtimeEventsBus.publishChange(['lineups', 'attendance'], 'lineup_deleted_day');
     sendNoContent(res);
   }),
 );

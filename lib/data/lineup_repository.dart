@@ -56,6 +56,20 @@ class LineupRepository {
     );
   }
 
+  Future<void> deleteLineupsByIds(List<dynamic> lineupIds) async {
+    if (lineupIds.isEmpty) {
+      return;
+    }
+
+    await _apiClient.delete(
+      '/lineups/day',
+      authenticated: true,
+      body: {
+        'lineup_ids': lineupIds,
+      },
+    );
+  }
+
   Future<List<LineupPlayerAssignment>> fetchLineupPlayers(dynamic lineupId) async {
     final response = await _apiClient.get('/lineups/$lineupId/players');
     final rawAssignments = switch (response) {

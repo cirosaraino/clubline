@@ -349,6 +349,16 @@ Aggiornare in tempo reale, senza refresh manuale, quando un altro utente crea/mo
   - `lineups-delete-all-button`
   - `lineups-day-group-toggle-<dayKey>`
 
+### Refinement successivo richiesto (Formazioni per giorno)
+- Aggiunta cancellazione per singola giornata nel dropdown:
+  - icona cestino sempre visibile
+  - descrizione a scomparsa: **"elimina tutte le formazioni del giorno"** (mostrata in espansione)
+  - conferma semplice prima dell’eliminazione
+- Implementato endpoint dedicato per delete batch per giornata:
+  - `DELETE /api/lineups/day` con `lineup_ids[]`
+- Migliorato messaggio stato utente in card formazione:
+  - da "Sei in formazione" a **"Sei in formazione come <RUOLO>"** (es. COC)
+
 ### Hotfix compilazione Web
 - Corretto errore di compile-time in `attendance_overview_cards.dart`:
   - `AppCountPill` del badge "Completato" non può essere `const` con colore tema runtime.
