@@ -13,6 +13,7 @@ class AttendanceHeroCard extends StatelessWidget {
     required this.viewer,
     required this.activeWeek,
     required this.daySummaries,
+    required this.isFullyAnswered,
     required this.onOpenArchive,
     required this.onCreateWeek,
     required this.onArchiveWeek,
@@ -23,6 +24,7 @@ class AttendanceHeroCard extends StatelessWidget {
   final PlayerProfile viewer;
   final AttendanceWeek? activeWeek;
   final List<AttendanceDaySummary> daySummaries;
+  final bool isFullyAnswered;
   final VoidCallback? onOpenArchive;
   final VoidCallback? onCreateWeek;
   final VoidCallback? onArchiveWeek;
@@ -35,6 +37,9 @@ class AttendanceHeroCard extends StatelessWidget {
     final compact = AppResponsive.isCompact(context);
 
     return Card(
+      color: isFullyAnswered
+          ? UltrasAppTheme.success.withValues(alpha: 0.12)
+          : null,
       child: Padding(
         padding: EdgeInsets.all(AppResponsive.cardPadding(context)),
         child: Column(
@@ -58,6 +63,13 @@ class AttendanceHeroCard extends StatelessWidget {
                         ),
                   ),
                 ),
+                if (isFullyAnswered)
+                  const AppCountPill(
+                    label: 'Completato',
+                    icon: Icons.check_circle_outline,
+                    color: UltrasAppTheme.success,
+                    emphasized: true,
+                  ),
               ],
             ),
             const SizedBox(height: 14),

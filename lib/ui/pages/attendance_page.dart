@@ -33,11 +33,15 @@ class _AttendancePageState extends State<AttendancePage> {
   bool isLoading = true;
   bool isProcessingWeekAction = false;
   bool isPendingSectionExpanded = false;
+  bool isCaptainFiltersExpanded = false;
   String? errorMessage;
   final Set<String> savingEntryKeys = {};
   int lastHandledSyncRevision = 0;
   bool _isLoadingRequest = false;
   bool _reloadRequested = false;
+  final captainNomeFilterController = TextEditingController();
+  final captainCognomeFilterController = TextEditingController();
+  final captainConsoleIdFilterController = TextEditingController();
 
   @override
   void initState() {
@@ -50,6 +54,9 @@ class _AttendancePageState extends State<AttendancePage> {
   @override
   void dispose() {
     AppDataSync.instance.removeListener(_handleAppDataSync);
+    captainNomeFilterController.dispose();
+    captainCognomeFilterController.dispose();
+    captainConsoleIdFilterController.dispose();
     super.dispose();
   }
 
@@ -59,6 +66,14 @@ class _AttendancePageState extends State<AttendancePage> {
 
   bool get canManageAll => activeViewer?.canManageAttendanceAll ?? false;
 
+  bool get canUseCaptainFilters => activeViewer?.isCaptain == true;
+
+  bool get hasCaptainFiltersActive {
+    return captainNomeFilterController.text.trim().isNotEmpty ||
+        captainCognomeFilterController.text.trim().isNotEmpty ||
+        captainConsoleIdFilterController.text.trim().isNotEmpty;
+  }
+
   List<AttendanceEntry> get visibleEntries {
     if (canManageAll) {
       return entries;
@@ -66,6 +81,48 @@ class _AttendancePageState extends State<AttendancePage> {
 
     final viewerId = activeViewer?.id;
     return entries.where((entry) => entry.playerId == viewerId).toList();
+  }
+
+  List<AttendancePlayerEntries> _applyCaptainFilters(
+    List<AttendancePlayerEntries> source,
+  ) {
+    if (!canUseCaptainFilters) {
+      return source;
+    }
+
+    final nomeQuery = captainNomeFilterController.text.trim().toLowerCase();
+    final cognomeQuery = captainCognomeFilterController.text.trim().toLowerCase();
+    final consoleIdQuery = captainConsoleIdFilterController.text.trim().toLowerCase();
+
+    if (nomeQuery.isEmpty && cognomeQuery.isEmpty && consoleIdQuery.isEmpty) {
+      return source;
+    }
+
+    return source.where((playerEntries) {
+      final player = playerEntries.player;
+      if (player == null) {
+        return false;
+      }
+
+      final playerNome = player.nome.toLowerCase();
+      final playerCognome = player.cognome.toLowerCase();
+      final playerConsoleId = (player.idConsole ?? '').toLowerCase();
+
+      final matchesNome = nomeQuery.isEmpty || playerNome.contains(nomeQuery);
+      final matchesCognome = cognomeQuery.isEmpty || playerCognome.contains(cognomeQuery);
+      final matchesConsoleId =
+          consoleIdQuery.isEmpty || playerConsoleId.contains(consoleIdQuery);
+
+      return matchesNome && matchesCognome && matchesConsoleId;
+    }).toList();
+  }
+
+  void _clearCaptainFilters() {
+    setState(() {
+      captainNomeFilterController.clear();
+      captainCognomeFilterController.clear();
+      captainConsoleIdFilterController.clear();
+    });
   }
 
   void _handleAppDataSync() {
@@ -452,9 +509,12 @@ class _AttendancePageState extends State<AttendancePage> {
 
     final weekDates = activeWeek?.votingDates ?? const <DateTime>[];
     final groupedEntries = AttendancePlayerEntries.groupEntries(visibleEntries);
+    final filteredGroupedEntries = _applyCaptainFilters(groupedEntries);
     final daySummaries = canManageAll
         ? AttendanceDaySummary.buildForDates(weekDates, entries)
         : const <AttendanceDaySummary>[];
+    final allAnsweredForSelectedPeriod = daySummaries.isNotEmpty &&
+        daySummaries.every((summary) => summary.pendingCount == 0);
 
     return RefreshIndicator(
       onRefresh: _loadData,
@@ -466,6 +526,7 @@ class _AttendancePageState extends State<AttendancePage> {
             viewer: viewer,
             activeWeek: activeWeek,
             daySummaries: daySummaries,
+            isFullyAnswered: allAnsweredForSelectedPeriod,
             onOpenArchive: canManageAll ? _openArchive : null,
             onCreateWeek: canManageAll && activeWeek == null ? _openCreateWeekFlow : null,
             onArchiveWeek: canManageAll && activeWeek != null ? _archiveActiveWeek : null,
@@ -473,6 +534,25 @@ class _AttendancePageState extends State<AttendancePage> {
             showManagerSummary: canManageAll,
           ),
           const SizedBox(height: 16),
+          if (canUseCaptainFilters && activeWeek != null) ...[
+            _CaptainAttendanceFiltersCard(
+              isExpanded: isCaptainFiltersExpanded,
+              hasActiveFilters: hasCaptainFiltersActive,
+              nomeController: captainNomeFilterController,
+              cognomeController: captainCognomeFilterController,
+              consoleIdController: captainConsoleIdFilterController,
+              onToggle: () {
+                setState(() {
+                  isCaptainFiltersExpanded = !isCaptainFiltersExpanded;
+                });
+              },
+              onChanged: () {
+                setState(() {});
+              },
+              onClearFilters: _clearCaptainFilters,
+            ),
+            const SizedBox(height: 16),
+          ],
           if (activeWeek == null)
             AttendanceStatusCard(
               icon: Icons.schedule_outlined,
@@ -492,6 +572,16 @@ class _AttendancePageState extends State<AttendancePage> {
               message:
                   'Le presenze giornaliere di questa settimana non sono ancora disponibili. Aggiorna la pagina dopo la migrazione del database o dopo la sincronizzazione.',
             ),
+          ] else if (filteredGroupedEntries.isEmpty) ...[
+            AttendanceStatusCard(
+              icon: Icons.filter_alt_off_outlined,
+              title: 'Nessun giocatore trovato con i filtri attivi',
+              message:
+                  'Rimuovi o modifica i filtri capitano per visualizzare nuovamente la lista completa.',
+              actionLabel: hasCaptainFiltersActive ? 'Rimuovi filtri' : null,
+              actionIcon: Icons.close_outlined,
+              onAction: hasCaptainFiltersActive ? _clearCaptainFilters : null,
+            ),
           ] else ...[
             if (canManageAll) ...[
               AttendancePendingSection(
@@ -505,7 +595,7 @@ class _AttendancePageState extends State<AttendancePage> {
               ),
             ],
             const SizedBox(height: 16),
-            for (final playerEntries in groupedEntries) ...[
+            for (final playerEntries in filteredGroupedEntries) ...[
               AttendancePlayerCard(
                 playerEntries: playerEntries,
                 weekDates: weekDates,
@@ -517,6 +607,121 @@ class _AttendancePageState extends State<AttendancePage> {
             ],
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _CaptainAttendanceFiltersCard extends StatelessWidget {
+  const _CaptainAttendanceFiltersCard({
+    required this.isExpanded,
+    required this.hasActiveFilters,
+    required this.nomeController,
+    required this.cognomeController,
+    required this.consoleIdController,
+    required this.onToggle,
+    required this.onChanged,
+    required this.onClearFilters,
+  });
+
+  final bool isExpanded;
+  final bool hasActiveFilters;
+  final TextEditingController nomeController;
+  final TextEditingController cognomeController;
+  final TextEditingController consoleIdController;
+  final VoidCallback onToggle;
+  final VoidCallback onChanged;
+  final VoidCallback onClearFilters;
+
+  InputDecoration _inputDecoration(String label, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      border: const OutlineInputBorder(),
+      prefixIcon: Icon(icon),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final compact = AppResponsive.isCompact(context);
+
+    return Card(
+      child: Padding(
+        padding: EdgeInsets.all(AppResponsive.cardPadding(context)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            InkWell(
+              onTap: onToggle,
+              borderRadius: BorderRadius.circular(16),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Filtri capitano',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                      ),
+                    ),
+                    if (hasActiveFilters)
+                      const Padding(
+                        padding: EdgeInsets.only(right: 10),
+                        child: AppCountPill(
+                          label: 'Attivi',
+                          emphasized: true,
+                        ),
+                      ),
+                    Icon(
+                      isExpanded
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.keyboard_arrow_down_rounded,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (isExpanded) ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: nomeController,
+                onChanged: (_) => onChanged(),
+                decoration: _inputDecoration('Filtra per nome', Icons.person_outline),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: cognomeController,
+                onChanged: (_) => onChanged(),
+                decoration: _inputDecoration(
+                  'Filtra per cognome',
+                  Icons.badge_outlined,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: consoleIdController,
+                onChanged: (_) => onChanged(),
+                decoration: _inputDecoration(
+                  'Filtra per ID console',
+                  Icons.sports_esports_outlined,
+                ),
+              ),
+              if (hasActiveFilters) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: compact ? double.infinity : null,
+                  child: OutlinedButton.icon(
+                    onPressed: onClearFilters,
+                    icon: const Icon(Icons.close_outlined),
+                    label: const Text('Rimuovi filtri'),
+                  ),
+                ),
+              ],
+            ],
+          ],
+        ),
       ),
     );
   }
