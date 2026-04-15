@@ -23,14 +23,30 @@ class LineupPitchView extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final goalkeeperWidth =
-            (constraints.maxWidth * 0.24).clamp(70.0, 90.0).toDouble();
-        final goalkeeperHeight =
-            (constraints.maxHeight * 0.14).clamp(54.0, 72.0).toDouble();
+        final maxWidth = constraints.maxWidth;
+        final maxHeight = constraints.maxHeight;
+
+        final isPhone = maxWidth < 600;
+        final isSmallPhone = maxWidth < 380;
+        final isVerySmallPhone = maxWidth < 340;
+        final isTightHeight = maxHeight < 520;
+        final isVeryTightHeight = maxHeight < 440;
+
+        final goalkeeperWidth = isVerySmallPhone
+            ? (maxWidth * 0.23).clamp(52.0, 72.0).toDouble()
+            : isSmallPhone
+                ? (maxWidth * 0.24).clamp(56.0, 78.0).toDouble()
+                : (maxWidth * 0.24).clamp(62.0, 88.0).toDouble();
+
+        final goalkeeperHeight = isVeryTightHeight
+            ? (maxHeight * 0.12).clamp(38.0, 52.0).toDouble()
+            : isTightHeight
+                ? (maxHeight * 0.13).clamp(42.0, 58.0).toDouble()
+                : (maxHeight * 0.14).clamp(48.0, 68.0).toDouble();
 
         return Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(isPhone ? 20 : 24),
             gradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
@@ -51,7 +67,10 @@ class LineupPitchView extends StatelessWidget {
             children: [
               Positioned.fill(
                 child: CustomPaint(
-                  painter: _PitchPainter(),
+                  painter: _PitchPainter(
+                    compact: isPhone,
+                    ultraCompact: isSmallPhone || isTightHeight,
+                  ),
                 ),
               ),
               ..._buildOutfieldRows(
@@ -76,31 +95,48 @@ class LineupPitchView extends StatelessWidget {
     BoxConstraints constraints,
     List<List<String>> rows,
   ) {
-    final rowTopFractions = _rowTopFractions(rows.length);
+    final rowTopFractions = _rowTopFractions(
+      rowCount: rows.length,
+      maxWidth: constraints.maxWidth,
+      maxHeight: constraints.maxHeight,
+    );
+
     final widgets = <Widget>[];
 
     for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) {
       final row = rows[rowIndex];
       final topFraction = rowTopFractions[rowIndex];
 
-      final rowGap = _horizontalGap(row.length);
-      final rowSpotWidth = _spotWidthForRow(
-        constraints.maxWidth,
-        row.length,
-        rowGap,
+      final rowGap = _horizontalGap(
+        itemCount: row.length,
+        totalWidth: constraints.maxWidth,
       );
+
+      final rowSpotWidth = _spotWidthForRow(
+        totalWidth: constraints.maxWidth,
+        totalHeight: constraints.maxHeight,
+        itemCount: row.length,
+        gap: rowGap,
+      );
+
       final rowSpotHeight = _spotHeightForWidth(
-        rowSpotWidth,
-        constraints.maxHeight,
+        spotWidth: rowSpotWidth,
+        maxHeight: constraints.maxHeight,
       );
 
       final totalRowWidth =
           (rowSpotWidth * row.length) + (rowGap * (row.length - 1));
       final startLeft = (constraints.maxWidth - totalRowWidth) / 2;
 
-      final minLeft = 8.0;
-      final maxLeft = constraints.maxWidth - rowSpotWidth - 8.0;
-      final minSpacing = _minimumHorizontalSeparation(row.length, rowSpotWidth);
+      final horizontalEdgePadding = constraints.maxWidth < 360 ? 6.0 : 8.0;
+      final minLeft = horizontalEdgePadding;
+      final maxLeft = constraints.maxWidth - rowSpotWidth - horizontalEdgePadding;
+
+      final minSpacing = _minimumHorizontalSeparation(
+        rowSize: row.length,
+        spotWidth: rowSpotWidth,
+        totalWidth: constraints.maxWidth,
+      );
 
       final desiredLefts = _desiredLeftsForRow(
         row: row,
@@ -122,19 +158,20 @@ class LineupPitchView extends StatelessWidget {
         final positionCode = row[index];
         final baseTop =
             (constraints.maxHeight * topFraction) - (rowSpotHeight / 2);
+
         final verticalOffset = _verticalOffsetForPositionCode(
           positionCode,
           rowSpotHeight,
+          constraints.maxHeight,
         );
 
-        final left = resolvedLefts[index];
         final top = (baseTop + verticalOffset)
-            .clamp(6.0, constraints.maxHeight - rowSpotHeight - 6.0)
+            .clamp(4.0, constraints.maxHeight - rowSpotHeight - 4.0)
             .toDouble();
 
         widgets.add(
           Positioned(
-            left: left,
+            left: resolvedLefts[index],
             top: top,
             width: rowSpotWidth,
             height: rowSpotHeight,
@@ -171,10 +208,13 @@ class LineupPitchView extends StatelessWidget {
 
     final centerX = constraints.maxWidth / 2;
 
+    final sidePadding = constraints.maxWidth < 360 ? 6.0 : 8.0;
+
     final usableLeft =
-        (centerX - (rowSpan / 2)).clamp(8.0, constraints.maxWidth).toDouble();
+        (centerX - (rowSpan / 2)).clamp(sidePadding, constraints.maxWidth).toDouble();
+
     final usableRight = (centerX + (rowSpan / 2))
-        .clamp(0.0, constraints.maxWidth - 8.0)
+        .clamp(0.0, constraints.maxWidth - sidePadding)
         .toDouble();
 
     final slotCenters = _distributedCenters(
@@ -204,7 +244,7 @@ class LineupPitchView extends StatelessWidget {
     required double spotWidth,
   }) {
     final count = row.length;
-    final horizontalPadding = 16.0 * 2;
+    final horizontalPadding = maxWidth < 360 ? 12.0 : 16.0 * 2;
     final maxUsableSpan = maxWidth - horizontalPadding;
 
     if (count == 1) {
@@ -215,8 +255,9 @@ class LineupPitchView extends StatelessWidget {
         count == 2 && row.contains('ES') && row.contains('ED');
 
     if (isOnlyWidePair) {
-      return (maxWidth * 0.46).clamp(
-        spotWidth * 2.4,
+      final factor = maxWidth < 360 ? 0.60 : 0.50;
+      return (maxWidth * factor).clamp(
+        spotWidth * 2.1,
         maxUsableSpan,
       ).toDouble();
     }
@@ -224,12 +265,18 @@ class LineupPitchView extends StatelessWidget {
     final wideRoles = {'TS', 'TD', 'ES', 'ED', 'AS', 'AD'};
     final hasWideRoles = row.any(wideRoles.contains);
 
+    final isSmallPhone = maxWidth < 380;
+
     final baseSpacingMultiplier = switch (count) {
-      2 => hasWideRoles ? 1.55 : 1.25,
-      3 => hasWideRoles ? 1.18 : 1.05,
-      4 => 1.0,
-      5 => 0.94,
-      _ => 0.90,
+      2 => hasWideRoles
+          ? (isSmallPhone ? 1.20 : 1.45)
+          : (isSmallPhone ? 1.00 : 1.20),
+      3 => hasWideRoles
+          ? (isSmallPhone ? 0.95 : 1.12)
+          : (isSmallPhone ? 0.88 : 1.00),
+      4 => isSmallPhone ? 0.78 : 0.94,
+      5 => isSmallPhone ? 0.60 : 0.84,
+      _ => isSmallPhone ? 0.56 : 0.78,
     };
 
     final span =
@@ -272,75 +319,98 @@ class LineupPitchView extends StatelessWidget {
         row.length == 2 && row.contains('ES') && row.contains('ED');
 
     if (isOnlyWidePair) {
+      final factor = maxWidth < 360 ? 0.04 : 0.08;
       switch (positionCode) {
         case 'ES':
-          return -(spotWidth * 0.10);
+          return -(spotWidth * factor);
         case 'ED':
-          return spotWidth * 0.10;
+          return spotWidth * factor;
         default:
           return 0;
       }
     }
 
-    return _horizontalOffsetForPositionCode(positionCode, spotWidth);
+    return _horizontalOffsetForPositionCode(
+      positionCode,
+      spotWidth,
+      maxWidth,
+    );
   }
 
-  double _horizontalOffsetForPositionCode(String positionCode, double spotWidth) {
+  double _horizontalOffsetForPositionCode(
+    String positionCode,
+    double spotWidth,
+    double maxWidth,
+  ) {
+    final tightFactor = maxWidth < 360 ? 0.70 : 1.0;
+
     switch (positionCode) {
       case 'TS':
-        return -(spotWidth * 0.24);
+        return -(spotWidth * 0.24 * tightFactor);
       case 'TD':
-        return spotWidth * 0.24;
+        return spotWidth * 0.24 * tightFactor;
       case 'ES':
-        return -(spotWidth * 0.20);
+        return -(spotWidth * 0.20 * tightFactor);
       case 'ED':
-        return spotWidth * 0.20;
+        return spotWidth * 0.20 * tightFactor;
       case 'AS':
-        return -(spotWidth * 0.18);
+        return -(spotWidth * 0.18 * tightFactor);
       case 'AD':
-        return spotWidth * 0.18;
+        return spotWidth * 0.18 * tightFactor;
       case 'CCS':
-        return -(spotWidth * 0.12);
+        return -(spotWidth * 0.10 * tightFactor);
       case 'CCD':
-        return spotWidth * 0.12;
+        return spotWidth * 0.10 * tightFactor;
       case 'CDCS':
-        return -(spotWidth * 0.15);
+        return -(spotWidth * 0.12 * tightFactor);
       case 'CDCD':
-        return spotWidth * 0.15;
+        return spotWidth * 0.12 * tightFactor;
       default:
         return 0;
     }
   }
 
-  double _verticalOffsetForPositionCode(String positionCode, double spotHeight) {
+  double _verticalOffsetForPositionCode(
+    String positionCode,
+    double spotHeight,
+    double maxHeight,
+  ) {
+    final factor = maxHeight < 460 ? 0.72 : 1.0;
+
     if (positionCode == 'COC' ||
         positionCode == 'COCS' ||
         positionCode == 'COCD') {
-      return -(spotHeight * 0.16);
+      return -(spotHeight * 0.14 * factor);
     }
 
     if (positionCode == 'CDCS' || positionCode == 'CDCD') {
-      return spotHeight * 0.18;
+      return spotHeight * 0.14 * factor;
     }
 
     if (positionCode == 'CCS' || positionCode == 'CCD') {
-      return spotHeight * 0.06;
+      return spotHeight * 0.05 * factor;
     }
 
     if (positionCode == 'CDC') {
-      return spotHeight * 0.13;
+      return spotHeight * 0.10 * factor;
     }
 
     return 0;
   }
 
-  double _minimumHorizontalSeparation(int rowSize, double spotWidth) {
+  double _minimumHorizontalSeparation({
+    required int rowSize,
+    required double spotWidth,
+    required double totalWidth,
+  }) {
+    final isSmallPhone = totalWidth < 380;
+
     return switch (rowSize) {
-      2 => spotWidth * 0.28,
-      3 => spotWidth * 0.18,
-      4 => spotWidth * 0.10,
-      5 => spotWidth * 0.06,
-      _ => spotWidth * 0.08,
+      2 => spotWidth * (isSmallPhone ? 0.18 : 0.26),
+      3 => spotWidth * (isSmallPhone ? 0.12 : 0.17),
+      4 => spotWidth * (isSmallPhone ? 0.06 : 0.10),
+      5 => spotWidth * (isSmallPhone ? 0.03 : 0.06),
+      _ => spotWidth * (isSmallPhone ? 0.04 : 0.08),
     };
   }
 
@@ -435,9 +505,16 @@ class LineupPitchView extends StatelessWidget {
     double spotWidth,
     double spotHeight,
   ) {
+    final maxHeight = constraints.maxHeight;
+    final keeperTopFactor = maxHeight < 440
+        ? 0.82
+        : maxHeight < 520
+            ? 0.84
+            : 0.85;
+
     return Positioned(
       left: (constraints.maxWidth * 0.5) - (spotWidth / 2),
-      top: (constraints.maxHeight * 0.85) - (spotHeight / 2),
+      top: (constraints.maxHeight * keeperTopFactor) - (spotHeight / 2),
       width: spotWidth,
       height: spotHeight,
       child: _PitchSpot(
@@ -449,12 +526,37 @@ class LineupPitchView extends StatelessWidget {
     );
   }
 
-  List<double> _rowTopFractions(int rowCount) {
+  List<double> _rowTopFractions({
+    required int rowCount,
+    required double maxWidth,
+    required double maxHeight,
+  }) {
     if (rowCount <= 0) return const [];
-    if (rowCount == 1) return const [0.46];
+    if (rowCount == 1) {
+      if (maxHeight < 460) return const [0.44];
+      return const [0.46];
+    }
 
-    const start = 0.68;
-    const end = 0.16;
+    final isSmallPhone = maxWidth < 380;
+    final isTightHeight = maxHeight < 520;
+    final isVeryTightHeight = maxHeight < 440;
+
+    final double start;
+    final double end;
+
+    if (isVeryTightHeight) {
+      start = 0.66;
+      end = 0.18;
+    } else if (isTightHeight) {
+      start = 0.67;
+      end = 0.17;
+    } else if (isSmallPhone) {
+      start = 0.68;
+      end = 0.16;
+    } else {
+      start = 0.69;
+      end = 0.15;
+    }
 
     return List<double>.generate(
       rowCount,
@@ -462,7 +564,21 @@ class LineupPitchView extends StatelessWidget {
     );
   }
 
-  double _horizontalGap(int itemCount) {
+  double _horizontalGap({
+    required int itemCount,
+    required double totalWidth,
+  }) {
+    final isSmallPhone = totalWidth < 380;
+
+    if (isSmallPhone) {
+      return switch (itemCount) {
+        5 => 3,
+        4 => 4,
+        3 => 6,
+        _ => 8,
+      };
+    }
+
     return switch (itemCount) {
       5 => 6,
       4 => 8,
@@ -470,22 +586,71 @@ class LineupPitchView extends StatelessWidget {
     };
   }
 
-  double _spotWidthForRow(
-    double totalWidth,
-    int itemCount,
-    double gap,
-  ) {
-    const sidePadding = 18.0;
+  double _spotWidthForRow({
+    required double totalWidth,
+    required double totalHeight,
+    required int itemCount,
+    required double gap,
+  }) {
+    final isSmallPhone = totalWidth < 380;
+    final isVerySmallPhone = totalWidth < 340;
+    final isTightHeight = totalHeight < 500;
+
+    final sidePadding = isVerySmallPhone
+        ? 10.0
+        : isSmallPhone
+            ? 12.0
+            : 18.0;
+
     final availableWidth =
         totalWidth - (sidePadding * 2) - (gap * (itemCount - 1));
-    final calculatedWidth = (availableWidth / itemCount) * 0.96;
-    return calculatedWidth.clamp(50.0, 88.0).toDouble();
+
+    final densityFactor = isVerySmallPhone
+        ? 0.90
+        : isSmallPhone
+            ? 0.92
+            : 0.96;
+
+    final calculatedWidth = (availableWidth / itemCount) * densityFactor;
+
+    final minWidth = isVerySmallPhone
+        ? 40.0
+        : isSmallPhone
+            ? 44.0
+            : 50.0;
+
+    final maxWidth = isTightHeight
+        ? 74.0
+        : isSmallPhone
+            ? 80.0
+            : 88.0;
+
+    return calculatedWidth.clamp(minWidth, maxWidth).toDouble();
   }
 
-  double _spotHeightForWidth(double spotWidth, double maxHeight) {
-    final calculatedHeight = spotWidth * 0.78;
-    final heightCap = (maxHeight * 0.14).clamp(48.0, 70.0).toDouble();
-    return calculatedHeight.clamp(48.0, heightCap).toDouble();
+  double _spotHeightForWidth({
+    required double spotWidth,
+    required double maxHeight,
+  }) {
+    final isTightHeight = maxHeight < 520;
+    final isVeryTightHeight = maxHeight < 440;
+
+    final calculatedHeight = spotWidth * (isVeryTightHeight ? 0.70 : 0.76);
+
+    final minHeight = isVeryTightHeight
+        ? 34.0
+        : isTightHeight
+            ? 38.0
+            : 44.0;
+
+    final heightCap = (maxHeight * (isVeryTightHeight ? 0.105 : 0.125))
+        .clamp(
+          isVeryTightHeight ? 40.0 : 44.0,
+          isVeryTightHeight ? 50.0 : 66.0,
+        )
+        .toDouble();
+
+    return calculatedHeight.clamp(minHeight, heightCap).toDouble();
   }
 }
 
@@ -509,66 +674,114 @@ class _PitchSpot extends StatelessWidget {
 
     return Material(
       color: hasPlayer
-          ? colorScheme.surface.withValues(alpha: 0.92)
-          : Colors.white.withValues(alpha: 0.78),
-      borderRadius: BorderRadius.circular(16),
+          ? colorScheme.surface.withValues(alpha: 0.94)
+          : Colors.white.withValues(alpha: 0.82),
+      borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: enabled ? onTap : null,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final compact =
-                constraints.maxHeight < 64 || constraints.maxWidth < 70;
-            final ultraCompact =
-                constraints.maxHeight < 60 || constraints.maxWidth < 78;
-            final showFullName =
-                hasPlayer && !ultraCompact && constraints.maxHeight >= 68;
-            final primaryLabel =
-                hasPlayer ? player!.idConsoleDisplay : 'Scegli';
+            final width = constraints.maxWidth;
+            final height = constraints.maxHeight;
+
+            final ultraCompact = width < 54 || height < 40;
+            final veryCompact = width < 62 || height < 46;
+            final compact = width < 72 || height < 56;
+            final showFullName = hasPlayer && width >= 78 && height >= 62;
+            final showPositionBadge = !ultraCompact;
+
+            final primaryLabel = hasPlayer ? player!.idConsoleDisplay : 'Scegli';
+
+            final displayedLabel = hasPlayer
+                ? _mobileFriendlyPrimaryLabel(
+                    player!.idConsoleDisplay,
+                    ultraCompact: ultraCompact,
+                    veryCompact: veryCompact,
+                  )
+                : (ultraCompact ? '+' : 'Scegli');
+
+            final horizontalPadding = ultraCompact
+                ? 3.0
+                : veryCompact
+                    ? 4.0
+                    : compact
+                        ? 5.0
+                        : 7.0;
+
+            final verticalPadding = ultraCompact
+                ? 2.0
+                : veryCompact
+                    ? 3.0
+                    : compact
+                        ? 4.0
+                        : 6.0;
+
+            final badgeFontSize = ultraCompact
+                ? 7.5
+                : veryCompact
+                    ? 8.0
+                    : compact
+                        ? 9.0
+                        : 10.5;
+
+            final primaryFontSize = ultraCompact
+                ? 8.0
+                : veryCompact
+                    ? 9.0
+                    : compact
+                        ? 10.0
+                        : 11.5;
 
             return Padding(
               padding: EdgeInsets.symmetric(
-                horizontal: ultraCompact ? 5 : 7,
-                vertical: ultraCompact ? 4 : 6,
+                horizontal: horizontalPadding,
+                vertical: verticalPadding,
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.max,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: ultraCompact ? 5 : 7,
-                        vertical: ultraCompact ? 1.5 : 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        positionCode,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              fontSize: ultraCompact ? 9 : compact ? 10 : 11,
-                            ),
+                  if (showPositionBadge)
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: ultraCompact ? 3 : 5,
+                          vertical: ultraCompact ? 1 : 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          positionCode,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                fontSize: badgeFontSize,
+                                height: 1.0,
+                              ),
+                        ),
                       ),
                     ),
+                  SizedBox(
+                    height: showPositionBadge
+                        ? (ultraCompact ? 1 : compact ? 2 : 4)
+                        : 0,
                   ),
-                  SizedBox(height: ultraCompact ? 1 : compact ? 3 : 5),
                   Expanded(
                     child: Center(
                       child: Text(
-                        primaryLabel,
-                        maxLines: ultraCompact ? 1 : compact ? 1 : 2,
+                        displayedLabel,
+                        maxLines: ultraCompact ? 1 : 2,
                         textAlign: TextAlign.center,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               fontWeight:
                                   hasPlayer ? FontWeight.w600 : FontWeight.w400,
-                              fontSize: ultraCompact ? 10 : compact ? 11 : 12,
+                              fontSize: primaryFontSize,
                               height: 1.0,
                             ),
                       ),
@@ -576,13 +789,13 @@ class _PitchSpot extends StatelessWidget {
                   ),
                   if (showFullName)
                     Padding(
-                      padding: const EdgeInsets.only(top: 2),
+                      padding: const EdgeInsets.only(top: 1),
                       child: Text(
                         player!.fullName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              fontSize: 9,
+                              fontSize: 8,
                               height: 1.0,
                             ),
                       ),
@@ -595,23 +808,54 @@ class _PitchSpot extends StatelessWidget {
       ),
     );
   }
+
+  String _mobileFriendlyPrimaryLabel(
+    String value, {
+    required bool ultraCompact,
+    required bool veryCompact,
+  }) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return '+';
+
+    if (ultraCompact) {
+      return trimmed.length > 6 ? trimmed.substring(0, 6) : trimmed;
+    }
+
+    if (veryCompact) {
+      return trimmed.length > 10 ? trimmed.substring(0, 10) : trimmed;
+    }
+
+    return trimmed;
+  }
 }
 
 class _PitchPainter extends CustomPainter {
+  const _PitchPainter({
+    required this.compact,
+    required this.ultraCompact,
+  });
+
+  final bool compact;
+  final bool ultraCompact;
+
   @override
   void paint(Canvas canvas, Size size) {
+    final strokeWidth = ultraCompact ? 1.2 : compact ? 1.6 : 2.0;
+
     final linePaint = Paint()
       ..color = Colors.white.withValues(alpha: 0.9)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
+      ..strokeWidth = strokeWidth;
 
     final fillPaint = Paint()
       ..color = Colors.white.withValues(alpha: 0.08)
       ..style = PaintingStyle.fill;
 
+    final cornerRadius = ultraCompact ? 20.0 : compact ? 22.0 : 24.0;
+
     final outer = RRect.fromRectAndRadius(
       Offset.zero & size,
-      const Radius.circular(24),
+      Radius.circular(cornerRadius),
     );
 
     canvas.drawRRect(outer, fillPaint);
@@ -620,37 +864,52 @@ class _PitchPainter extends CustomPainter {
     final halfY = size.height / 2;
     canvas.drawLine(Offset(0, halfY), Offset(size.width, halfY), linePaint);
 
+    final circleRadius = (size.width * (ultraCompact ? 0.10 : 0.12))
+        .clamp(18.0, 44.0)
+        .toDouble();
+
     final center = Offset(size.width / 2, halfY);
-    canvas.drawCircle(center, size.width * 0.12, linePaint);
-    canvas.drawCircle(center, 3, Paint()..color = Colors.white);
+    canvas.drawCircle(center, circleRadius, linePaint);
+    canvas.drawCircle(
+      center,
+      ultraCompact ? 2 : 3,
+      Paint()..color = Colors.white,
+    );
 
     final topBox = Rect.fromCenter(
       center: Offset(size.width / 2, size.height * 0.12),
-      width: size.width * 0.46,
-      height: size.height * 0.14,
+      width: size.width * (ultraCompact ? 0.42 : 0.46),
+      height: size.height * (ultraCompact ? 0.12 : 0.14),
     );
+
     final bottomBox = Rect.fromCenter(
       center: Offset(size.width / 2, size.height * 0.88),
-      width: size.width * 0.46,
-      height: size.height * 0.14,
+      width: size.width * (ultraCompact ? 0.42 : 0.46),
+      height: size.height * (ultraCompact ? 0.12 : 0.14),
     );
+
     canvas.drawRect(topBox, linePaint);
     canvas.drawRect(bottomBox, linePaint);
 
     final topSmallBox = Rect.fromCenter(
       center: Offset(size.width / 2, size.height * 0.06),
-      width: size.width * 0.22,
-      height: size.height * 0.07,
+      width: size.width * (ultraCompact ? 0.18 : 0.22),
+      height: size.height * (ultraCompact ? 0.05 : 0.07),
     );
+
     final bottomSmallBox = Rect.fromCenter(
       center: Offset(size.width / 2, size.height * 0.94),
-      width: size.width * 0.22,
-      height: size.height * 0.07,
+      width: size.width * (ultraCompact ? 0.18 : 0.22),
+      height: size.height * (ultraCompact ? 0.05 : 0.07),
     );
+
     canvas.drawRect(topSmallBox, linePaint);
     canvas.drawRect(bottomSmallBox, linePaint);
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _PitchPainter oldDelegate) {
+    return oldDelegate.compact != compact ||
+        oldDelegate.ultraCompact != ultraCompact;
+  }
 }
