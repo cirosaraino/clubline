@@ -13,7 +13,6 @@ class AttendanceHeroCard extends StatelessWidget {
     required this.viewer,
     required this.activeWeek,
     required this.daySummaries,
-    required this.isFullyAnswered,
     required this.onOpenArchive,
     required this.onCreateWeek,
     required this.onArchiveWeek,
@@ -24,7 +23,6 @@ class AttendanceHeroCard extends StatelessWidget {
   final PlayerProfile viewer;
   final AttendanceWeek? activeWeek;
   final List<AttendanceDaySummary> daySummaries;
-  final bool isFullyAnswered;
   final VoidCallback? onOpenArchive;
   final VoidCallback? onCreateWeek;
   final VoidCallback? onArchiveWeek;
@@ -37,9 +35,6 @@ class AttendanceHeroCard extends StatelessWidget {
     final compact = AppResponsive.isCompact(context);
 
     return Card(
-      color: isFullyAnswered
-          ? UltrasAppTheme.success.withValues(alpha: 0.12)
-          : null,
       child: Padding(
         padding: EdgeInsets.all(AppResponsive.cardPadding(context)),
         child: Column(
@@ -63,14 +58,6 @@ class AttendanceHeroCard extends StatelessWidget {
                         ),
                   ),
                 ),
-                if (isFullyAnswered)
-                  AppCountPill(
-                    key: const Key('attendance-hero-completed-badge'),
-                    label: 'Completato',
-                    icon: Icons.check_circle_outline,
-                    color: UltrasAppTheme.success,
-                    emphasized: true,
-                  ),
               ],
             ),
             const SizedBox(height: 14),
@@ -162,6 +149,8 @@ class AttendanceDaySummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final compact = AppResponsive.isCompact(context);
+    final isComplete =
+        summary.totalPlayers > 0 && summary.answeredCount >= summary.totalPlayers;
 
     return Container(
       width: compact ? 164 : 180,
@@ -195,6 +184,7 @@ class AttendanceDaySummaryCard extends StatelessWidget {
               AppCountPill(
                 label: 'Risposte',
                 value: '${summary.answeredCount}/${summary.totalPlayers}',
+                color: isComplete ? UltrasAppTheme.success : null,
                 emphasized: true,
               ),
               AppCountPill(
@@ -205,12 +195,12 @@ class AttendanceDaySummaryCard extends StatelessWidget {
               AppCountPill(
                 label: 'No',
                 value: '${summary.absentCount}',
-                color: UltrasAppTheme.danger,
+                color: isComplete ? UltrasAppTheme.success : UltrasAppTheme.danger,
               ),
               AppCountPill(
                 label: 'Attesa',
                 value: '${summary.pendingCount}',
-                color: UltrasAppTheme.warning,
+                color: isComplete ? UltrasAppTheme.success : UltrasAppTheme.warning,
               ),
             ],
           ),

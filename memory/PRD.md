@@ -307,7 +307,13 @@ Aggiornare in tempo reale, senza refresh manuale, quando un altro utente crea/mo
   - `attendance-captain-filter-cognome-input`
   - `attendance-captain-filter-console-id-input`
   - `attendance-captain-filters-clear-button`
-  - `attendance-hero-completed-badge`
+  - `attendance-captain-filters-clear-button`
+
+### Refinement richiesto successivo (colorazione riepilogo)
+- Ripristinato il blocco hero presenze come prima (rimosso verde/completato in alto).
+- Nuova logica colore applicata **solo ai tab giorno-per-giorno**:
+  - quando `Risposte == Totale` (es. `21/21`) i tab di quel giorno vanno in verde
+  - quando non completo (es. `20/21`) resta la colorazione attuale
 
 ### Hotfix compilazione Web
 - Corretto errore di compile-time in `attendance_overview_cards.dart`:

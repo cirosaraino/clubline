@@ -513,8 +513,6 @@ class _AttendancePageState extends State<AttendancePage> {
     final daySummaries = canManageAll
         ? AttendanceDaySummary.buildForDates(weekDates, entries)
         : const <AttendanceDaySummary>[];
-    final allAnsweredForSelectedPeriod = daySummaries.isNotEmpty &&
-        daySummaries.every((summary) => summary.pendingCount == 0);
 
     return RefreshIndicator(
       onRefresh: _loadData,
@@ -526,7 +524,6 @@ class _AttendancePageState extends State<AttendancePage> {
             viewer: viewer,
             activeWeek: activeWeek,
             daySummaries: daySummaries,
-            isFullyAnswered: allAnsweredForSelectedPeriod,
             onOpenArchive: canManageAll ? _openArchive : null,
             onCreateWeek: canManageAll && activeWeek == null ? _openCreateWeekFlow : null,
             onArchiveWeek: canManageAll && activeWeek != null ? _archiveActiveWeek : null,
