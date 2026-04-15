@@ -97,18 +97,15 @@ class LineupPitchView extends StatelessWidget {
       final startLeft = (constraints.maxWidth - totalRowWidth) / 2;
       final minLeft = 8.0;
       final maxLeft = constraints.maxWidth - rowSpotWidth - 8.0;
-      final minSpacing = _minimumHorizontalSeparation(row.length, rowSpotWidth, row);
+      final minSpacing = _minimumHorizontalSeparation(row.length, rowSpotWidth);
 
-      final desiredLefts = List<double>.generate(row.length, (index) {
-        final positionCode = row[index];
-        final baseLeft = startLeft + (index * (rowSpotWidth + rowGap));
-
-        final horizontalOffset = _horizontalOffsetForPositionCode(
-          positionCode,
-          rowSpotWidth,
-        );
-        return baseLeft + horizontalOffset;
-      });
+      final desiredLefts = _desiredLeftsForRow(
+        row: row,
+        constraints: constraints,
+        rowSpotWidth: rowSpotWidth,
+        rowGap: rowGap,
+        startLeft: startLeft,
+      );
 
       final resolvedLefts = _resolveRowLefts(
         desiredLefts: desiredLefts,
@@ -120,7 +117,8 @@ class LineupPitchView extends StatelessWidget {
 
       for (var index = 0; index < row.length; index++) {
         final positionCode = row[index];
-        final baseTop = (constraints.maxHeight * topFraction) - (rowSpotHeight / 2);
+        final baseTop =
+            (constraints.maxHeight * topFraction) - (rowSpotHeight / 2);
         final verticalOffset = _verticalOffsetForPositionCode(
           positionCode,
           rowSpotHeight,
@@ -151,6 +149,44 @@ class LineupPitchView extends StatelessWidget {
     return widgets;
   }
 
+  List<double> _desiredLeftsForRow({
+    required List<String> row,
+    required BoxConstraints constraints,
+    required double rowSpotWidth,
+    required double rowGap,
+    required double startLeft,
+  }) {
+    final isWideExternalPair =
+        row.length == 2 && row.contains('ES') && row.contains('ED');
+
+    if (isWideExternalPair) {
+      return List<double>.generate(row.length, (index) {
+        final positionCode = row[index];
+
+        if (positionCode == 'ES') {
+          return constraints.maxWidth * 0.18;
+        }
+
+        if (positionCode == 'ED') {
+          return (constraints.maxWidth * 0.82) - rowSpotWidth;
+        }
+
+        return startLeft + (index * (rowSpotWidth + rowGap));
+      });
+    }
+
+    return List<double>.generate(row.length, (index) {
+      final positionCode = row[index];
+      final baseLeft = startLeft + (index * (rowSpotWidth + rowGap));
+
+      final horizontalOffset = _horizontalOffsetForPositionCode(
+        positionCode,
+        rowSpotWidth,
+      );
+      return baseLeft + horizontalOffset;
+    });
+  }
+
   double _horizontalOffsetForPositionCode(String positionCode, double spotWidth) {
     switch (positionCode) {
       case 'TS':
@@ -158,9 +194,9 @@ class LineupPitchView extends StatelessWidget {
       case 'TD':
         return spotWidth * 0.24;
       case 'ES':
-        return -(spotWidth * 0.24);
+        return -(spotWidth * 0.20);
       case 'ED':
-        return spotWidth * 0.24;
+        return spotWidth * 0.20;
       case 'AS':
         return -(spotWidth * 0.18);
       case 'AD':
@@ -185,7 +221,7 @@ class LineupPitchView extends StatelessWidget {
       return -(spotHeight * 0.16);
     }
 
-    if (positionCode == 'CDCS' || positionCode == 'CDCD' || positionCode == 'CDC') {
+    if (positionCode == 'CDCS' || positionCode == 'CDCD') {
       return spotHeight * 0.18;
     }
 
@@ -193,18 +229,14 @@ class LineupPitchView extends StatelessWidget {
       return spotHeight * 0.06;
     }
 
+    if (positionCode == 'CDC') {
+      return spotHeight * 0.13;
+    }
+
     return 0;
   }
 
-  double _minimumHorizontalSeparation(int rowSize, double spotWidth, List<String> row) {
-    final hasOnlyEsEd =
-      row.contains('ES') &&
-      row.contains('ED');
-
-    if (hasOnlyEsEd) {
-      return spotWidth * 0.24;
-    }
-
+  double _minimumHorizontalSeparation(int rowSize, double spotWidth) {
     if (rowSize >= 5) {
       return spotWidth * 0.08;
     }
@@ -338,7 +370,8 @@ class LineupPitchView extends StatelessWidget {
     double gap,
   ) {
     const sidePadding = 18.0;
-    final availableWidth = totalWidth - (sidePadding * 2) - (gap * (itemCount - 1));
+    final availableWidth =
+        totalWidth - (sidePadding * 2) - (gap * (itemCount - 1));
     final calculatedWidth = (availableWidth / itemCount) * 0.96;
     return calculatedWidth.clamp(50.0, 88.0).toDouble();
   }
