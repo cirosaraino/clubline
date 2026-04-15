@@ -359,6 +359,14 @@ Aggiornare in tempo reale, senza refresh manuale, quando un altro utente crea/mo
 - Migliorato messaggio stato utente in card formazione:
   - da "Sei in formazione" a **"Sei in formazione come <RUOLO>"** (es. COC)
 
+### Correzione post-validazione geometria campo
+- Corretto orientamento sinistra/destra per centrali e mediani in `lineup_pitch_view.dart`:
+  - `CCS` e `CDCS` spostati verso sinistra
+  - `CCD` e `CDCD` spostati verso destra
+- Mantiene invariata la logica verticale richiesta:
+  - `CDCS/CDCD` più arretrati
+  - `COC` più avanzato
+
 ### Hotfix compilazione Web
 - Corretto errore di compile-time in `attendance_overview_cards.dart`:
   - `AppCountPill` del badge "Completato" non può essere `const` con colore tema runtime.

@@ -151,13 +151,13 @@ class LineupPitchView extends StatelessWidget {
       case 'AD':
         return spotWidth * 0.22;
       case 'CCS':
-        return spotWidth * 0.16;
-      case 'CCD':
         return -(spotWidth * 0.16);
+      case 'CCD':
+        return spotWidth * 0.16;
       case 'CDCS':
-        return spotWidth * 0.20;
-      case 'CDCD':
         return -(spotWidth * 0.20);
+      case 'CDCD':
+        return spotWidth * 0.20;
       default:
         return 0;
     }
