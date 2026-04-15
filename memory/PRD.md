@@ -379,6 +379,15 @@ Aggiornare in tempo reale, senza refresh manuale, quando un altro utente crea/mo
   - introdotta icona modulo per coerenza visiva con data/ora
   - ridotti ulteriormente gap verticali per look più compatto e ordinato
 
+### Refinement successivo (priorità campo + anti-accavallamento ruoli)
+- In `lineup_pitch_view.dart` introdotto solver di layout riga (`_resolveRowLefts`) per evitare sovrapposizioni tra slot ruolo.
+- Separazione ruoli resa più robusta su tutti i moduli:
+  - offset orizzontali calibrati (larghi/centrali)
+  - separazione minima orizzontale per riga
+  - fallback di compressione controllata quando lo spazio disponibile è limitato
+- Corretto il calcolo span interno del solver (coordinate di partenza) per preservare separazione e offset desiderati senza comprimere prematuramente.
+- In `lineup_players_page.dart` compattato ulteriormente l’header (meta/formazione) per dare più spazio utile al campo.
+
 ### Hotfix compilazione Web
 - Corretto errore di compile-time in `attendance_overview_cards.dart`:
   - `AppCountPill` del badge "Completato" non può essere `const` con colore tema runtime.

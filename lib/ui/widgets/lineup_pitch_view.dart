@@ -222,14 +222,13 @@ class LineupPitchView extends StatelessWidget {
       return const <double>[];
     }
 
-    final availableSpan = maxLeft - minLeft;
-    final requiredSpan = (spotWidth * desiredLefts.length) +
-        (minSpacing * (desiredLefts.length - 1));
+    final availableStartSpan = maxLeft - minLeft;
+    final requiredStartSpan =
+        (desiredLefts.length - 1) * (spotWidth + minSpacing);
 
-    if (requiredSpan > availableSpan && desiredLefts.length > 1) {
+    if (requiredStartSpan > availableStartSpan && desiredLefts.length > 1) {
       final compressedSpacing =
-          ((availableSpan - (spotWidth * desiredLefts.length)) /
-                  (desiredLefts.length - 1))
+          ((availableStartSpan / (desiredLefts.length - 1)) - spotWidth)
               .clamp(0.0, minSpacing)
               .toDouble();
 
