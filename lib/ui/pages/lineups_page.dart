@@ -693,41 +693,21 @@ class _LineupsDayGroupCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 6),
                     if (canDeleteDay) ...[
-                      GestureDetector(
+                      IconButton(
                         key: Key('lineups-day-delete-$dayKey'),
-                        onTap: isDeletingDay ? null : onDeleteDay,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            isDeletingDay
-                                ? const SizedBox(
-                                    width: 14,
-                                    height: 14,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  )
-                                : const Icon(
-                                    Icons.delete_outline,
-                                    size: 18,
-                                  ),
-                            AnimatedSize(
-                              duration: const Duration(milliseconds: 200),
-                              curve: Curves.easeOutCubic,
-                              child: isExpanded
-                                  ? Padding(
-                                      padding: const EdgeInsets.only(left: 6, right: 8),
-                                      child: Text(
-                                        'elimina tutte le formazioni del giorno',
-                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                      ),
-                                    )
-                                  : const SizedBox.shrink(),
-                            ),
-                          ],
-                        ),
+                        tooltip: 'Elimina tutte le formazioni del giorno',
+                        onPressed: isDeletingDay ? null : onDeleteDay,
+                        icon: isDeletingDay
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(
+                                Icons.delete_outline,
+                                size: 18,
+                              ),
                       ),
-                      const SizedBox(width: 6),
                     ],
                     Icon(
                       isExpanded

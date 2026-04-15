@@ -352,7 +352,7 @@ Aggiornare in tempo reale, senza refresh manuale, quando un altro utente crea/mo
 ### Refinement successivo richiesto (Formazioni per giorno)
 - Aggiunta cancellazione per singola giornata nel dropdown:
   - icona cestino sempre visibile
-  - descrizione a scomparsa: **"elimina tutte le formazioni del giorno"** (mostrata in espansione)
+  - descrizione non visibile in UI: ora è solo **tooltip** su hover/tap-hold con testo **"Elimina tutte le formazioni del giorno"**
   - conferma semplice prima dell’eliminazione
 - Implementato endpoint dedicato per delete batch per giornata:
   - `DELETE /api/lineups/day` con `lineup_ids[]`
