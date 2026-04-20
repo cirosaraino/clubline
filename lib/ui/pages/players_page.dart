@@ -353,7 +353,7 @@ class _PlayersPageState extends State<PlayersPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Rosa squadra'),
+        title: const Text('Rosa club'),
       ),
       floatingActionButton: canManagePlayers
           ? FloatingActionButton(
@@ -411,7 +411,7 @@ class _PlayersPageState extends State<PlayersPage> {
             icon: Icons.groups_2_outlined,
             title: 'Nessun giocatore trovato',
             message:
-                'Aggiungi i primi giocatori per iniziare a costruire la rosa della squadra.',
+                'Aggiungi i primi giocatori per iniziare a costruire la rosa del club.',
           ),
         ],
         padding: AppResponsive.pagePadding(context, top: 24),

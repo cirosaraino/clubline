@@ -3,31 +3,46 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../data/auth_repository.dart';
+import '../data/club_repository.dart';
 import '../data/player_repository.dart';
 import '../data/team_info_repository.dart';
 import '../data/vice_permissions_repository.dart';
 import '../models/authenticated_user.dart';
+import '../models/club.dart';
+import '../models/join_request.dart';
+import '../models/leave_request.dart';
+import '../models/membership.dart';
 import '../models/player_profile.dart';
 import '../models/team_info.dart';
 import '../models/vice_permissions.dart';
 import 'app_data_sync.dart';
 
 class AppSessionController extends ChangeNotifier {
-  AppSessionController()
-      : _authRepository = AuthRepository(),
-        _repository = PlayerRepository(),
+  AppSessionController({
+    this.onTeamInfoChanged,
+  })  : _authRepository = AuthRepository(),
+        _clubRepository = ClubRepository(),
+        _playerRepository = PlayerRepository(),
         _teamInfoRepository = TeamInfoRepository(),
         _vicePermissionsRepository = VicePermissionsRepository() {
     AppDataSync.instance.addListener(_handleAppDataSync);
     refresh();
   }
 
+  final void Function(TeamInfo teamInfo)? onTeamInfoChanged;
   final AuthRepository _authRepository;
-  final PlayerRepository _repository;
+  final ClubRepository _clubRepository;
+  final PlayerRepository _playerRepository;
   final TeamInfoRepository _teamInfoRepository;
   final VicePermissionsRepository _vicePermissionsRepository;
 
   AuthenticatedUser? _authUser;
+  Club? _currentClub;
+  Membership? _membership;
+  JoinRequest? _pendingJoinRequest;
+  LeaveRequest? _pendingLeaveRequest;
+  List<JoinRequest> _captainPendingJoinRequests = const [];
+  List<LeaveRequest> _captainPendingLeaveRequests = const [];
   List<PlayerProfile> _players = const [];
   TeamInfo _teamInfo = TeamInfo.defaults;
   VicePermissions _vicePermissions = VicePermissions.defaults;
@@ -35,7 +50,6 @@ class AppSessionController extends ChangeNotifier {
   bool _isRefreshing = false;
   bool _refreshQueued = false;
   String? _errorMessage;
-  bool _canBootstrapCaptainRegistration = false;
   int _lastHandledSyncRevision = 0;
   bool _disposed = false;
 
@@ -47,18 +61,22 @@ class AppSessionController extends ChangeNotifier {
   AuthenticatedUser? get authUser => _authUser;
   bool get isAuthenticated => _authUser != null;
   String? get currentUserEmail => _authUser?.email.trim();
-  bool get needsProfileSetup => isAuthenticated && currentUser == null;
+  Club? get currentClub => _currentClub;
+  Membership? get membership => _membership;
+  JoinRequest? get pendingJoinRequest => _pendingJoinRequest;
+  LeaveRequest? get pendingLeaveRequest => _pendingLeaveRequest;
+  List<JoinRequest> get captainPendingJoinRequests => _captainPendingJoinRequests;
+  List<LeaveRequest> get captainPendingLeaveRequests => _captainPendingLeaveRequests;
+  bool get hasClubMembership => _membership?.isActive == true && _currentClub != null;
+  bool get hasPendingJoinRequest => _pendingJoinRequest?.isPending == true;
+  bool get hasPendingLeaveRequest => _pendingLeaveRequest?.isPending == true;
+  bool get needsClubSelection => isAuthenticated && !hasClubMembership && !hasPendingJoinRequest;
+  bool get needsProfileSetup => hasClubMembership && currentUser == null;
   bool get requiresPasswordRecovery =>
       _authRepository.currentSession?.isRecoverySession == true;
-  bool get isCaptainRegistrationOpen => _canBootstrapCaptainRegistration;
-
-  bool get canBootstrapCaptain {
-    if (!needsProfileSetup) {
-      return false;
-    }
-
-    return _canBootstrapCaptainRegistration;
-  }
+  bool get isCaptainRegistrationOpen => false;
+  bool get canBootstrapCaptain => false;
+  bool get isEmailVerified => _authUser?.emailVerified == true;
 
   PlayerProfile? get currentUser {
     final authUser = _authUser;
@@ -81,8 +99,6 @@ class AppSessionController extends ChangeNotifier {
     return null;
   }
 
-  bool get hasCurrentUser => currentUser != null;
-
   Future<void> signInWithEmail({
     required String email,
     required String password,
@@ -94,33 +110,25 @@ class AppSessionController extends ChangeNotifier {
     _authUser = session.user;
     _errorMessage = null;
     _notifyIfMounted();
-    unawaited(refresh(showLoadingState: false));
+    await refresh(showLoadingState: false);
   }
 
   Future<String> signUpWithEmail({
     required String email,
     required String password,
   }) async {
-    final session = await _authRepository.signUpWithEmail(
+    final message = await _authRepository.signUpWithEmail(
       email: email,
       password: password,
     );
-    _authUser = session.user;
     _errorMessage = null;
     _notifyIfMounted();
-    unawaited(refresh(showLoadingState: false));
-    return 'Account creato. Ora completa il tuo profilo squadra.';
+    return message;
   }
 
   Future<void> signOut() async {
     await _authRepository.signOut();
-    _authUser = null;
-    _players = const [];
-    _teamInfo = TeamInfo.defaults;
-    _vicePermissions = VicePermissions.defaults;
-    _errorMessage = null;
-    _notifyIfMounted();
-    unawaited(refresh(showLoadingState: false));
+    _resetAuthenticatedState();
   }
 
   Future<String> requestPasswordReset({
@@ -152,23 +160,58 @@ class AppSessionController extends ChangeNotifier {
 
     try {
       _authUser = await _authRepository.restoreSession();
-      _notifyIfMounted();
 
-      final bootstrapStatusFuture = _authRepository.fetchCanBootstrapCaptainRegistration();
-      final loadedPlayersFuture = _authUser == null
-          ? Future<List<PlayerProfile>>.value(const [])
-          : _repository.fetchPlayers();
+      if (_authUser == null) {
+        _resetAuthenticatedState();
+        return;
+      }
+
+      final membershipFuture = _clubRepository.fetchCurrentMembership();
+      final clubFuture = _clubRepository.fetchCurrentClub();
+      final pendingJoinRequestFuture = _clubRepository.fetchCurrentPendingJoinRequest();
+
+      final membership = await membershipFuture;
+      final currentClub = await clubFuture;
+      final pendingJoinRequest = await pendingJoinRequestFuture;
+
+      _membership = membership;
+      _currentClub = currentClub;
+      _pendingJoinRequest = pendingJoinRequest;
+
+      if (!hasClubMembership) {
+        _pendingLeaveRequest = null;
+        _captainPendingJoinRequests = const [];
+        _captainPendingLeaveRequests = const [];
+        _players = const [];
+        _vicePermissions = VicePermissions.defaults;
+        _teamInfo = TeamInfo.defaults;
+        _isLoading = false;
+        onTeamInfoChanged?.call(_teamInfo);
+        _notifyIfMounted();
+        return;
+      }
+
+      final loadedPlayersFuture = _playerRepository.fetchPlayers();
       final loadedTeamInfoFuture = _teamInfoRepository.fetchTeamInfo();
-      final loadedVicePermissionsFuture = _authUser == null
-          ? Future<VicePermissions>.value(VicePermissions.defaults)
-          : _vicePermissionsRepository.fetchPermissions();
+      final loadedVicePermissionsFuture = _vicePermissionsRepository.fetchPermissions();
+      final pendingLeaveRequestFuture = _clubRepository.fetchCurrentPendingLeaveRequest();
+      final captainJoinRequestsFuture = membership!.isCaptain
+          ? _clubRepository.fetchPendingJoinRequests()
+          : Future<List<JoinRequest>>.value(const []);
+      final captainLeaveRequestsFuture = membership.isCaptain
+          ? _clubRepository.fetchPendingLeaveRequests()
+          : Future<List<LeaveRequest>>.value(const []);
 
-      final canBootstrapCaptainRegistration = await bootstrapStatusFuture;
       final loadedPlayers = await loadedPlayersFuture;
       final loadedTeamInfo = await loadedTeamInfoFuture;
       final loadedVicePermissions = await loadedVicePermissionsFuture;
+      final pendingLeaveRequest = await pendingLeaveRequestFuture;
+      final captainJoinRequests = await captainJoinRequestsFuture;
+      final captainLeaveRequests = await captainLeaveRequestsFuture;
 
-      _canBootstrapCaptainRegistration = canBootstrapCaptainRegistration;
+      _pendingLeaveRequest = pendingLeaveRequest;
+      _captainPendingJoinRequests = captainJoinRequests;
+      _captainPendingLeaveRequests = captainLeaveRequests;
       _teamInfo = loadedTeamInfo;
       _vicePermissions = loadedVicePermissions;
       _players = loadedPlayers
@@ -180,6 +223,7 @@ class AppSessionController extends ChangeNotifier {
           .toList();
       _isLoading = false;
       _errorMessage = null;
+      onTeamInfoChanged?.call(_teamInfo);
       _notifyIfMounted();
     } catch (e) {
       _isLoading = false;
@@ -194,6 +238,23 @@ class AppSessionController extends ChangeNotifier {
     }
   }
 
+  void _resetAuthenticatedState() {
+    _authUser = null;
+    _currentClub = null;
+    _membership = null;
+    _pendingJoinRequest = null;
+    _pendingLeaveRequest = null;
+    _captainPendingJoinRequests = const [];
+    _captainPendingLeaveRequests = const [];
+    _players = const [];
+    _teamInfo = TeamInfo.defaults;
+    _vicePermissions = VicePermissions.defaults;
+    _isLoading = false;
+    _errorMessage = null;
+    onTeamInfoChanged?.call(_teamInfo);
+    _notifyIfMounted();
+  }
+
   void _notifyIfMounted() {
     if (!_disposed) {
       notifyListeners();
@@ -206,6 +267,7 @@ class AppSessionController extends ChangeNotifier {
       return;
     }
     if (!change.affects({
+      AppDataScope.clubs,
       AppDataScope.players,
       AppDataScope.teamInfo,
       AppDataScope.vicePermissions,

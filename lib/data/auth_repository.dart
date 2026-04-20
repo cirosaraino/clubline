@@ -110,7 +110,7 @@ class AuthRepository {
         'Password aggiornata con successo.';
   }
 
-  Future<AuthSession> signUpWithEmail({
+  Future<String> signUpWithEmail({
     required String email,
     required String password,
   }) async {
@@ -119,13 +119,13 @@ class AuthRepository {
       body: {
         'email': email.trim(),
         'password': password,
+        'redirectTo': _emailVerificationRedirectUrl(),
       },
     );
 
-    final session = AuthSession.fromMap(Map<String, dynamic>.from(response as Map));
-    await _sessionStore.saveSession(session);
-    _session = session;
-    return session;
+    final responseMap = Map<String, dynamic>.from(response as Map);
+    return responseMap['message']?.toString() ??
+        'Ti abbiamo inviato una mail di verifica. Conferma l indirizzo email prima di accedere.';
   }
 
   Future<void> signOut() async {
@@ -221,5 +221,20 @@ class AuthRepository {
     throw const ApiException(
       'Recupero password disponibile dalla web app pubblica.',
     );
+  }
+
+  String _emailVerificationRedirectUrl() {
+    final currentUri = Uri.base;
+    if ((currentUri.scheme == 'http' || currentUri.scheme == 'https') &&
+        currentUri.host.isNotEmpty) {
+      return Uri(
+        scheme: currentUri.scheme,
+        host: currentUri.host,
+        port: currentUri.hasPort ? currentUri.port : null,
+        path: '/',
+      ).toString();
+    }
+
+    return _passwordResetRedirectUrl();
   }
 }

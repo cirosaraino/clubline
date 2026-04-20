@@ -4,16 +4,17 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/app_session.dart';
 import '../../core/app_theme.dart';
+import '../../data/club_repository.dart';
 import '../../models/player_profile.dart';
 import '../../models/team_info.dart';
 import '../widgets/app_chrome.dart';
-
-const String kUltrasLogoAsset = 'assets/images/ultras_mentality_logo.jpg';
 
 enum _HomeProfileMenuAction {
   completeProfile,
   editProfile,
   changePassword,
+  manageClub,
+  requestLeaveClub,
   manageVicePermissions,
   signOut,
 }
@@ -26,6 +27,7 @@ class HomePage extends StatelessWidget {
     required this.onOpenSignIn,
     required this.onOpenSignUp,
     required this.onOpenPasswordSettings,
+    required this.onOpenClubManagement,
     required this.onOpenThemeSettings,
     required this.onOpenVicePermissionsSettings,
     required this.onOpenTeamInfoSettings,
@@ -36,9 +38,12 @@ class HomePage extends StatelessWidget {
   final VoidCallback onOpenSignIn;
   final VoidCallback onOpenSignUp;
   final VoidCallback onOpenPasswordSettings;
+  final VoidCallback onOpenClubManagement;
   final VoidCallback onOpenThemeSettings;
   final VoidCallback onOpenVicePermissionsSettings;
   final VoidCallback onOpenTeamInfoSettings;
+
+  static final ClubRepository _clubRepository = ClubRepository();
 
   Future<void> _openExternalLink(BuildContext context, String rawUrl) async {
     final uri = Uri.tryParse(rawUrl);
@@ -86,12 +91,44 @@ class HomePage extends StatelessWidget {
       case _HomeProfileMenuAction.changePassword:
         onOpenPasswordSettings();
         return;
+      case _HomeProfileMenuAction.manageClub:
+        onOpenClubManagement();
+        return;
+      case _HomeProfileMenuAction.requestLeaveClub:
+        await _requestLeaveClub(context, session);
+        return;
       case _HomeProfileMenuAction.manageVicePermissions:
         onOpenVicePermissionsSettings();
         return;
       case _HomeProfileMenuAction.signOut:
         await _signOut(context, session);
         return;
+    }
+  }
+
+  Future<void> _requestLeaveClub(
+    BuildContext context,
+    AppSessionController session,
+  ) async {
+    try {
+      await _clubRepository.requestLeaveClub();
+      await session.refresh(showLoadingState: false);
+
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Richiesta di uscita inviata al capitano.')),
+      );
+    } catch (error) {
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString())),
+      );
     }
   }
 
@@ -148,8 +185,26 @@ class HomePage extends StatelessWidget {
                     contentPadding: EdgeInsets.zero,
                     leading: Icon(Icons.password_outlined),
                     title: Text('Cambia password'),
+                    ),
                   ),
-                ),
+                if (currentUser?.isCaptain == true)
+                  const PopupMenuItem<_HomeProfileMenuAction>(
+                    value: _HomeProfileMenuAction.manageClub,
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.admin_panel_settings_outlined),
+                      title: Text('Dashboard capitano'),
+                    ),
+                  ),
+                if (currentUser != null && currentUser.isCaptain != true)
+                  const PopupMenuItem<_HomeProfileMenuAction>(
+                    value: _HomeProfileMenuAction.requestLeaveClub,
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.exit_to_app_outlined),
+                      title: Text('Richiedi uscita club'),
+                    ),
+                  ),
                 if (canManageVicePermissions)
                   const PopupMenuItem<_HomeProfileMenuAction>(
                     key: Key('home-profile-menu-manage-vice-permissions'),
@@ -213,6 +268,18 @@ class HomePage extends StatelessWidget {
                         currentUser?.canManageTeamInfo == true ? onOpenTeamInfoSettings : null,
                     onOpenLink: (url) => _openExternalLink(context, url),
                   ),
+                  if (currentUser != null &&
+                      (currentUser.isCaptain ||
+                          session.hasPendingLeaveRequest ||
+                          session.captainPendingJoinRequests.isNotEmpty ||
+                          session.captainPendingLeaveRequests.isNotEmpty)) ...[
+                    const SizedBox(height: 18),
+                    _ClubPulseCard(
+                      currentUser: currentUser,
+                      session: session,
+                      onOpenClubManagement: onOpenClubManagement,
+                    ),
+                  ],
                   const SizedBox(height: 18),
                   _AccessCard(
                     isAuthenticated: isAuthenticated,
@@ -263,6 +330,43 @@ class _GlowCircle extends StatelessWidget {
   }
 }
 
+class _ClubPulseCard extends StatelessWidget {
+  const _ClubPulseCard({
+    required this.currentUser,
+    required this.session,
+    required this.onOpenClubManagement,
+  });
+
+  final PlayerProfile currentUser;
+  final AppSessionController session;
+  final VoidCallback onOpenClubManagement;
+
+  @override
+  Widget build(BuildContext context) {
+    final pendingJoin = session.captainPendingJoinRequests.length;
+    final pendingLeave = session.captainPendingLeaveRequests.length;
+    final isCaptain = currentUser.isCaptain;
+
+    final title = isCaptain
+        ? 'Dashboard capitano pronta'
+        : session.hasPendingLeaveRequest
+            ? 'Richiesta di uscita in attesa'
+            : 'Club attivo';
+    final message = isCaptain
+        ? 'Hai $pendingJoin richieste di ingresso e $pendingLeave richieste di uscita da gestire.'
+        : 'La tua richiesta di uscita è stata inviata e resta in attesa della decisione del capitano.';
+
+    return AppStatusCard(
+      icon: isCaptain ? Icons.admin_panel_settings_outlined : Icons.hourglass_top_outlined,
+      title: title,
+      message: message,
+      actionLabel: isCaptain ? 'Apri dashboard capitano' : null,
+      actionIcon: Icons.arrow_forward_outlined,
+      onAction: isCaptain ? onOpenClubManagement : null,
+    );
+  }
+}
+
 class _HomeWelcomeCard extends StatelessWidget {
   const _HomeWelcomeCard({
     required this.teamInfo,
@@ -286,23 +390,23 @@ class _HomeWelcomeCard extends StatelessWidget {
 
   String _welcomeText() {
     if (!isAuthenticated) {
-      return 'Benvenuto. Accedi o registrati per entrare nell app e vedere subito cosa puoi fare da giocatore, vice o capitano.';
+      return 'Benvenuto. Accedi o registrati per entrare in Clubline e vedere subito cosa puoi fare come membro, vice o capitano.';
     }
 
     if (needsProfileSetup) {
       final email = currentUserEmail;
       if (email == null) {
-        return 'Sei autenticato, ma manca ancora il profilo squadra collegato.';
+        return 'Sei autenticato, ma manca ancora il profilo club collegato.';
       }
 
-      return 'Benvenuto $email. Ora manca solo il profilo squadra per completare l accesso.';
+      return 'Benvenuto $email. Ora manca solo il profilo club per completare l accesso.';
     }
 
     if (currentUser == null) {
-      return 'Accesso completato. Il profilo squadra verra sincronizzato appena disponibile.';
+      return 'Accesso completato. Il profilo club verrà sincronizzato appena disponibile.';
     }
 
-    return 'Benvenuto ${currentUser!.fullName}. In questo momento stai usando l app come ${currentUser!.teamRoleDisplay.toLowerCase()}.';
+    return 'Benvenuto ${currentUser!.fullName}. In questo momento stai usando Clubline come ${currentUser!.teamRoleDisplay.toLowerCase()}.';
   }
 
   @override
@@ -377,7 +481,7 @@ class _HomeWelcomeCard extends StatelessWidget {
                   child: ElevatedButton.icon(
                     onPressed: onOpenTeamInfoSettings,
                     icon: const Icon(Icons.edit_note_outlined),
-                    label: const Text('Info squadra'),
+                    label: const Text('Info club'),
                   ),
                 ),
               ],
@@ -396,7 +500,7 @@ class _HomeWelcomeCard extends StatelessWidget {
                     ElevatedButton.icon(
                       onPressed: onOpenTeamInfoSettings,
                       icon: const Icon(Icons.edit_note_outlined),
-                      label: const Text('Info squadra'),
+                      label: const Text('Info club'),
                     ),
                 ],
               ),
@@ -448,10 +552,10 @@ class _AccessCard extends StatelessWidget {
         label: user.canManageStreams ? 'Gestione live' : 'Live solo lettura',
       ),
       AppCountPill(
-        label: user.canManageAttendanceAll ? 'Presenze squadra' : 'Presenze personali',
+        label: user.canManageAttendanceAll ? 'Presenze club' : 'Presenze personali',
       ),
       AppCountPill(
-        label: user.canManageTeamInfo ? 'Info squadra' : 'Info squadra sola lettura',
+        label: user.canManageTeamInfo ? 'Info club' : 'Info club sola lettura',
       ),
     ];
   }
@@ -464,18 +568,18 @@ class _AccessCard extends StatelessWidget {
     if (needsProfileSetup) {
       final email = currentUserEmail;
       if (email == null) {
-        return 'Sei autenticato, ma manca il profilo squadra collegato.';
+        return 'Sei autenticato, ma manca il profilo club collegato.';
       }
 
-      return 'Hai eseguito l accesso come $email, ma devi ancora completare il profilo squadra.';
+      return 'Hai eseguito l accesso come $email, ma devi ancora completare il profilo club.';
     }
 
     if (currentUser == null) {
-      return 'Accesso completato. Ora stiamo sincronizzando il profilo squadra.';
+      return 'Accesso completato. Ora stiamo sincronizzando il profilo club.';
     }
 
     if (currentUser!.isCaptain) {
-      return 'Permessi da capitano: controllo totale della squadra, delle info Home e della configurazione dei vice.';
+      return 'Permessi da capitano: controllo totale del club, della Home e della configurazione dei vice.';
     }
 
     if (currentUser!.isViceCaptain) {
@@ -483,7 +587,7 @@ class _AccessCard extends StatelessWidget {
         return 'Ruolo da vice con permessi gestionali disattivati: continui a usare l app come giocatore, con il solo accesso al tuo profilo e alle tue presenze.';
       }
 
-      return 'Permessi da vice: puoi gestire solo le aree che il capitano ha scelto di autorizzarti, incluse eventualmente le info squadra.';
+      return 'Permessi da vice: puoi gestire solo le aree che il capitano ha scelto di autorizzarti, incluse eventualmente le info club.';
     }
 
     return 'Permessi da giocatore: puoi consultare tutto, aggiornare solo il tuo profilo e compilare soltanto le tue presenze.';
@@ -541,21 +645,12 @@ class _AccessCard extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                'Accedi con un account esistente oppure registrane uno nuovo. Dopo il login puoi completare il profilo squadra.',
+                'Accedi con un account esistente oppure registrane uno nuovo. Dopo il login potrai creare un club o chiedere l ingresso in uno esistente.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: UltrasAppTheme.textMuted,
                       height: 1.35,
                     ),
               ),
-              if (isCaptainRegistrationOpen) ...[
-                const SizedBox(height: 10),
-                Text(
-                  'Registrazione capitano iniziale aperta: il primo account che completa il primo profilo squadra verra impostato come capitano.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-              ],
               const SizedBox(height: 14),
               if (compact) ...[
                 SizedBox(
@@ -605,7 +700,7 @@ class _AccessCard extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               Text(
-                'Sei autenticato con ${currentUserEmail ?? 'un account valido'}, ma manca ancora il profilo squadra da compilare.',
+                'Sei autenticato con ${currentUserEmail ?? 'un account valido'}, ma manca ancora il profilo club da compilare.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: UltrasAppTheme.textMuted,
                       height: 1.35,
@@ -635,7 +730,7 @@ class _AccessCard extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                'Hai un profilo collegato e puoi continuare usando l app con i tuoi permessi.',
+                'Hai un profilo collegato e puoi continuare usando Clubline con i tuoi permessi.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: UltrasAppTheme.textMuted,
                       height: 1.35,
@@ -654,7 +749,7 @@ class _AccessCard extends StatelessWidget {
                     ),
                   ),
                   child: Text(
-                    'Sei entrato dal link di recupero password. Impostane una nuova per chiudere il recupero e continuare ad usare l app normalmente.',
+                    'Sei entrato dal link di recupero password. Impostane una nuova per chiudere il recupero e continuare ad usare Clubline normalmente.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: UltrasAppTheme.warningSoft,
                           fontWeight: FontWeight.w700,
@@ -865,20 +960,33 @@ class _TeamCrestAvatar extends StatelessWidget {
       ),
       child: ClipOval(
         child: crestUrl == null
-            ? Image.asset(
-                kUltrasLogoAsset,
-                fit: BoxFit.cover,
-              )
+            ? _ClubFallbackCrest(size: size)
             : Image.network(
                 crestUrl!,
                 fit: BoxFit.cover,
                 errorBuilder: (_, error, stackTrace) {
-                  return Image.asset(
-                    kUltrasLogoAsset,
-                    fit: BoxFit.cover,
-                  );
+                  return _ClubFallbackCrest(size: size);
                 },
               ),
+      ),
+    );
+  }
+}
+
+class _ClubFallbackCrest extends StatelessWidget {
+  const _ClubFallbackCrest({required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: UltrasAppTheme.surfaceAlt,
+      alignment: Alignment.center,
+      child: Icon(
+        Icons.shield_outlined,
+        size: size * 0.42,
+        color: UltrasAppTheme.goldSoft,
       ),
     );
   }

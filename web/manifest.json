@@ -1,11 +1,11 @@
 {
-    "name": "Ultras Mentality",
-    "short_name": "Ultras",
+    "name": "Clubline",
+    "short_name": "Clubline",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#171107",
     "theme_color": "#171107",
-    "description": "Gestione squadra, live, formazioni e presenze di Ultras Mentality.",
+    "description": "Piattaforma multi-club per roster, live, formazioni e presenze.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

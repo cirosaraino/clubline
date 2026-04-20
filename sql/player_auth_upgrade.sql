@@ -124,7 +124,7 @@ begin
     end if;
 
     if auth.uid() is null then
-      raise exception 'Autenticazione richiesta per creare un profilo squadra';
+      raise exception 'Autenticazione richiesta per creare un profilo club';
     end if;
 
     new.auth_user_id := auth.uid();
@@ -147,7 +147,7 @@ begin
     end if;
 
     if auth.uid() is null then
-      raise exception 'Autenticazione richiesta per completare il profilo squadra';
+      raise exception 'Autenticazione richiesta per completare il profilo club';
     end if;
 
     if old.auth_user_id is null
@@ -165,7 +165,7 @@ begin
     end if;
 
     if old.auth_user_id is distinct from auth.uid() then
-      raise exception 'Non puoi modificare questo profilo squadra';
+      raise exception 'Non puoi modificare questo profilo club';
     end if;
 
     new.auth_user_id := old.auth_user_id;

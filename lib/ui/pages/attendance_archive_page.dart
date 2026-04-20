@@ -302,7 +302,7 @@ class _AttendanceArchivePageState extends State<AttendanceArchivePage> {
               icon: Icons.person_outline,
               title: 'Accesso richiesto',
               message:
-                  'Accedi e completa il profilo squadra per consultare l archivio con i permessi corretti.',
+                  'Accedi e completa il profilo club per consultare l archivio con i permessi corretti.',
             ),
           ),
         ),

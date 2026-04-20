@@ -500,7 +500,7 @@ class _AttendancePageState extends State<AttendancePage> {
               icon: Icons.person_outline,
               title: 'Accesso richiesto',
               message:
-                  'Accedi e completa il profilo squadra per usare le presenze con i permessi corretti.',
+                  'Accedi e completa il profilo club per usare le presenze con i permessi corretti.',
             ),
           ],
         ),

@@ -18,23 +18,23 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="Gestione squadra, live, formazioni e presenze di Ultras Mentality.">
+  <meta name="description" content="Piattaforma multi-club per roster, live, formazioni e presenze.">
   <meta name="theme-color" content="#171107">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="Ultras">
+  <meta name="apple-mobile-web-app-title" content="Clubline">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>Ultras Mentality</title>
+  <title>Clubline</title>
   <link rel="manifest" href="manifest.json">
   <script>
     (function () {
-      const state = window.__ultrasPwa = window.__ultrasPwa || {
+      const state = window.__clublinePwa = window.__clublinePwa || {
         deferredPrompt: null,
         installed: window.matchMedia('(display-mode: standalone)').matches ||
           window.navigator.standalone === true,
@@ -43,13 +43,13 @@
       window.addEventListener('beforeinstallprompt', function (event) {
         event.preventDefault();
         state.deferredPrompt = event;
-        window.dispatchEvent(new Event('ultras-pwa-install-available'));
+        window.dispatchEvent(new Event('clubline-pwa-install-available'));
       });
 
       window.addEventListener('appinstalled', function () {
         state.deferredPrompt = null;
         state.installed = true;
-        window.dispatchEvent(new Event('ultras-pwa-installed'));
+        window.dispatchEvent(new Event('clubline-pwa-installed'));
       });
     })();
   </script>

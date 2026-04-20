@@ -34,7 +34,7 @@ playersRouter.get(
       nome: typeof req.query.nome === 'string' ? req.query.nome : undefined,
       cognome: typeof req.query.cognome === 'string' ? req.query.cognome : undefined,
       q: typeof req.query.q === 'string' ? req.query.q : undefined,
-    });
+    }, req.principal!);
 
     sendOk(res, { players });
   }),
@@ -44,7 +44,10 @@ playersRouter.get(
   '/by-console/:consoleId',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const player = await playerService.findByConsoleId(req.params.consoleId);
+    const player = await playerService.findByConsoleId(
+      req.params.consoleId,
+      req.principal!.membership!.club_id,
+    );
     if (!player) {
       res.status(404).json({
         error: {

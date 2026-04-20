@@ -9,7 +9,6 @@ import { realtimeEventsBus } from '../lib/realtime-events';
 import { VicePermissionsService } from '../services/vice-permissions.service';
 
 const permissionsSchema = z.object({
-  id: z.number().int().optional(),
   vice_manage_players: z.boolean().default(false),
   vice_manage_lineups: z.boolean().default(false),
   vice_manage_streams: z.boolean().default(false),
@@ -24,8 +23,8 @@ const vicePermissionsService = new VicePermissionsService(supabaseDb);
 vicePermissionsRouter.get(
   '/',
   requireAuth,
-  asyncHandler(async (_req, res) => {
-    const permissions = await vicePermissionsService.getPermissions();
+  asyncHandler(async (req, res) => {
+    const permissions = await vicePermissionsService.getPermissions(req.principal!);
     sendOk(res, { permissions });
   }),
 );
@@ -38,8 +37,8 @@ vicePermissionsRouter.put(
     const parsedPermissions = permissionsSchema.parse(req.body);
     const permissions = await vicePermissionsService.updatePermissions(
       {
+        club_id: principal!.membership?.club_id ?? 0,
         ...parsedPermissions,
-        id: 1,
       },
       principal!,
     );

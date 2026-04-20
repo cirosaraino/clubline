@@ -4,19 +4,36 @@ import type { RequestPrincipal, VicePermissionsRow } from '../domain/types';
 import { ForbiddenError } from '../lib/errors';
 import { optionalData, requiredData } from '../lib/supabase-result';
 
+function defaultPermissions(clubId: string | number): VicePermissionsRow {
+  return {
+    club_id: clubId,
+    vice_manage_players: false,
+    vice_manage_lineups: false,
+    vice_manage_streams: false,
+    vice_manage_attendance: false,
+    vice_manage_team_info: false,
+    updated_at: null,
+  };
+}
+
 export class VicePermissionsService {
   constructor(private readonly db: SupabaseClient) {}
 
-  async getPermissions(): Promise<VicePermissionsRow> {
+  async getPermissions(principal: RequestPrincipal): Promise<VicePermissionsRow> {
+    const clubId = principal.membership?.club_id;
+    if (!clubId) {
+      throw new ForbiddenError('Devi appartenere a un club per vedere questi permessi');
+    }
+
     const response = await this.db
-      .from('team_permission_settings')
+      .from('club_permission_settings')
       .select('*')
-      .eq('id', 1)
+      .eq('club_id', clubId)
       .maybeSingle();
 
     const permissions = optionalData(response);
     if (!permissions) {
-      return this.defaultPermissions();
+      return defaultPermissions(clubId);
     }
 
     return permissions as VicePermissionsRow;
@@ -26,34 +43,26 @@ export class VicePermissionsService {
     permissions: VicePermissionsRow,
     principal: RequestPrincipal,
   ): Promise<VicePermissionsRow> {
+    const clubId = principal.membership?.club_id;
+    if (!clubId) {
+      throw new ForbiddenError('Devi appartenere a un club per modificare questi permessi');
+    }
     if (!principal.isCaptain) {
       throw new ForbiddenError('Solo il capitano puo modificare i permessi dei vice');
     }
 
     const response = await this.db
-      .from('team_permission_settings')
+      .from('club_permission_settings')
       .upsert(
         {
           ...permissions,
-          id: 1,
+          club_id: clubId,
         },
-        { onConflict: 'id' },
+        { onConflict: 'club_id' },
       )
       .select('*')
       .single();
 
     return requiredData(response) as VicePermissionsRow;
-  }
-
-  private defaultPermissions(): VicePermissionsRow {
-    return {
-      id: 1,
-      vice_manage_players: false,
-      vice_manage_lineups: false,
-      vice_manage_streams: false,
-      vice_manage_attendance: false,
-      vice_manage_team_info: false,
-      updated_at: null,
-    };
   }
 }

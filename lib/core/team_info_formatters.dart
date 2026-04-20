@@ -1,4 +1,4 @@
-const String kDefaultTeamName = 'Ultras Mentality';
+const String kDefaultTeamName = 'Clubline';
 
 String normalizeTeamName(String value) {
   final normalized = value.trim();

@@ -1,194 +1,53 @@
-# Squadra Backend
+# Clubline Backend
 
-Backend REST separato per l'app Flutter. Questo servizio parla con Supabase e con il database
-al posto del frontend. Il client Flutter dovra chiamare solo queste API.
-
-## Stack
-
-- TypeScript
-- Express
-- Supabase JS
-
-## Code quality / analyzer path
-
-Per l'ambiente `iphone-slowness`:
-
-- **Backend source corretto:** `/app/backend/src`
-- **Linguaggio backend:** TypeScript (`.ts`)
-- **Nota importante:** in questo progetto **non** ci sono file Python in `/app/backend`
-
-Se uno strumento di code quality sta cercando Python in `/app/backend`, la configurazione va aggiornata per analizzare TypeScript su `/app/backend/src`.
+Backend REST TypeScript/Express che governa auth, permessi, validazioni e accesso a Supabase per tutta la piattaforma Clubline.
 
 ## Variabili ambiente
 
-Copiale da [`.env.example`](./.env.example).
+Template disponibili:
 
-- `PORT`: porta del server
-- `NODE_ENV`: ambiente
-- `CORS_ORIGIN`: origini abilitate
-- `SUPABASE_URL`: URL del progetto Supabase
-- `SUPABASE_ANON_KEY`: chiave anon per auth
-- `SUPABASE_SERVICE_ROLE_KEY`: chiave service role per accesso al DB
+- [`.env.example`](/Users/ciro.saraino/clubline/backend/.env.example)
+- [`.env.clubline-dev.example`](/Users/ciro.saraino/clubline/backend/.env.clubline-dev.example)
+- [`.env.clubline-prod.example`](/Users/ciro.saraino/clubline/backend/.env.clubline-prod.example)
+
+Variabili runtime:
+
+- `PORT`
+- `NODE_ENV`
+- `CORS_ORIGIN`
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+
+Variabile opzionale per gli script SQL:
+
+- `SUPABASE_DB_URL`
 
 ## Comandi
 
 ```bash
 npm install
 npm run dev
+npm run typecheck
+npm run test
 ```
 
-Avvio frontend Flutter puntando al backend locale:
+## Switch env locale
 
 ```bash
-flutter run --dart-define=API_BASE_URL=http://localhost:3001/api
+./scripts/env/use-backend-env.sh dev
+./scripts/env/use-backend-env.sh prod
 ```
 
-Build produzione:
+## Bootstrap database
 
 ```bash
-npm run build
-npm start
+./scripts/db/apply-clubline-schema.sh dev
+./scripts/db/apply-clubline-schema.sh prod
+./scripts/db/verify-clubline-schema.sh dev
+./scripts/db/verify-clubline-schema.sh prod
 ```
-
-## Risposte JSON
-
-Formato scelto per restare semplice e stabile:
-
-- `auth login/register/refresh`:
-  ```json
-  {
-    "session": {
-      "accessToken": "...",
-      "refreshToken": "...",
-      "expiresAt": "2026-04-13T12:00:00.000Z",
-      "user": {
-        "id": "...",
-        "email": "..."
-      }
-    }
-  }
-  ```
-- `auth me`:
-  ```json
-  {
-    "user": {
-      "id": "...",
-      "email": "..."
-    }
-  }
-  ```
-- `players list`:
-  ```json
-  {
-    "players": []
-  }
-  ```
-- `create/update/claim`:
-  ```json
-  {
-    "player": {}
-  }
-  ```
-- `team-info`:
-  ```json
-  {
-    "teamInfo": {}
-  }
-  ```
-- `vice-permissions`:
-  ```json
-  {
-    "permissions": {}
-  }
-  ```
-- `streams list`:
-  ```json
-  {
-    "streams": []
-  }
-  ```
-- `streams create/update`:
-  ```json
-  {
-    "stream": {}
-  }
-  ```
-- `stream metadata`:
-  ```json
-  {
-    "metadata": {}
-  }
-  ```
-- `lineups list`:
-  ```json
-  {
-    "lineups": []
-  }
-  ```
-- `lineup players / assignments`:
-  ```json
-  {
-    "assignments": []
-  }
-  ```
-- `attendance active week`:
-  ```json
-  {
-    "week": {}
-  }
-  ```
-- `attendance archived weeks`:
-  ```json
-  {
-    "weeks": []
-  }
-  ```
-- `attendance entries`:
-  ```json
-  {
-    "entries": []
-  }
-  ```
-- `attendance lineup filters`:
-  ```json
-  {
-    "filters": {
-      "absentPlayerIds": [],
-      "pendingPlayerIds": []
-    }
-  }
-  ```
-- errors:
-  ```json
-  {
-    "error": {
-      "message": "..."
-    }
-  }
-  ```
-
-## Permessi
-
-- `captain`: accesso completo
-- `vice_captain`: accesso solo se abilitato dalle `team_permission_settings`
-- `player`: accesso limitato
 
 ## Nota architetturale
 
-Il frontend Flutter non deve parlare direttamente con Supabase o col database. Questa cartella `backend/`
-e il layer unico che governa auth, permessi e CRUD.
-
-## Stato migrazione
-
-La separazione è completa:
-
-- auth
-- players
-- team-info
-- vice-permissions
-- streams
-- stream metadata
-- lineups
-- attendance
-
-Il frontend Flutter non usa più Supabase direttamente.
+Il frontend Flutter non parla direttamente con Supabase o con il database. Tutta la logica di sicurezza, isolamento multi-club e autorizzazione passa da questo backend.

@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../../core/app_session.dart';
 import '../widgets/app_chrome.dart';
 import 'attendance_page.dart';
+import 'club_access_hub_page.dart';
+import 'club_management_page.dart';
 import 'home_page.dart';
 import 'lineups_page.dart';
 import 'player_form_page.dart';
@@ -295,6 +297,15 @@ class _AppShellPageState extends State<AppShellPage> {
     );
   }
 
+  Future<void> _openClubManagement() async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const ClubManagementPage(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = AppSessionScope.of(context);
@@ -308,6 +319,7 @@ class _AppShellPageState extends State<AppShellPage> {
         onOpenPasswordSettings: () => _openPasswordSheet(
           isRecoveryFlow: session.requiresPasswordRecovery,
         ),
+        onOpenClubManagement: _openClubManagement,
         onOpenThemeSettings: _openThemeSettings,
         onOpenVicePermissionsSettings: _openVicePermissionsSettings,
         onOpenTeamInfoSettings: _openTeamInfoSettings,
@@ -318,13 +330,17 @@ class _AppShellPageState extends State<AppShellPage> {
       const AttendancePage(),
     ];
 
-    if (!session.isAuthenticated || session.needsProfileSetup) {
+    if (!session.isAuthenticated) {
       return Scaffold(
         body: _wrapHomeWithInitialOverlay(
           child: pages.first,
           session: session,
         ),
       );
+    }
+
+    if (!session.hasClubMembership) {
+      return const ClubAccessHubPage();
     }
 
     return Scaffold(

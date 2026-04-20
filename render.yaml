@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: squadra-backend
+    name: clubline-backend
     runtime: node
     plan: starter
     rootDir: backend
@@ -20,7 +20,7 @@ services:
         sync: false
 
   - type: web
-    name: squadra-web
+    name: clubline-web
     runtime: static
     buildCommand: ./scripts/render-build-web.sh
     staticPublishPath: build/web

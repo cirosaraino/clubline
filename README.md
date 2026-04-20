@@ -1,24 +1,33 @@
-# squadra_app
+# Clubline
 
-A new Flutter project.
+Piattaforma multi-club costruita su Flutter + backend REST TypeScript/Express, con Supabase usato solo lato server per auth, storage e accesso dati.
 
-## Backend reale del progetto
+## Struttura
 
-- Percorso: `/app/backend/src`
-- Linguaggio: **TypeScript** (non Python)
+- `lib/`: app Flutter web/mobile
+- `backend/`: API REST, auth, permessi, service layer e accesso a Supabase
+- `sql/`: schema e migrazioni DB
+- `scripts/`: script operativi per build, env e bootstrap database
+- `docs/`: note architetturali e guide di rilascio
 
-Per analisi qualità codice in ambiente `iphone-slowness`, usare TypeScript su `/app/backend/src`.
+## Avvio rapido
 
-## Getting Started
+1. Prepara l env backend partendo da uno dei template in `backend/`.
+2. Attiva l env desiderato:
+   - `./scripts/env/use-backend-env.sh dev`
+   - `./scripts/env/use-backend-env.sh prod`
+3. Avvia il backend:
+   - `cd backend && npm install && npm run dev`
+4. Avvia Flutter puntando al backend locale:
+   - `flutter run --dart-define=API_BASE_URL=http://localhost:3001/api`
 
-This project is a starting point for a Flutter application.
+## Database Supabase
 
-A few resources to get you started if this is your first Flutter project:
+Per bootstrap e verifica dei nuovi progetti `clubline-dev` e `clubline-prod` usa:
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+- `./scripts/db/apply-clubline-schema.sh dev`
+- `./scripts/db/apply-clubline-schema.sh prod`
+- `./scripts/db/verify-clubline-schema.sh dev`
+- `./scripts/db/verify-clubline-schema.sh prod`
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+I dettagli operativi sono in [docs/production_release_guide.md](/Users/ciro.saraino/clubline/docs/production_release_guide.md).

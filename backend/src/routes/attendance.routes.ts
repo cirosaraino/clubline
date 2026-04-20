@@ -27,7 +27,7 @@ attendanceRouter.get(
   '/active-week',
   requireAuth,
   asyncHandler(async (_req, res) => {
-    const week = await attendanceService.getActiveWeek();
+    const week = await attendanceService.getActiveWeek(_req.principal!);
     sendOk(res, { week });
   }),
 );

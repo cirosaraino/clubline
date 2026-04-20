@@ -390,7 +390,7 @@ class AttendancePermissionsCard extends StatelessWidget {
         ? 'Permessi estesi attivi'
         : 'Compilazione personale';
     final message = viewer.canManageAttendanceAll
-        ? 'Come ${viewer.teamRoleDisplay.toLowerCase()} puoi creare i sondaggi, scegliere i giorni da votare, archiviare la settimana e correggere le disponibilita della squadra.'
+        ? 'Come ${viewer.teamRoleDisplay.toLowerCase()} puoi creare i sondaggi, scegliere i giorni da votare, archiviare la settimana e correggere le disponibilita del club.'
         : 'Come giocatore puoi compilare solo le tue presenze giornaliere, senza vedere riepiloghi o voti degli altri.';
 
     return Card(

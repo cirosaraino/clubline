@@ -31,6 +31,10 @@ export async function resolvePrincipalFromToken(token: string) {
   const authUser: AuthUserDto = {
     id: response.data.user.id,
     email: response.data.user.email ?? null,
+    emailVerified:
+      (response.data.user.email_confirmed_at ?? response.data.user.confirmed_at) != null,
+    emailVerifiedAt:
+      response.data.user.email_confirmed_at ?? response.data.user.confirmed_at ?? null,
   };
 
   return accessService.resolvePrincipal(authUser);

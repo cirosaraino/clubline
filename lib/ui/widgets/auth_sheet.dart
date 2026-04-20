@@ -142,8 +142,6 @@ class _AuthSheetState extends State<AuthSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final session = AppSessionScope.of(context);
-    final isCaptainRegistrationOpen = session.isCaptainRegistrationOpen;
     final compact = AppResponsive.isCompact(context);
     final horizontalPadding = AppResponsive.horizontalPadding(context) + 4;
 
@@ -178,8 +176,8 @@ class _AuthSheetState extends State<AuthSheet> {
                   Expanded(
                     child: Text(
                       selectedMode == AuthSheetMode.signIn
-                          ? 'Accedi alla squadra'
-                          : 'Registrati nella squadra',
+                          ? 'Accedi a Clubline'
+                          : 'Crea account Clubline',
                       style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w900,
                       ),
@@ -190,14 +188,14 @@ class _AuthSheetState extends State<AuthSheet> {
               const SizedBox(height: 8),
               Text(
                 selectedMode == AuthSheetMode.signIn
-                    ? 'Usa email e password per entrare con il tuo account.'
-                    : 'Crea il tuo account e poi completa il profilo squadra.',
+                    ? 'Usa email e password per entrare nella piattaforma.'
+                    : 'Registrati, verifica la mail e poi crea o raggiungi il tuo club.',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: UltrasAppTheme.textMuted,
                   height: 1.35,
                 ),
               ),
-              if (selectedMode == AuthSheetMode.signUp && isCaptainRegistrationOpen) ...[
+              if (selectedMode == AuthSheetMode.signUp) ...[
                 const SizedBox(height: 14),
                 Container(
                   padding: const EdgeInsets.all(14),
@@ -209,7 +207,7 @@ class _AuthSheetState extends State<AuthSheet> {
                     ),
                   ),
                   child: Text(
-                    'Registrazione capitano iniziale aperta: il primo account che completa il primo profilo squadra verra impostato automaticamente come capitano.',
+                    'Dopo la registrazione ti invieremo una mail di verifica. Solo dopo la conferma potrai accedere e creare o richiedere l ingresso in un club.',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       height: 1.35,
                     ),

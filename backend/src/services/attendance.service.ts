@@ -6,7 +6,7 @@ import type {
   AttendanceWeekRow,
   RequestPrincipal,
 } from '../domain/types';
-import { ConflictError, ForbiddenError } from '../lib/errors';
+import { ConflictError, ForbiddenError, NotFoundError } from '../lib/errors';
 import { ensureSuccess, optionalData, requiredData } from '../lib/supabase-result';
 
 function normalizeDateOnly(value: string | Date): string {
@@ -37,6 +37,19 @@ function teamRoleSortIndex(value: string | null | undefined): number {
   }
 }
 
+function calculateWeekStart(referenceDate: string): string {
+  const date = new Date(`${normalizeDateOnly(referenceDate)}T00:00:00.000Z`);
+  const utcDay = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() - utcDay + 1);
+  return date.toISOString().slice(0, 10);
+}
+
+function addDays(dateOnly: string, amount: number): string {
+  const date = new Date(`${normalizeDateOnly(dateOnly)}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + amount);
+  return date.toISOString().slice(0, 10);
+}
+
 export interface CreateAttendanceWeekInput {
   reference_date: string;
   selected_dates: string[];
@@ -52,10 +65,12 @@ export interface SaveAttendanceAvailabilityInput {
 export class AttendanceService {
   constructor(private readonly db: SupabaseClient) {}
 
-  async getActiveWeek(): Promise<AttendanceWeekRow | null> {
+  async getActiveWeek(principal: RequestPrincipal): Promise<AttendanceWeekRow | null> {
+    const clubId = this.requireClubId(principal);
     const response = await this.db
       .from('attendance_weeks')
       .select('*')
+      .eq('club_id', clubId)
       .is('archived_at', null)
       .order('week_start', { ascending: false })
       .limit(1)
@@ -68,19 +83,41 @@ export class AttendanceService {
     input: CreateAttendanceWeekInput,
     principal: RequestPrincipal,
   ): Promise<AttendanceWeekRow | null> {
+    const clubId = this.requireClubId(principal);
     this.ensureCanManageAttendance(principal);
 
-    const response = await this.db.rpc('create_attendance_week', {
-      reference_date: normalizeDateOnly(input.reference_date),
-      selected_dates: normalizeDates(input.selected_dates),
-    });
-
-    const weekId = optionalData(response) as number | string | null;
-    if (weekId == null) {
-      return null;
+    const weekStart = calculateWeekStart(input.reference_date);
+    const weekEnd = addDays(weekStart, 6);
+    const selectedDates = normalizeDates(input.selected_dates);
+    if (selectedDates.length === 0) {
+      throw new ConflictError('Seleziona almeno un giorno valido per la settimana scelta');
     }
 
-    return this.getWeekById(weekId);
+    for (const selectedDate of selectedDates) {
+      if (selectedDate < weekStart || selectedDate > weekEnd) {
+        throw new ConflictError('Tutti i giorni selezionati devono appartenere alla stessa settimana');
+      }
+    }
+
+    const existingActive = await this.getActiveWeek(principal);
+    if (existingActive) {
+      throw new ConflictError('Archivia prima la settimana presenze attiva');
+    }
+
+    const response = await this.db
+      .from('attendance_weeks')
+      .insert({
+        club_id: clubId,
+        week_start: weekStart,
+        week_end: weekEnd,
+        selected_dates: selectedDates,
+      })
+      .select('*')
+      .single();
+
+    const week = requiredData(response) as AttendanceWeekRow;
+    await this.syncWeekEntries(week.id, clubId);
+    return week;
   }
 
   async syncWeekEntriesForManager(
@@ -88,21 +125,48 @@ export class AttendanceService {
     principal: RequestPrincipal,
   ): Promise<void> {
     this.ensureCanManageAttendance(principal);
-    await this.syncWeekEntries(weekId);
+    const clubId = this.requireClubId(principal);
+    await this.syncWeekEntries(weekId, clubId);
   }
 
-  async syncWeekEntries(weekId: string | number): Promise<void> {
-    const response = await this.db.rpc('sync_attendance_entries_for_week', {
-      target_week_id: weekId,
-    });
-    ensureSuccess(response);
+  async syncWeekEntries(weekId: string | number, clubId: string | number): Promise<void> {
+    const week = await this.getWeekById(weekId, clubId);
+    const playersResponse = await this.db
+      .from('player_profiles')
+      .select('id')
+      .eq('club_id', clubId)
+      .is('archived_at', null);
+    const playerIds = ((optionalData(playersResponse) as Array<{ id: number | string }> | null) ?? [])
+      .map((row) => row.id);
+
+    for (const playerId of playerIds) {
+      for (const attendanceDate of week.selected_dates) {
+        const response = await this.db.from('attendance_entries').upsert(
+          {
+            club_id: clubId,
+            week_id: week.id,
+            player_id: playerId,
+            attendance_date: attendanceDate,
+            availability: 'pending',
+          },
+          {
+            onConflict: 'week_id,player_id,attendance_date',
+          },
+        );
+        ensureSuccess(response);
+      }
+    }
   }
 
   async archiveWeek(weekId: string | number, principal: RequestPrincipal): Promise<void> {
+    const clubId = this.requireClubId(principal);
     this.ensureCanManageAttendance(principal);
-    const response = await this.db.rpc('archive_attendance_week', {
-      target_week_id: weekId,
-    });
+    const response = await this.db
+      .from('attendance_weeks')
+      .update({ archived_at: new Date().toISOString() })
+      .eq('id', weekId)
+      .eq('club_id', clubId)
+      .is('archived_at', null);
     ensureSuccess(response);
   }
 
@@ -110,25 +174,41 @@ export class AttendanceService {
     weekId: string | number,
     principal: RequestPrincipal,
   ): Promise<void> {
+    const clubId = this.requireClubId(principal);
     this.ensureCanManageAttendance(principal);
-    const response = await this.db.rpc('restore_attendance_week', {
-      target_week_id: weekId,
-    });
+
+    const activeWeek = await this.getActiveWeek(principal);
+    if (activeWeek && `${activeWeek.id}` !== `${weekId}`) {
+      throw new ConflictError('Esiste gia una settimana presenze attiva');
+    }
+
+    const response = await this.db
+      .from('attendance_weeks')
+      .update({ archived_at: null })
+      .eq('id', weekId)
+      .eq('club_id', clubId)
+      .not('archived_at', 'is', null);
     ensureSuccess(response);
+    await this.syncWeekEntries(weekId, clubId);
   }
 
   async deleteArchivedWeek(
     weekId: string | number,
     principal: RequestPrincipal,
   ): Promise<void> {
+    const clubId = this.requireClubId(principal);
     this.ensureCanManageAttendance(principal);
 
-    const week = await this.getWeekById(weekId);
+    const week = await this.getWeekById(weekId, clubId);
     if (!week.archived_at) {
       throw new ConflictError('Puoi eliminare solo settimane gia archiviate');
     }
 
-    const response = await this.db.from('attendance_weeks').delete().eq('id', weekId);
+    const response = await this.db
+      .from('attendance_weeks')
+      .delete()
+      .eq('id', weekId)
+      .eq('club_id', clubId);
     ensureSuccess(response);
   }
 
@@ -136,18 +216,20 @@ export class AttendanceService {
     weekId: string | number,
     principal: RequestPrincipal,
   ): Promise<AttendanceEntryRow[]> {
-    const week = await this.getWeekById(weekId);
+    const clubId = this.requireClubId(principal);
+    const week = await this.getWeekById(weekId, clubId);
     if (week.archived_at && !principal.canManageAttendance) {
       throw new ForbiddenError('Solo capitano e vice possono consultare settimane archiviate');
     }
 
-    await this.syncWeekEntries(weekId);
+    await this.syncWeekEntries(weekId, clubId);
 
     let query = this.db
       .from('attendance_entries')
       .select(
-        'id, week_id, player_id, attendance_date, availability, updated_by_player_id, updated_at, created_at, player:player_profiles!attendance_entries_player_id_fkey(*)',
+        'id, club_id, week_id, player_id, attendance_date, availability, updated_by_player_id, updated_at, created_at, player:player_profiles!attendance_entries_player_id_fkey(*)',
       )
+      .eq('club_id', clubId)
       .eq('week_id', weekId);
 
     if (!principal.canManageAttendance) {
@@ -194,11 +276,12 @@ export class AttendanceService {
     input: SaveAttendanceAvailabilityInput,
     principal: RequestPrincipal,
   ): Promise<void> {
+    const clubId = this.requireClubId(principal);
     if (!principal.player) {
-      throw new ForbiddenError('Profilo squadra non collegato');
+      throw new ForbiddenError('Profilo club non collegato');
     }
 
-    const week = await this.getWeekById(input.week_id);
+    const week = await this.getWeekById(input.week_id, clubId);
     if (week.archived_at) {
       throw new ConflictError('La settimana presenze e gia archiviata');
     }
@@ -214,8 +297,20 @@ export class AttendanceService {
       throw new ForbiddenError('Puoi modificare solo le tue presenze');
     }
 
+    const playerResponse = await this.db
+      .from('player_profiles')
+      .select('id')
+      .eq('id', input.player_id)
+      .eq('club_id', clubId)
+      .is('archived_at', null)
+      .maybeSingle();
+    if (!optionalData(playerResponse)) {
+      throw new NotFoundError('Il giocatore selezionato non appartiene al club corrente');
+    }
+
     const response = await this.db.from('attendance_entries').upsert(
       {
+        club_id: clubId,
         week_id: input.week_id,
         player_id: input.player_id,
         attendance_date: normalizedAttendanceDate,
@@ -238,11 +333,13 @@ export class AttendanceService {
       limit?: number;
     } = {},
   ): Promise<AttendanceWeekRow[]> {
+    const clubId = this.requireClubId(principal);
     this.ensureCanManageAttendance(principal);
 
     let query = this.db
       .from('attendance_weeks')
       .select('*')
+      .eq('club_id', clubId)
       .not('archived_at', 'is', null)
       .order('week_start', { ascending: false });
 
@@ -262,6 +359,7 @@ export class AttendanceService {
     targetDate: string,
     principal: RequestPrincipal,
   ): Promise<AttendanceLineupFiltersDto> {
+    const clubId = this.requireClubId(principal);
     if (!principal.canManageLineups) {
       throw new ForbiddenError('Non puoi consultare i filtri presenze per le formazioni');
     }
@@ -269,6 +367,7 @@ export class AttendanceService {
     const response = await this.db
       .from('attendance_entries')
       .select('player_id, availability')
+      .eq('club_id', clubId)
       .eq('attendance_date', normalizeDateOnly(targetDate));
 
     const rows = (optionalData(response) as Array<{
@@ -297,14 +396,27 @@ export class AttendanceService {
     };
   }
 
-  private async getWeekById(weekId: string | number): Promise<AttendanceWeekRow> {
+  private async getWeekById(
+    weekId: string | number,
+    clubId: string | number,
+  ): Promise<AttendanceWeekRow> {
     const response = await this.db
       .from('attendance_weeks')
       .select('*')
       .eq('id', weekId)
+      .eq('club_id', clubId)
       .maybeSingle();
 
     return requiredData(response, 'Settimana presenze non trovata') as AttendanceWeekRow;
+  }
+
+  private requireClubId(principal: RequestPrincipal): string | number {
+    const clubId = principal.membership?.club_id;
+    if (!clubId) {
+      throw new ForbiddenError('Devi appartenere a un club per usare le presenze');
+    }
+
+    return clubId;
   }
 
   private ensureCanManageAttendance(principal: RequestPrincipal): void {

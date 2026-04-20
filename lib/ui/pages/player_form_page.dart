@@ -421,8 +421,8 @@ class _PlayerFormPageState extends State<PlayerFormPage> {
                   ),
                   child: Text(
                     bootstrapAsCaptain
-                        ? 'Stai creando il primo profilo dell app. Questo account verra impostato come capitano per avviare la squadra.'
-                        : 'Stai creando un profilo giocatore da primo accesso. Il ruolo squadra verra impostato automaticamente come giocatore.',
+                        ? 'Stai creando il primo profilo dell app. Questo account verra impostato come capitano per avviare il club.'
+                        : 'Stai creando un profilo giocatore da primo accesso. Il ruolo club verra impostato automaticamente come giocatore.',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ),
@@ -597,7 +597,7 @@ class _PlayerFormPageState extends State<PlayerFormPage> {
                 DropdownButtonFormField<String>(
                   key: ValueKey('team-role-$selectedTeamRole'),
                   initialValue: selectedTeamRole,
-                  decoration: _inputDecoration('Ruolo squadra'),
+                  decoration: _inputDecoration('Ruolo club'),
                   items: teamRoleItems,
                   onChanged: isSaving
                       ? null
@@ -621,7 +621,7 @@ class _PlayerFormPageState extends State<PlayerFormPage> {
                     ),
                   ),
                   child: Text(
-                    'Il ruolo squadra resta modificabile solo dal capitano, anche quando il vice ha il permesso di gestire la rosa.',
+                    'Il ruolo club resta modificabile solo dal capitano, anche quando il vice ha il permesso di gestire la rosa.',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ),

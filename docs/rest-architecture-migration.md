@@ -21,15 +21,15 @@ Portare l'app a una struttura chiara:
 
 Nel frontend questi flussi ora passano dal layer REST:
 
-- [`lib/data/api_client.dart`](/Users/ciro.saraino/squadra_app/lib/data/api_client.dart)
-- [`lib/data/auth_repository.dart`](/Users/ciro.saraino/squadra_app/lib/data/auth_repository.dart)
-- [`lib/data/player_repository.dart`](/Users/ciro.saraino/squadra_app/lib/data/player_repository.dart)
-- [`lib/data/team_info_repository.dart`](/Users/ciro.saraino/squadra_app/lib/data/team_info_repository.dart)
-- [`lib/data/vice_permissions_repository.dart`](/Users/ciro.saraino/squadra_app/lib/data/vice_permissions_repository.dart)
+- [`lib/data/api_client.dart`](/Users/ciro.saraino/clubline/lib/data/api_client.dart)
+- [`lib/data/auth_repository.dart`](/Users/ciro.saraino/clubline/lib/data/auth_repository.dart)
+- [`lib/data/player_repository.dart`](/Users/ciro.saraino/clubline/lib/data/player_repository.dart)
+- [`lib/data/team_info_repository.dart`](/Users/ciro.saraino/clubline/lib/data/team_info_repository.dart)
+- [`lib/data/vice_permissions_repository.dart`](/Users/ciro.saraino/clubline/lib/data/vice_permissions_repository.dart)
 
 Il backend dedicato è in:
 
-- [`backend/README.md`](/Users/ciro.saraino/squadra_app/backend/README.md)
+- [`backend/README.md`](/Users/ciro.saraino/clubline/backend/README.md)
 
 ## Stato attuale
 
@@ -38,7 +38,7 @@ La migrazione è completa:
 - il frontend Flutter chiama solo API REST
 - il backend server-side è l unico punto che parla con Supabase e con il DB
 - `Supabase.initialize` è stato rimosso dal client
-- i repository Flutter residui usano tutti [`lib/data/api_client.dart`](/Users/ciro.saraino/squadra_app/lib/data/api_client.dart)
+- i repository Flutter residui usano tutti [`lib/data/api_client.dart`](/Users/ciro.saraino/clubline/lib/data/api_client.dart)
 
 ## Config frontend
 

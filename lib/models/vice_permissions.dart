@@ -50,7 +50,6 @@ class VicePermissions {
 
   Map<String, dynamic> toDatabaseMap() {
     return {
-      'id': 1,
       'vice_manage_players': managePlayers,
       'vice_manage_lineups': manageLineups,
       'vice_manage_streams': manageStreams,

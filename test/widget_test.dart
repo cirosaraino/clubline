@@ -6,11 +6,11 @@ void main() {
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
-          body: Text('Squadra App'),
+          body: Text('Clubline'),
         ),
       ),
     );
 
-    expect(find.text('Squadra App'), findsOneWidget);
+    expect(find.text('Clubline'), findsOneWidget);
   });
 }

@@ -5,7 +5,7 @@ import type {
   LineupRow,
   RequestPrincipal,
 } from '../domain/types';
-import { ForbiddenError } from '../lib/errors';
+import { ForbiddenError, NotFoundError } from '../lib/errors';
 import { ensureSuccess, optionalData, requiredData } from '../lib/supabase-result';
 
 export interface LineupInput {
@@ -29,21 +29,27 @@ function normalizeText(value: string | null | undefined): string | null {
 export class LineupsService {
   constructor(private readonly db: SupabaseClient) {}
 
-  async listLineups(): Promise<LineupRow[]> {
+  async listLineups(principal: RequestPrincipal): Promise<LineupRow[]> {
+    const clubId = this.requireClubId(principal);
     const response = await this.db
       .from('lineups')
       .select('*')
+      .eq('club_id', clubId)
       .order('match_datetime', { ascending: true });
 
     return ((optionalData(response) as LineupRow[] | null) ?? []);
   }
 
   async createLineup(input: LineupInput, principal: RequestPrincipal): Promise<LineupRow> {
+    const clubId = this.requireClubId(principal);
     this.ensureCanManageLineups(principal);
 
     const response = await this.db
       .from('lineups')
-      .insert(this.buildPayload(input))
+      .insert({
+        ...this.buildPayload(input),
+        club_id: clubId,
+      })
       .select('*')
       .single();
 
@@ -55,12 +61,15 @@ export class LineupsService {
     input: LineupInput,
     principal: RequestPrincipal,
   ): Promise<LineupRow> {
+    const clubId = this.requireClubId(principal);
     this.ensureCanManageLineups(principal);
+    await this.getLineupOrThrow(lineupId, clubId);
 
     const response = await this.db
       .from('lineups')
       .update(this.buildPayload(input))
       .eq('id', lineupId)
+      .eq('club_id', clubId)
       .select('*')
       .single();
 
@@ -68,53 +77,53 @@ export class LineupsService {
   }
 
   async deleteLineup(lineupId: string | number, principal: RequestPrincipal): Promise<void> {
+    const clubId = this.requireClubId(principal);
     this.ensureCanManageLineups(principal);
-    const response = await this.db.from('lineups').delete().eq('id', lineupId);
+    const response = await this.db
+      .from('lineups')
+      .delete()
+      .eq('id', lineupId)
+      .eq('club_id', clubId);
     ensureSuccess(response);
   }
 
   async deleteAllLineups(principal: RequestPrincipal): Promise<void> {
+    const clubId = this.requireClubId(principal);
     this.ensureCanManageLineups(principal);
 
-    const lineupsResponse = await this.db.from('lineups').select('id');
-    const lineups = (optionalData(lineupsResponse) as Array<{ id: number | string }> | null) ?? [];
-    const lineupIds = lineups.map((lineup) => lineup.id);
-
-    if (lineupIds.length === 0) {
-      return;
-    }
-
-    const deleteAssignmentsResponse = await this.db
-      .from('lineup_players')
+    const response = await this.db
+      .from('lineups')
       .delete()
-      .in('lineup_id', lineupIds);
-    ensureSuccess(deleteAssignmentsResponse);
-
-    const deleteLineupsResponse = await this.db.from('lineups').delete().in('id', lineupIds);
-    ensureSuccess(deleteLineupsResponse);
+      .eq('club_id', clubId);
+    ensureSuccess(response);
   }
 
   async deleteLineupsByIds(
     lineupIds: Array<string | number>,
     principal: RequestPrincipal,
   ): Promise<void> {
+    const clubId = this.requireClubId(principal);
     this.ensureCanManageLineups(principal);
 
     if (lineupIds.length === 0) {
       return;
     }
 
-    const deleteAssignmentsResponse = await this.db
-      .from('lineup_players')
+    const response = await this.db
+      .from('lineups')
       .delete()
-      .in('lineup_id', lineupIds);
-    ensureSuccess(deleteAssignmentsResponse);
-
-    const deleteLineupsResponse = await this.db.from('lineups').delete().in('id', lineupIds);
-    ensureSuccess(deleteLineupsResponse);
+      .eq('club_id', clubId)
+      .in('id', lineupIds);
+    ensureSuccess(response);
   }
 
-  async listLineupPlayers(lineupId: string | number): Promise<LineupPlayerRow[]> {
+  async listLineupPlayers(
+    lineupId: string | number,
+    principal: RequestPrincipal,
+  ): Promise<LineupPlayerRow[]> {
+    const clubId = this.requireClubId(principal);
+    await this.getLineupOrThrow(lineupId, clubId);
+
     const response = await this.db
       .from('lineup_players')
       .select('id, lineup_id, player_id, position_code, player_profiles(*)')
@@ -125,15 +134,29 @@ export class LineupsService {
 
   async listAssignmentsForLineups(
     lineupIds: Array<string | number>,
+    principal: RequestPrincipal,
   ): Promise<LineupPlayerRow[]> {
+    const clubId = this.requireClubId(principal);
     if (lineupIds.length === 0) {
+      return [];
+    }
+
+    const lineupsResponse = await this.db
+      .from('lineups')
+      .select('id')
+      .eq('club_id', clubId)
+      .in('id', lineupIds);
+    const allowedLineupIds = ((optionalData(lineupsResponse) as Array<{ id: string | number }> | null) ?? [])
+      .map((row) => row.id);
+
+    if (allowedLineupIds.length === 0) {
       return [];
     }
 
     const response = await this.db
       .from('lineup_players')
       .select('id, lineup_id, player_id, position_code, player_profiles(*)')
-      .in('lineup_id', lineupIds);
+      .in('lineup_id', allowedLineupIds);
 
     return ((optionalData(response) as LineupPlayerRow[] | null) ?? []);
   }
@@ -143,7 +166,10 @@ export class LineupsService {
     assignments: LineupAssignmentInput[],
     principal: RequestPrincipal,
   ): Promise<void> {
+    const clubId = this.requireClubId(principal);
     this.ensureCanManageLineups(principal);
+    await this.getLineupOrThrow(lineupId, clubId);
+    await this.ensurePlayersBelongToClub(assignments, clubId);
 
     const deleteResponse = await this.db
       .from('lineup_players')
@@ -166,9 +192,58 @@ export class LineupsService {
     ensureSuccess(insertResponse);
   }
 
+  private requireClubId(principal: RequestPrincipal): string | number {
+    const clubId = principal.membership?.club_id;
+    if (!clubId) {
+      throw new ForbiddenError('Devi appartenere a un club per usare le formazioni');
+    }
+
+    return clubId;
+  }
+
   private ensureCanManageLineups(principal: RequestPrincipal): void {
     if (!principal.canManageLineups) {
       throw new ForbiddenError('Non hai i permessi per gestire le formazioni');
+    }
+  }
+
+  private async getLineupOrThrow(
+    lineupId: string | number,
+    clubId: string | number,
+  ): Promise<LineupRow> {
+    const response = await this.db
+      .from('lineups')
+      .select('*')
+      .eq('id', lineupId)
+      .eq('club_id', clubId)
+      .maybeSingle();
+
+    return requiredData(response, 'Formazione non trovata') as LineupRow;
+  }
+
+  private async ensurePlayersBelongToClub(
+    assignments: LineupAssignmentInput[],
+    clubId: string | number,
+  ): Promise<void> {
+    const playerIds = [...new Set(assignments.map((assignment) => assignment.player_id))];
+    if (playerIds.length === 0) {
+      return;
+    }
+
+    const response = await this.db
+      .from('player_profiles')
+      .select('id')
+      .eq('club_id', clubId)
+      .is('archived_at', null)
+      .in('id', playerIds);
+    const allowedIds = new Set(
+      ((optionalData(response) as Array<{ id: string | number }> | null) ?? []).map((row) => `${row.id}`),
+    );
+
+    for (const playerId of playerIds) {
+      if (!allowedIds.has(`${playerId}`)) {
+        throw new NotFoundError('Uno o piu giocatori non appartengono al club corrente');
+      }
     }
   }
 

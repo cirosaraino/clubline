@@ -56,6 +56,11 @@ credentials.json
 *.pem
 *.key
 .credentials
+
+# Tracked environment templates
+!backend/.env.example
+!backend/.env.clubline-dev.example
+!backend/.env.clubline-prod.example
 -e 
 # Environment and credential files
 .env

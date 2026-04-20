@@ -10,7 +10,7 @@ healthRouter.get(
   asyncHandler(async (_req, res) => {
     sendOk(res, {
       status: 'ok',
-      service: 'squadra-backend',
+      service: 'clubline-backend',
       timestamp: new Date().toISOString(),
     });
   }),

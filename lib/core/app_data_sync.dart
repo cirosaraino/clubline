@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 enum AppDataScope {
+  clubs,
   players,
   streams,
   lineups,

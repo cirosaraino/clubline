@@ -1,25 +1,33 @@
 import type {
+  AuthUserDto,
+  ClubRow,
+  MembershipRow,
   PlayerProfileRow,
   RequestPrincipal,
   VicePermissionsRow,
 } from './types';
 
 export function buildPrincipal(
-  authUser: { id: string; email: string | null },
+  authUser: AuthUserDto,
+  membership: MembershipRow | null,
+  club: ClubRow | null,
   player: PlayerProfileRow | null,
   permissions: VicePermissionsRow,
-  canBootstrapCaptain: boolean,
 ): RequestPrincipal {
-  const isCaptain = player?.team_role === 'captain';
-  const isViceCaptain = player?.team_role === 'vice_captain';
+  const effectiveRole = membership?.role ?? player?.team_role ?? 'player';
+  const isCaptain = effectiveRole === 'captain';
+  const isViceCaptain = effectiveRole === 'vice_captain';
+  const hasClub = membership != null && club != null;
 
   return {
     authUser,
+    membership,
+    club,
     player,
     permissions,
-    canBootstrapCaptain,
     isCaptain,
     isViceCaptain,
+    hasClub,
     canManagePlayers: isCaptain || (isViceCaptain && permissions.vice_manage_players),
     canManageLineups: isCaptain || (isViceCaptain && permissions.vice_manage_lineups),
     canManageStreams: isCaptain || (isViceCaptain && permissions.vice_manage_streams),

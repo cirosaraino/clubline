@@ -1,10 +1,14 @@
 import type { Request } from 'express';
 
 export type TeamRole = 'captain' | 'vice_captain' | 'player';
+export type MembershipStatus = 'active' | 'left';
+export type RequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled' | 'expired';
 
 export interface AuthUserDto {
   id: string;
   email: string | null;
+  emailVerified: boolean;
+  emailVerifiedAt: string | null;
 }
 
 export interface AuthSessionDto {
@@ -16,6 +20,8 @@ export interface AuthSessionDto {
 
 export interface PlayerProfileRow {
   id: number | string;
+  club_id: number | string;
+  membership_id: number | string | null;
   nome: string;
   cognome: string;
   auth_user_id: string | null;
@@ -26,6 +32,7 @@ export interface PlayerProfileRow {
   secondary_roles: string[];
   id_console: string | null;
   team_role: TeamRole;
+  archived_at?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 }
@@ -35,10 +42,23 @@ export interface TeamCustomLinkRow {
   url: string;
 }
 
-export interface TeamInfoRow {
-  id: number;
-  team_name: string;
-  crest_url: string | null;
+export interface ClubRow {
+  id: number | string;
+  name: string;
+  normalized_name: string;
+  slug: string;
+  logo_url: string | null;
+  logo_storage_path: string | null;
+  primary_color: string | null;
+  accent_color: string | null;
+  surface_color: string | null;
+  created_by_user_id: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface ClubSettingsRow {
+  club_id: number | string;
   website_url: string | null;
   youtube_url: string | null;
   discord_url: string | null;
@@ -50,8 +70,27 @@ export interface TeamInfoRow {
   updated_at?: string | null;
 }
 
+export interface TeamInfoRow {
+  id: number | string;
+  team_name: string;
+  crest_url: string | null;
+  website_url: string | null;
+  youtube_url: string | null;
+  discord_url: string | null;
+  facebook_url: string | null;
+  instagram_url: string | null;
+  twitch_url: string | null;
+  tiktok_url: string | null;
+  additional_links: TeamCustomLinkRow[];
+  primary_color: string | null;
+  accent_color: string | null;
+  surface_color: string | null;
+  slug: string | null;
+  updated_at?: string | null;
+}
+
 export interface VicePermissionsRow {
-  id: number;
+  club_id: number | string;
   vice_manage_players: boolean;
   vice_manage_lineups: boolean;
   vice_manage_streams: boolean;
@@ -60,8 +99,55 @@ export interface VicePermissionsRow {
   updated_at?: string | null;
 }
 
+export interface MembershipRow {
+  id: number | string;
+  club_id: number | string;
+  auth_user_id: string;
+  role: TeamRole;
+  status: MembershipStatus;
+  left_at: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  club?: ClubRow | null;
+}
+
+export interface JoinRequestRow {
+  id: number | string;
+  club_id: number | string;
+  requester_user_id: string;
+  requester_email: string | null;
+  requested_nome: string;
+  requested_cognome: string;
+  requested_shirt_number: number | null;
+  requested_primary_role: string | null;
+  status: RequestStatus;
+  decided_by_membership_id: number | string | null;
+  decided_at: string | null;
+  cancelled_at: string | null;
+  expires_at: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  club?: ClubRow | null;
+}
+
+export interface LeaveRequestRow {
+  id: number | string;
+  club_id: number | string;
+  membership_id: number | string;
+  requested_by_user_id: string;
+  status: RequestStatus;
+  decided_by_membership_id: number | string | null;
+  decided_at: string | null;
+  cancelled_at: string | null;
+  expires_at: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  membership?: MembershipRow | null;
+}
+
 export interface StreamLinkRow {
   id: number | string;
+  club_id: number | string;
   stream_title: string;
   competition_name: string | null;
   played_on: string;
@@ -84,6 +170,7 @@ export interface StreamMetadataDto {
 
 export interface LineupRow {
   id: number | string;
+  club_id: number | string;
   competition_name: string;
   match_datetime: string;
   opponent_name: string | null;
@@ -103,6 +190,7 @@ export interface LineupPlayerRow {
 
 export interface AttendanceWeekRow {
   id: number | string;
+  club_id: number | string;
   week_start: string;
   week_end: string;
   selected_dates: string[];
@@ -112,6 +200,7 @@ export interface AttendanceWeekRow {
 
 export interface AttendanceEntryRow {
   id: number | string;
+  club_id: number | string;
   week_id: number | string;
   player_id: number | string;
   attendance_date: string;
@@ -129,11 +218,13 @@ export interface AttendanceLineupFiltersDto {
 
 export interface RequestPrincipal {
   authUser: AuthUserDto;
+  club: ClubRow | null;
+  membership: MembershipRow | null;
   player: PlayerProfileRow | null;
   permissions: VicePermissionsRow;
-  canBootstrapCaptain: boolean;
   isCaptain: boolean;
   isViceCaptain: boolean;
+  hasClub: boolean;
   canManagePlayers: boolean;
   canManageLineups: boolean;
   canManageStreams: boolean;

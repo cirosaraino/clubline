@@ -1,14 +1,20 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { AuthSessionDto, AuthUserDto } from '../domain/types';
-import { UnauthorizedError } from '../lib/errors';
+import { ForbiddenError, UnauthorizedError } from '../lib/errors';
 
 function toSessionDto(session: {
   access_token: string;
   refresh_token: string;
   expires_at: number | null | undefined;
-  user: { id: string; email: string | null | undefined };
+  user: {
+    id: string;
+    email: string | null | undefined;
+    email_confirmed_at?: string | null | undefined;
+    confirmed_at?: string | null | undefined;
+  };
 }): AuthSessionDto {
+  const emailVerifiedAt = session.user.email_confirmed_at ?? session.user.confirmed_at ?? null;
   return {
     accessToken: session.access_token,
     refreshToken: session.refresh_token,
@@ -18,6 +24,8 @@ function toSessionDto(session: {
     user: {
       id: session.user.id,
       email: session.user.email ?? null,
+      emailVerified: emailVerifiedAt != null,
+      emailVerifiedAt,
     },
   };
 }
@@ -28,18 +36,28 @@ export class AuthService {
     private readonly adminClient: SupabaseClient,
   ) {}
 
-  async register(email: string, password: string): Promise<{ session: AuthSessionDto }> {
-    const response = await this.adminClient.auth.admin.createUser({
+  async register(
+    email: string,
+    password: string,
+    emailRedirectTo?: string | null,
+  ): Promise<{ verificationRequired: boolean; message: string }> {
+    const response = await this.authClient.auth.signUp({
       email,
       password,
-      email_confirm: true,
+      options: {
+        emailRedirectTo: emailRedirectTo ?? undefined,
+      },
     });
 
     if (response.error) {
       throw response.error;
     }
 
-    return this.login(email, password);
+    return {
+      verificationRequired: true,
+      message:
+        'Abbiamo inviato una mail di verifica. Conferma l indirizzo email prima di accedere a Clubline.',
+    };
   }
 
   async login(email: string, password: string): Promise<{ session: AuthSessionDto }> {
@@ -53,6 +71,15 @@ export class AuthService {
     }
 
     const session = response.data.session;
+    const emailVerifiedAt =
+      session.user.email_confirmed_at ?? session.user.confirmed_at ?? null;
+    if (emailVerifiedAt == null) {
+      await this.authClient.auth.signOut();
+      throw new ForbiddenError(
+        'Conferma il tuo indirizzo email prima di accedere alla piattaforma.',
+      );
+    }
+
     return {
       session: toSessionDto({
         access_token: session.access_token,
@@ -61,6 +88,8 @@ export class AuthService {
         user: {
           id: session.user.id,
           email: session.user.email ?? null,
+          email_confirmed_at: session.user.email_confirmed_at ?? null,
+          confirmed_at: session.user.confirmed_at ?? null,
         },
       }),
     };
@@ -84,6 +113,8 @@ export class AuthService {
         user: {
           id: session.user.id,
           email: session.user.email ?? null,
+          email_confirmed_at: session.user.email_confirmed_at ?? null,
+          confirmed_at: session.user.confirmed_at ?? null,
         },
       }),
     };
@@ -140,6 +171,10 @@ export class AuthService {
     return {
       id: response.data.user.id,
       email: response.data.user.email ?? null,
+      emailVerified:
+        (response.data.user.email_confirmed_at ?? response.data.user.confirmed_at) != null,
+      emailVerifiedAt:
+        response.data.user.email_confirmed_at ?? response.data.user.confirmed_at ?? null,
     };
   }
 }

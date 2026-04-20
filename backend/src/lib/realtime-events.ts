@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
 
 export type RealtimeScope =
+  | 'clubs'
   | 'players'
   | 'streams'
   | 'lineups'

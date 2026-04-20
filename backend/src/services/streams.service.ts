@@ -27,10 +27,12 @@ function normalizeDateOnly(value: string): string {
 export class StreamsService {
   constructor(private readonly db: SupabaseClient) {}
 
-  async listStreams(): Promise<StreamLinkRow[]> {
+  async listStreams(principal: RequestPrincipal): Promise<StreamLinkRow[]> {
+    const clubId = this.requireClubId(principal);
     const response = await this.db
       .from('stream_links')
       .select('*')
+      .eq('club_id', clubId)
       .order('created_at', { ascending: false });
 
     const rows = (optionalData(response) as StreamLinkRow[] | null) ?? [];
@@ -47,11 +49,15 @@ export class StreamsService {
   }
 
   async createStream(input: StreamLinkInput, principal: RequestPrincipal): Promise<StreamLinkRow> {
+    const clubId = this.requireClubId(principal);
     this.ensureCanManageStreams(principal);
 
     const response = await this.db
       .from('stream_links')
-      .insert(this.buildPayload(input))
+      .insert({
+        ...this.buildPayload(input),
+        club_id: clubId,
+      })
       .select('*')
       .single();
 
@@ -63,12 +69,14 @@ export class StreamsService {
     input: StreamLinkInput,
     principal: RequestPrincipal,
   ): Promise<StreamLinkRow> {
+    const clubId = this.requireClubId(principal);
     this.ensureCanManageStreams(principal);
 
     const response = await this.db
       .from('stream_links')
       .update(this.buildPayload(input))
       .eq('id', streamId)
+      .eq('club_id', clubId)
       .select('*')
       .single();
 
@@ -76,35 +84,47 @@ export class StreamsService {
   }
 
   async deleteStream(streamId: string | number, principal: RequestPrincipal): Promise<void> {
+    const clubId = this.requireClubId(principal);
     this.ensureCanManageStreams(principal);
-    const response = await this.db.from('stream_links').delete().eq('id', streamId);
+    const response = await this.db
+      .from('stream_links')
+      .delete()
+      .eq('id', streamId)
+      .eq('club_id', clubId);
     ensureSuccess(response);
   }
 
   async deleteAllStreams(principal: RequestPrincipal): Promise<void> {
-    this.ensureCanManageStreams(principal);
-
-    const response = await this.db.from('stream_links').select('id');
-    const rows = optionalData(response) as Array<{ id: number | string }> | null;
-    const ids = (rows ?? []).map((row) => row.id).filter((id) => id != null);
-
-    if (ids.length === 0) {
-      return;
-    }
-
-    const deleteResponse = await this.db.from('stream_links').delete().in('id', ids);
-    ensureSuccess(deleteResponse);
-  }
-
-  async deleteStreamsForDay(playedOn: string, principal: RequestPrincipal): Promise<void> {
+    const clubId = this.requireClubId(principal);
     this.ensureCanManageStreams(principal);
 
     const response = await this.db
       .from('stream_links')
       .delete()
+      .eq('club_id', clubId);
+    ensureSuccess(response);
+  }
+
+  async deleteStreamsForDay(playedOn: string, principal: RequestPrincipal): Promise<void> {
+    const clubId = this.requireClubId(principal);
+    this.ensureCanManageStreams(principal);
+
+    const response = await this.db
+      .from('stream_links')
+      .delete()
+      .eq('club_id', clubId)
       .eq('played_on', normalizeDateOnly(playedOn));
 
     ensureSuccess(response);
+  }
+
+  private requireClubId(principal: RequestPrincipal): string | number {
+    const clubId = principal.membership?.club_id;
+    if (!clubId) {
+      throw new ForbiddenError('Devi appartenere a un club per usare le live');
+    }
+
+    return clubId;
   }
 
   private ensureCanManageStreams(principal: RequestPrincipal): void {

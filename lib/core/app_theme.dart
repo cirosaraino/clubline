@@ -172,7 +172,7 @@ class UltrasAppTheme {
     UltrasThemePreset(
       id: 'stemma',
       name: 'Stemma',
-      description: 'La palette originale nero e oro della squadra.',
+      description: 'La palette originale di Clubline, da cui parte il tema base.',
       palette: defaultPalette,
     ),
     UltrasThemePreset(
@@ -239,6 +239,56 @@ class UltrasAppTheme {
 
   static void resetPalette() {
     _activePalette = defaultPalette;
+  }
+
+  static UltrasThemePalette paletteFromClubTheme({
+    String? primaryColor,
+    String? accentColor,
+    String? surfaceColor,
+  }) {
+    final accent = _parseHexColor(accentColor) ??
+        _parseHexColor(primaryColor) ??
+        defaultPalette.accent;
+    final surface = _parseHexColor(surfaceColor) ?? _mix(accent, const Color(0xFF0E1118), 0.68);
+    final black = _mix(surface, Colors.black, 0.34);
+    final backgroundTop = _mix(surface, accent, 0.12);
+    final backgroundBottom = _mix(black, accent, 0.08);
+    final surfaceAlt = _mix(surface, Colors.white, 0.06);
+
+    return UltrasThemePalette(
+      black: black,
+      backgroundTop: backgroundTop,
+      backgroundBottom: backgroundBottom,
+      surface: surface,
+      surfaceAlt: surfaceAlt,
+      accent: accent,
+    );
+  }
+
+  static Color? _parseHexColor(String? value) {
+    final normalized = value?.trim() ?? '';
+    if (normalized.isEmpty) {
+      return null;
+    }
+
+    final hex = normalized.startsWith('#') ? normalized.substring(1) : normalized;
+    if (hex.length != 6) {
+      return null;
+    }
+
+    final parsed = int.tryParse(hex, radix: 16);
+    if (parsed == null) {
+      return null;
+    }
+
+    return Color(0xFF000000 | parsed);
+  }
+
+  static Color _mix(Color base, Color overlay, double amount) {
+    return Color.alphaBlend(
+      overlay.withValues(alpha: amount.clamp(0.0, 1.0)),
+      base,
+    );
   }
 
   static Color get black => activePalette.black;

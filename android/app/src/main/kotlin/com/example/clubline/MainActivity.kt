@@ -1,4 +1,4 @@
-package com.example.squadra_app
+package com.example.clubline
 
 import io.flutter.embedding.android.FlutterActivity
 

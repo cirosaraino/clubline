@@ -2,6 +2,7 @@ import { Router } from 'express';
 
 import { attendanceRouter } from './attendance.routes';
 import { authRouter } from './auth.routes';
+import { clubsRouter } from './clubs.routes';
 import { healthRouter } from './health.routes';
 import { lineupsRouter } from './lineups.routes';
 import { playersRouter } from './players.routes';
@@ -15,6 +16,7 @@ export const apiRouter = Router();
 apiRouter.use('/health', healthRouter);
 apiRouter.use('/realtime', realtimeRouter);
 apiRouter.use('/auth', authRouter);
+apiRouter.use('/clubs', clubsRouter);
 apiRouter.use('/players', playersRouter);
 apiRouter.use('/lineups', lineupsRouter);
 apiRouter.use('/streams', streamsRouter);

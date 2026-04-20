@@ -135,9 +135,9 @@ class _VicePermissionsSheetState extends State<VicePermissionsSheet> {
             ),
             const SizedBox(height: 18),
             _PermissionSwitchCard(
-              title: 'Rosa squadra',
+              title: 'Rosa club',
               description:
-                  'Aggiungere, modificare e cancellare giocatori dalla rosa. La modifica del ruolo squadra resta comunque solo al capitano.',
+                  'Aggiungere, modificare e cancellare giocatori dalla rosa. La modifica del ruolo club resta comunque solo al capitano.',
               value: draftPermissions.managePlayers,
               enabled: isCaptain && !isSaving,
               onChanged: (value) {
@@ -167,7 +167,7 @@ class _VicePermissionsSheetState extends State<VicePermissionsSheet> {
             _PermissionSwitchCard(
               title: 'Live',
               description:
-                  'Creare, modificare e cancellare le live della squadra.',
+                  'Creare, modificare e cancellare le live del club.',
               value: draftPermissions.manageStreams,
               enabled: isCaptain && !isSaving,
               onChanged: (value) {
@@ -180,7 +180,7 @@ class _VicePermissionsSheetState extends State<VicePermissionsSheet> {
             ),
             const SizedBox(height: 12),
             _PermissionSwitchCard(
-              title: 'Presenze squadra',
+              title: 'Presenze club',
               description:
                   'Aprire, archiviare, ripristinare le presenze e vedere o modificare le disponibilita di tutti.',
               value: draftPermissions.manageAttendance,
@@ -195,9 +195,9 @@ class _VicePermissionsSheetState extends State<VicePermissionsSheet> {
             ),
             const SizedBox(height: 12),
             _PermissionSwitchCard(
-              title: 'Info squadra',
+              title: 'Info club',
               description:
-                  'Aggiornare nome squadra, stemma e link utili della Home.',
+                  'Aggiornare nome club, logo e link utili della Home.',
               value: draftPermissions.manageTeamInfo,
               enabled: isCaptain && !isSaving,
               onChanged: (value) {
@@ -326,7 +326,7 @@ class _ViceScopeSummaryCard extends StatelessWidget {
                 enabled: permissions.manageAttendance,
               ),
               _PermissionPill(
-                label: 'Info squadra',
+                label: 'Info club',
                 enabled: permissions.manageTeamInfo,
               ),
             ],

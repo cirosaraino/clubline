@@ -2,10 +2,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:squadra_app/core/lineup_constants.dart';
-import 'package:squadra_app/core/lineup_pitch_layouts.dart';
-import 'package:squadra_app/models/player_profile.dart';
-import 'package:squadra_app/ui/widgets/lineup_pitch_view.dart';
+import 'package:clubline/core/lineup_constants.dart';
+import 'package:clubline/core/lineup_pitch_layouts.dart';
+import 'package:clubline/models/player_profile.dart';
+import 'package:clubline/ui/widgets/lineup_pitch_view.dart';
 
 Widget _buildPitch({
   required String module,

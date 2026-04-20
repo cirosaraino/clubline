@@ -50,6 +50,7 @@ const passwordResetRateLimit = createRateLimitMiddleware({
 const credentialsSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
+  redirectTo: z.string().url().optional(),
 });
 
 const refreshSchema = z.object({
@@ -71,8 +72,8 @@ authRouter.post(
   '/register',
   registerRateLimit,
   asyncHandler(async (req, res) => {
-    const { email, password } = credentialsSchema.parse(req.body);
-    const result = await authService.register(email, password);
+    const { email, password, redirectTo } = credentialsSchema.parse(req.body);
+    const result = await authService.register(email, password, redirectTo);
     sendCreated(res, result);
   }),
 );
@@ -146,9 +147,8 @@ authRouter.post(
 authRouter.get(
   '/bootstrap-status',
   asyncHandler(async (_req, res) => {
-    const hasLinkedAuthAccount = await accessService.hasLinkedAuthAccount();
     sendOk(res, {
-      canBootstrapCaptainRegistration: !hasLinkedAuthAccount,
+      canBootstrapCaptainRegistration: false,
     });
   }),
 );
@@ -167,6 +167,8 @@ authRouter.get(
       user: {
         id: principal.authUser.id,
         email: principal.authUser.email,
+        emailVerified: principal.authUser.emailVerified,
+        emailVerifiedAt: principal.authUser.emailVerifiedAt,
       },
     });
   }),

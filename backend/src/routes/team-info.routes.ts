@@ -19,6 +19,10 @@ const teamInfoSchema = z.object({
   instagram_url: z.string().url().nullable().optional(),
   twitch_url: z.string().url().nullable().optional(),
   tiktok_url: z.string().url().nullable().optional(),
+  primary_color: z.string().nullable().optional(),
+  accent_color: z.string().nullable().optional(),
+  surface_color: z.string().nullable().optional(),
+  slug: z.string().nullable().optional(),
   additional_links: z
     .array(
       z.object({
@@ -35,8 +39,9 @@ const teamInfoService = new TeamInfoService(supabaseDb);
 
 teamInfoRouter.get(
   '/',
-  asyncHandler(async (_req, res) => {
-    const teamInfo = await teamInfoService.getTeamInfo();
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const teamInfo = await teamInfoService.getTeamInfo(req.principal!);
     sendOk(res, { teamInfo });
   }),
 );
@@ -50,7 +55,7 @@ teamInfoRouter.put(
     const teamInfo = await teamInfoService.updateTeamInfo(
       {
         ...parsedTeamInfo,
-        id: 1,
+        id: req.principal!.membership!.club_id,
         crest_url: parsedTeamInfo.crest_url ?? null,
         website_url: parsedTeamInfo.website_url ?? null,
         youtube_url: parsedTeamInfo.youtube_url ?? null,
@@ -59,6 +64,10 @@ teamInfoRouter.put(
         instagram_url: parsedTeamInfo.instagram_url ?? null,
         twitch_url: parsedTeamInfo.twitch_url ?? null,
         tiktok_url: parsedTeamInfo.tiktok_url ?? null,
+        primary_color: parsedTeamInfo.primary_color ?? null,
+        accent_color: parsedTeamInfo.accent_color ?? null,
+        surface_color: parsedTeamInfo.surface_color ?? null,
+        slug: parsedTeamInfo.slug ?? null,
       },
       principal!,
     );

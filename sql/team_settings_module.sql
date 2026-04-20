@@ -1,6 +1,6 @@
 create table if not exists team_settings (
   id integer primary key default 1,
-  team_name text not null default 'Ultras Mentality',
+  team_name text not null default 'Clubline',
   crest_url text,
   website_url text,
   youtube_url text,
@@ -20,7 +20,7 @@ insert into team_settings (
   id,
   team_name
 )
-values (1, 'Ultras Mentality')
+values (1, 'Clubline')
 on conflict (id) do nothing;
 
 create or replace function touch_team_settings_updated_at()

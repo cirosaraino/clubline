@@ -21,8 +21,16 @@ class _SquadraAppState extends State<SquadraApp> {
   @override
   void initState() {
     super.initState();
-    sessionController = AppSessionController();
     themeController = AppThemeController();
+    sessionController = AppSessionController(
+      onTeamInfoChanged: (teamInfo) {
+        themeController.syncWithClubTheme(
+          primaryColor: teamInfo.primaryColor,
+          accentColor: teamInfo.accentColor,
+          surfaceColor: teamInfo.surfaceColor,
+        );
+      },
+    );
   }
 
   @override
@@ -38,7 +46,7 @@ class _SquadraAppState extends State<SquadraApp> {
       animation: themeController,
       builder: (context, _) {
         return MaterialApp(
-          title: 'Ultras Mentality',
+          title: 'Clubline',
           debugShowCheckedModeBanner: false,
           theme: UltrasAppTheme.buildTheme(themeController.palette),
           builder: (context, child) {

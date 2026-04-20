@@ -19,7 +19,9 @@ class AppThemeController extends ChangeNotifier {
   };
 
   UltrasThemePalette _palette = UltrasAppTheme.defaultPalette;
+  UltrasThemePalette _clubPalette = UltrasAppTheme.defaultPalette;
   bool _isLoading = true;
+  bool _hasLocalOverride = false;
 
   UltrasThemePalette get palette => _palette;
   bool get isLoading => _isLoading;
@@ -35,10 +37,12 @@ class AppThemeController extends ChangeNotifier {
       }
     }
 
-    if (storedValues.length == _prefKeys.length) {
+    _hasLocalOverride = storedValues.length == _prefKeys.length;
+
+    if (_hasLocalOverride) {
       _palette = UltrasThemePalette.fromPrefsMap(storedValues);
     } else {
-      _palette = UltrasAppTheme.defaultPalette;
+      _palette = _clubPalette;
     }
 
     UltrasAppTheme.applyPalette(_palette);
@@ -47,6 +51,7 @@ class AppThemeController extends ChangeNotifier {
   }
 
   Future<void> updatePalette(UltrasThemePalette palette) async {
+    _hasLocalOverride = true;
     _palette = palette;
     UltrasAppTheme.applyPalette(palette);
     notifyListeners();
@@ -61,9 +66,30 @@ class AppThemeController extends ChangeNotifier {
     }
   }
 
+  void syncWithClubTheme({
+    required String? primaryColor,
+    required String? accentColor,
+    required String? surfaceColor,
+  }) {
+    _clubPalette = UltrasAppTheme.paletteFromClubTheme(
+      primaryColor: primaryColor,
+      accentColor: accentColor,
+      surfaceColor: surfaceColor,
+    );
+
+    if (_hasLocalOverride) {
+      return;
+    }
+
+    _palette = _clubPalette;
+    UltrasAppTheme.applyPalette(_palette);
+    notifyListeners();
+  }
+
   Future<void> resetToDefault() async {
-    _palette = UltrasAppTheme.defaultPalette;
-    UltrasAppTheme.resetPalette();
+    _hasLocalOverride = false;
+    _palette = _clubPalette;
+    UltrasAppTheme.applyPalette(_palette);
     notifyListeners();
 
     final preferences = await SharedPreferences.getInstance();

@@ -32,7 +32,7 @@ streamsRouter.get(
   '/',
   requireAuth,
   asyncHandler(async (_req, res) => {
-    const streams = await streamsService.listStreams();
+    const streams = await streamsService.listStreams(_req.principal!);
     sendOk(res, { streams });
   }),
 );

@@ -8,6 +8,11 @@ function normalize(value: string | null | undefined): string {
   return value?.trim() ?? '';
 }
 
+function normalizeOptional(value: string | null | undefined): string | null {
+  const normalized = normalize(value);
+  return normalized.length > 0 ? normalized : null;
+}
+
 function escapeIlike(value: string): string {
   return value
     .replaceAll('\\', '\\\\')
@@ -49,17 +54,27 @@ export interface PlayerInput {
 export class PlayerService {
   constructor(private readonly db: SupabaseClient) {}
 
-  async listPlayers(filters: {
-    macro_role?: string;
-    role?: string;
-    id_console?: string;
-    nome?: string;
-    cognome?: string;
-    q?: string;
-  } = {}): Promise<PlayerProfileRow[]> {
+  async listPlayers(
+    filters: {
+      macro_role?: string;
+      role?: string;
+      id_console?: string;
+      nome?: string;
+      cognome?: string;
+      q?: string;
+    } = {},
+    principal: RequestPrincipal,
+  ): Promise<PlayerProfileRow[]> {
+    const clubId = principal.membership?.club_id;
+    if (!clubId) {
+      throw new ForbiddenError('Devi appartenere a un club per vedere la rosa');
+    }
+
     let query = this.db
       .from('player_profiles')
       .select('*')
+      .eq('club_id', clubId)
+      .is('archived_at', null)
       .order('created_at', { ascending: true });
 
     if (filters.id_console) {
@@ -98,7 +113,6 @@ export class PlayerService {
     }
 
     const response = await query;
-
     let players = (optionalData(response) as PlayerProfileRow[] | null) ?? [];
 
     if (filters.q) {
@@ -120,27 +134,38 @@ export class PlayerService {
 
     if (filters.macro_role) {
       const needle = filters.macro_role.trim().toLowerCase();
-      players = players.filter((player) => {
-        const primaryCategory = this.roleCategory(player.primary_role);
-        return primaryCategory === needle;
-      });
+      players = players.filter((player) => this.roleCategory(player.primary_role) === needle);
     }
 
     return players;
   }
 
   async createPlayer(input: PlayerInput, principal: RequestPrincipal): Promise<PlayerProfileRow> {
+    const clubId = principal.membership?.club_id;
+    if (!clubId) {
+      throw new ForbiddenError('Devi appartenere a un club per aggiungere giocatori');
+    }
+
     if (!principal.canManagePlayers) {
       return this.claimProfile(input, principal);
     }
 
-    const payload = this.buildPayload(input, principal, {
-      preserveExistingAccountEmail: false,
-      preserveExistingAuth: false,
-      preserveExistingRole: false,
-      teamRole: normalizeTeamRole(input.team_role ?? 'player'),
-    });
-    const response = await this.db.from('player_profiles').insert(payload).select('*').single();
+    const requestedRole = normalizeTeamRole(input.team_role ?? 'player');
+    if (requestedRole !== 'player') {
+      throw new ConflictError('Vice e capitano devono essere membri attivi del club');
+    }
+
+    await this.ensureConsoleIdAvailable(normalizeOptional(input.id_console), clubId);
+    const payload = this.buildPayload(input, requestedRole);
+    const response = await this.db
+      .from('player_profiles')
+      .insert({
+        ...payload,
+        club_id: clubId,
+      })
+      .select('*')
+      .single();
+
     return requiredData(response) as PlayerProfileRow;
   }
 
@@ -149,7 +174,12 @@ export class PlayerService {
     input: PlayerInput,
     principal: RequestPrincipal,
   ): Promise<PlayerProfileRow> {
-    const player = await this.getPlayer(playerId);
+    const clubId = principal.membership?.club_id;
+    if (!clubId) {
+      throw new ForbiddenError('Devi appartenere a un club per modificare i giocatori');
+    }
+
+    const player = await this.getPlayer(playerId, clubId);
     const canEditOwn = principal.player?.id === player.id;
     const canManage = principal.canManagePlayers;
 
@@ -157,17 +187,47 @@ export class PlayerService {
       throw new ForbiddenError('Non puoi modificare questo profilo');
     }
 
-    const payload = this.buildPayload(input, principal, {
-      existingPlayer: player,
-      preserveExistingAccountEmail: true,
-      preserveExistingAuth: true,
-      preserveExistingRole: !canManage,
-      teamRole: canManage ? normalizeTeamRole(input.team_role ?? player.team_role) : player.team_role,
+    await this.ensureConsoleIdAvailable(normalizeOptional(input.id_console), clubId, player.id);
+
+    const requestedRole = canManage
+      ? normalizeTeamRole(input.team_role ?? player.team_role)
+      : player.team_role;
+
+    if (player.membership_id == null && requestedRole !== 'player') {
+      throw new ConflictError('Solo i membri attivi possono ricevere ruoli gestionali');
+    }
+
+    if (player.team_role === 'captain' && requestedRole !== 'captain') {
+      throw new ConflictError('Trasferisci prima il ruolo di capitano dal pannello club');
+    }
+
+    if (requestedRole === 'captain' && player.team_role !== 'captain') {
+      if (!canManage || !principal.isCaptain || !player.membership_id) {
+        throw new ConflictError('Solo il capitano puo trasferire il ruolo a un altro membro attivo');
+      }
+
+      await this.transferCaptainRole(
+        principal.membership!.id,
+        player.membership_id,
+      );
+    } else if (player.membership_id && requestedRole !== player.team_role) {
+      await this.syncMembershipRole(player.membership_id, requestedRole);
+    }
+
+    const payload = this.buildPayload(input, requestedRole, {
+      authUserId: canEditOwn ? principal.authUser.id : player.auth_user_id,
+      membershipId: player.membership_id,
+      accountEmail: canEditOwn
+        ? normalizeEmail(input.account_email) ?? principal.authUser.email
+        : player.account_email,
     });
+
     const response = await this.db
       .from('player_profiles')
       .update(payload)
       .eq('id', player.id)
+      .eq('club_id', clubId)
+      .is('archived_at', null)
       .select('*')
       .single();
 
@@ -175,62 +235,60 @@ export class PlayerService {
   }
 
   async deletePlayer(playerId: string | number, principal: RequestPrincipal): Promise<void> {
+    const clubId = principal.membership?.club_id;
+    if (!clubId) {
+      throw new ForbiddenError('Devi appartenere a un club per modificare la rosa');
+    }
+
     this.ensureCanManagePlayers(principal);
-    const response = await this.db.from('player_profiles').delete().eq('id', playerId);
+    const player = await this.getPlayer(playerId, clubId);
+    if (player.membership_id != null) {
+      throw new ConflictError(
+        'I membri attivi non possono essere rimossi dalla rosa con questa azione. Usa i flussi club.',
+      );
+    }
+
+    const response = await this.db
+      .from('player_profiles')
+      .update({
+        archived_at: new Date().toISOString(),
+      })
+      .eq('id', player.id)
+      .eq('club_id', clubId)
+      .is('archived_at', null);
     ensureSuccess(response);
   }
 
   async claimProfile(input: PlayerInput, principal: RequestPrincipal): Promise<PlayerProfileRow> {
-    if (!principal.authUser) {
-      throw new ForbiddenError('Autenticazione richiesta');
+    if (!principal.membership) {
+      throw new ForbiddenError('Devi prima entrare in un club');
     }
 
-    const consoleId = normalize(input.id_console);
-    if (!consoleId) {
-      throw new ConflictError('ID console obbligatorio');
+    const existingActiveProfile = principal.player;
+    if (existingActiveProfile) {
+      return this.updatePlayer(existingActiveProfile.id, input, principal);
     }
 
-    const existing = await this.findByConsoleId(consoleId);
-    if (existing) {
-      const canClaim = !existing.auth_user_id && !existing.account_email;
-
-      if (!canClaim) {
+    const clubId = principal.membership.club_id;
+    const normalizedConsoleId = normalizeOptional(input.id_console);
+    if (normalizedConsoleId) {
+      const consoleProfile = await this.findByConsoleId(normalizedConsoleId, clubId);
+      if (consoleProfile && consoleProfile.membership_id && `${consoleProfile.membership_id}` !== `${principal.membership.id}`) {
         throw new ConflictError('Esiste gia un profilo collegato a questo ID console');
       }
-
-      const payload = this.buildPayload(input, principal, {
-        existingPlayer: existing,
-        preserveExistingAccountEmail: false,
-        preserveExistingAuth: false,
-        preserveExistingRole: false,
-        teamRole: principal.canBootstrapCaptain ? 'captain' : existing.team_role,
-      });
-      const response = await this.db
-        .from('player_profiles')
-        .update({
-          ...payload,
-          auth_user_id: principal.authUser.id,
-          account_email: normalizeEmail(input.account_email) ?? principal.authUser.email,
-        })
-        .eq('id', existing.id)
-        .select('*')
-        .single();
-
-      return requiredData(response) as PlayerProfileRow;
     }
 
-    const payload = this.buildPayload(input, principal, {
-      preserveExistingAccountEmail: false,
-      preserveExistingAuth: false,
-      preserveExistingRole: false,
-      teamRole: principal.canBootstrapCaptain ? 'captain' : 'player',
+    const payload = this.buildPayload(input, principal.membership.role, {
+      authUserId: principal.authUser.id,
+      membershipId: principal.membership.id,
+      accountEmail: normalizeEmail(input.account_email) ?? principal.authUser.email,
     });
+
     const response = await this.db
       .from('player_profiles')
       .insert({
         ...payload,
-        auth_user_id: principal.authUser.id,
-        account_email: normalizeEmail(input.account_email) ?? principal.authUser.email,
+        club_id: clubId,
       })
       .select('*')
       .single();
@@ -238,21 +296,28 @@ export class PlayerService {
     return requiredData(response) as PlayerProfileRow;
   }
 
-  async findByConsoleId(consoleId: string): Promise<PlayerProfileRow | null> {
+  async findByConsoleId(
+    consoleId: string,
+    clubId: string | number,
+  ): Promise<PlayerProfileRow | null> {
     const response = await this.db
       .from('player_profiles')
       .select('*')
+      .eq('club_id', clubId)
       .eq('id_console', consoleId.trim())
+      .is('archived_at', null)
       .maybeSingle();
 
     return optionalData(response) as PlayerProfileRow | null;
   }
 
-  async getPlayer(playerId: string | number): Promise<PlayerProfileRow> {
+  async getPlayer(playerId: string | number, clubId: string | number): Promise<PlayerProfileRow> {
     const response = await this.db
       .from('player_profiles')
       .select('*')
       .eq('id', playerId)
+      .eq('club_id', clubId)
+      .is('archived_at', null)
       .maybeSingle();
 
     return requiredData(response, 'Giocatore non trovato') as PlayerProfileRow;
@@ -264,40 +329,91 @@ export class PlayerService {
     }
   }
 
+  private async ensureConsoleIdAvailable(
+    consoleId: string | null,
+    clubId: string | number,
+    excludingPlayerId?: string | number,
+  ): Promise<void> {
+    if (!consoleId) {
+      return;
+    }
+
+    const existing = await this.findByConsoleId(consoleId, clubId);
+    if (existing && `${existing.id}` !== `${excludingPlayerId ?? ''}`) {
+      throw new ConflictError('Esiste gia un profilo con questo ID console nel club');
+    }
+  }
+
+  private async syncMembershipRole(
+    membershipId: string | number,
+    role: TeamRole,
+  ): Promise<void> {
+    const response = await this.db
+      .from('memberships')
+      .update({ role })
+      .eq('id', membershipId)
+      .eq('status', 'active');
+    ensureSuccess(response);
+  }
+
+  private async transferCaptainRole(
+    currentCaptainMembershipId: string | number,
+    nextCaptainMembershipId: string | number,
+  ): Promise<void> {
+    const demoteResponse = await this.db
+      .from('memberships')
+      .update({ role: 'player' })
+      .eq('id', currentCaptainMembershipId)
+      .eq('role', 'captain');
+    ensureSuccess(demoteResponse);
+
+    const promoteResponse = await this.db
+      .from('memberships')
+      .update({ role: 'captain' })
+      .eq('id', nextCaptainMembershipId)
+      .eq('status', 'active');
+    ensureSuccess(promoteResponse);
+
+    await this.db
+      .from('player_profiles')
+      .update({ team_role: 'player' })
+      .eq('membership_id', currentCaptainMembershipId)
+      .is('archived_at', null);
+
+    await this.db
+      .from('player_profiles')
+      .update({ team_role: 'captain' })
+      .eq('membership_id', nextCaptainMembershipId)
+      .is('archived_at', null);
+  }
+
   private buildPayload(
     input: PlayerInput,
-    principal: RequestPrincipal,
-    options: {
-      existingPlayer?: PlayerProfileRow;
-      preserveExistingAccountEmail: boolean;
-      preserveExistingAuth: boolean;
-      preserveExistingRole: boolean;
-      teamRole: TeamRole;
+    teamRole: TeamRole,
+    overrides?: {
+      authUserId?: string | null;
+      membershipId?: string | number | null;
+      accountEmail?: string | null;
     },
   ) {
-    const primaryRole = normalize(input.primary_role) || null;
+    const primaryRole = normalizeOptional(input.primary_role);
     const secondaryRoles = normalizeRoles([
       ...(input.secondary_roles ?? []),
       ...(input.secondary_role ? [input.secondary_role] : []),
-    ]);
-    const uniqueSecondaryRoles = secondaryRoles.filter((role) => role !== primaryRole);
-    const existingPlayer = options.existingPlayer;
+    ]).filter((role) => role !== primaryRole);
 
     return {
+      membership_id: overrides?.membershipId ?? null,
       nome: normalize(input.nome),
       cognome: normalize(input.cognome),
       shirt_number: input.shirt_number ?? null,
       primary_role: primaryRole,
-      secondary_role: uniqueSecondaryRoles[0] ?? null,
-      secondary_roles: uniqueSecondaryRoles,
-      id_console: normalize(input.id_console) || null,
-      team_role: options.preserveExistingRole && existingPlayer
-        ? existingPlayer.team_role
-        : options.teamRole,
-      auth_user_id: options.preserveExistingAuth && existingPlayer ? existingPlayer.auth_user_id : null,
-      account_email: options.preserveExistingAccountEmail
-        ? existingPlayer?.account_email ?? null
-        : normalizeEmail(input.account_email),
+      secondary_role: secondaryRoles[0] ?? null,
+      secondary_roles: secondaryRoles,
+      id_console: normalizeOptional(input.id_console),
+      team_role: teamRole,
+      auth_user_id: overrides?.authUserId ?? null,
+      account_email: normalizeEmail(overrides?.accountEmail ?? input.account_email),
     };
   }
 

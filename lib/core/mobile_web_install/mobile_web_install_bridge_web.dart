@@ -104,11 +104,11 @@ class _WebMobileInstallBridge implements MobileWebInstallBridge {
 
     _refreshAvailability();
     web.window.addEventListener(
-      'ultras-pwa-install-available',
+      'clubline-pwa-install-available',
       _installAvailableListener,
     );
     web.window.addEventListener(
-      'ultras-pwa-installed',
+      'clubline-pwa-installed',
       _installedListener,
     );
   }

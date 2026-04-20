@@ -10,8 +10,6 @@ import '../../data/team_info_repository.dart';
 import '../../models/team_info.dart';
 import 'app_chrome.dart';
 
-const String kUltrasLogoAsset = 'assets/images/ultras_mentality_logo.jpg';
-
 class TeamInfoSheet extends StatefulWidget {
   const TeamInfoSheet({super.key});
 
@@ -189,7 +187,7 @@ class _TeamInfoSheetState extends State<TeamInfoSheet> {
 
     if (currentUser?.canManageTeamInfo != true) {
       setState(() {
-        errorMessage = 'Solo il capitano o un vice autorizzato possono modificare le info squadra.';
+        errorMessage = 'Solo il capitano o un vice autorizzato possono modificare le info club.';
       });
       return;
     }
@@ -221,7 +219,7 @@ class _TeamInfoSheetState extends State<TeamInfoSheet> {
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Info squadra aggiornate')),
+        const SnackBar(content: Text('Info club aggiornate')),
       );
       Navigator.pop(context);
     } catch (error) {
@@ -260,7 +258,7 @@ class _TeamInfoSheetState extends State<TeamInfoSheet> {
               children: [
                 Expanded(
                   child: Text(
-                    'Info squadra',
+                    'Info club',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.w800,
                         ),
@@ -280,14 +278,14 @@ class _TeamInfoSheetState extends State<TeamInfoSheet> {
             ),
             const SizedBox(height: 18),
             _TeamSectionCard(
-              title: 'Identita squadra',
+              title: 'Identità club',
               child: Column(
                 children: [
                   TextField(
                     controller: teamNameController,
                     enabled: canManage && !isSaving,
                     decoration: _inputDecoration(
-                      'Nome squadra',
+                      'Nome club',
                       helperText: 'Questo nome verra mostrato nella Home.',
                       icon: Icons.groups_2_outlined,
                     ),
@@ -303,9 +301,9 @@ class _TeamInfoSheetState extends State<TeamInfoSheet> {
                     enabled: canManage && !isSaving,
                     keyboardType: TextInputType.url,
                     decoration: _inputDecoration(
-                      'URL stemma personalizzato',
+                      'URL logo personalizzato',
                       helperText:
-                          'Lascia vuoto per usare lo stemma di default gia incluso nell app.',
+                          'Lascia vuoto per usare il logo attuale del club o il fallback grafico dell app.',
                       icon: Icons.shield_outlined,
                     ),
                     onChanged: (_) {
@@ -426,7 +424,7 @@ class _TeamInfoSheetState extends State<TeamInfoSheet> {
                     icon: Icon(
                       isSaving ? Icons.hourglass_top_outlined : Icons.save_outlined,
                     ),
-                    label: Text(isSaving ? 'Salvataggio...' : 'Salva info squadra'),
+                    label: Text(isSaving ? 'Salvataggio...' : 'Salva info club'),
                   ),
                 ),
                 SizedBox(
@@ -483,7 +481,7 @@ class _TeamPreviewCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Anteprima Home della squadra',
+            'Anteprima Home del club',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: UltrasAppTheme.textMuted,
                 ),
@@ -648,20 +646,31 @@ class _TeamCrestPreview extends StatelessWidget {
       ),
       child: ClipOval(
         child: crestUrl == null
-            ? Image.asset(
-                kUltrasLogoAsset,
-                fit: BoxFit.cover,
-              )
+            ? const _ClubFallbackPreview()
             : Image.network(
                 crestUrl!,
                 fit: BoxFit.cover,
                 errorBuilder: (_, error, stackTrace) {
-                  return Image.asset(
-                    kUltrasLogoAsset,
-                    fit: BoxFit.cover,
-                  );
+                  return const _ClubFallbackPreview();
                 },
               ),
+      ),
+    );
+  }
+}
+
+class _ClubFallbackPreview extends StatelessWidget {
+  const _ClubFallbackPreview();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: UltrasAppTheme.surfaceAlt,
+      alignment: Alignment.center,
+      child: Icon(
+        Icons.shield_outlined,
+        color: UltrasAppTheme.goldSoft,
+        size: 42,
       ),
     );
   }

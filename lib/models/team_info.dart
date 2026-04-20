@@ -47,6 +47,7 @@ class TeamInfo {
     this.id = 1,
     this.teamName = kDefaultTeamName,
     this.crestUrl,
+    this.slug,
     this.websiteUrl,
     this.youtubeUrl,
     this.discordUrl,
@@ -54,6 +55,9 @@ class TeamInfo {
     this.instagramUrl,
     this.twitchUrl,
     this.tiktokUrl,
+    this.primaryColor,
+    this.accentColor,
+    this.surfaceColor,
     this.customLinks = const [],
   });
 
@@ -62,6 +66,7 @@ class TeamInfo {
   final int id;
   final String teamName;
   final String? crestUrl;
+  final String? slug;
   final String? websiteUrl;
   final String? youtubeUrl;
   final String? discordUrl;
@@ -69,6 +74,9 @@ class TeamInfo {
   final String? instagramUrl;
   final String? twitchUrl;
   final String? tiktokUrl;
+  final String? primaryColor;
+  final String? accentColor;
+  final String? surfaceColor;
   final List<TeamCustomLink> customLinks;
 
   factory TeamInfo.fromMap(Map<String, dynamic> map) {
@@ -78,6 +86,7 @@ class TeamInfo {
       id: map['id'] is num ? (map['id'] as num).toInt() : 1,
       teamName: normalizeTeamName(map['team_name']?.toString() ?? kDefaultTeamName),
       crestUrl: normalizeOptionalTeamUrl(map['crest_url']?.toString()),
+      slug: map['slug']?.toString(),
       websiteUrl: normalizeOptionalTeamUrl(map['website_url']?.toString()),
       youtubeUrl: normalizeOptionalTeamUrl(map['youtube_url']?.toString()),
       discordUrl: normalizeOptionalTeamUrl(map['discord_url']?.toString()),
@@ -85,6 +94,9 @@ class TeamInfo {
       instagramUrl: normalizeOptionalTeamUrl(map['instagram_url']?.toString()),
       twitchUrl: normalizeOptionalTeamUrl(map['twitch_url']?.toString()),
       tiktokUrl: normalizeOptionalTeamUrl(map['tiktok_url']?.toString()),
+      primaryColor: map['primary_color']?.toString(),
+      accentColor: map['accent_color']?.toString(),
+      surfaceColor: map['surface_color']?.toString(),
       customLinks: [
         if (rawCustomLinks is Iterable)
           for (final item in rawCustomLinks)
@@ -98,6 +110,7 @@ class TeamInfo {
     int? id,
     String? teamName,
     String? crestUrl,
+    String? slug,
     String? websiteUrl,
     String? youtubeUrl,
     String? discordUrl,
@@ -105,12 +118,16 @@ class TeamInfo {
     String? instagramUrl,
     String? twitchUrl,
     String? tiktokUrl,
+    String? primaryColor,
+    String? accentColor,
+    String? surfaceColor,
     List<TeamCustomLink>? customLinks,
   }) {
     return TeamInfo(
       id: id ?? this.id,
       teamName: teamName ?? this.teamName,
       crestUrl: crestUrl ?? this.crestUrl,
+      slug: slug ?? this.slug,
       websiteUrl: websiteUrl ?? this.websiteUrl,
       youtubeUrl: youtubeUrl ?? this.youtubeUrl,
       discordUrl: discordUrl ?? this.discordUrl,
@@ -118,6 +135,9 @@ class TeamInfo {
       instagramUrl: instagramUrl ?? this.instagramUrl,
       twitchUrl: twitchUrl ?? this.twitchUrl,
       tiktokUrl: tiktokUrl ?? this.tiktokUrl,
+      primaryColor: primaryColor ?? this.primaryColor,
+      accentColor: accentColor ?? this.accentColor,
+      surfaceColor: surfaceColor ?? this.surfaceColor,
       customLinks: customLinks ?? this.customLinks,
     );
   }
@@ -138,6 +158,7 @@ class TeamInfo {
       'id': id,
       'team_name': normalizeTeamName(teamName),
       'crest_url': normalizeOptionalTeamUrl(crestUrl),
+      'slug': slug,
       'website_url': normalizeOptionalTeamUrl(websiteUrl),
       'youtube_url': normalizeOptionalTeamUrl(youtubeUrl),
       'discord_url': normalizeOptionalTeamUrl(discordUrl),
@@ -145,6 +166,9 @@ class TeamInfo {
       'instagram_url': normalizeOptionalTeamUrl(instagramUrl),
       'twitch_url': normalizeOptionalTeamUrl(twitchUrl),
       'tiktok_url': normalizeOptionalTeamUrl(tiktokUrl),
+      'primary_color': primaryColor,
+      'accent_color': accentColor,
+      'surface_color': surfaceColor,
       'additional_links': normalizedCustomLinks,
     };
   }

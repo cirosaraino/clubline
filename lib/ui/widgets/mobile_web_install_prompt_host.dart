@@ -301,7 +301,7 @@ class _MobileWebInstallSheet extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               canPromptInstall
-                  ? 'Puoi aggiungere l icona di Ultras Mentality alla schermata Home e aprirla come una vera app, piu veloce e pulita.'
+                  ? 'Puoi aggiungere l icona di Clubline alla schermata Home e aprirla come una vera app, piu veloce e pulita.'
                   : isIosSafari
                       ? 'Safari non mostra un popup automatico, ma in pochi tocchi puoi salvare l app nella schermata Home del telefono.'
                       : 'Il browser puo installare l app dal proprio menu. In questo modo avrai l icona sul telefono e un apertura molto piu immediata.',
@@ -437,7 +437,7 @@ class _MobileWebInstallBanner extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Installa Ultras sul telefono',
+                    'Installa Clubline sul telefono',
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w800,
                         ),

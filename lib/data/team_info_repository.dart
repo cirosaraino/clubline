@@ -9,7 +9,7 @@ class TeamInfoRepository {
   final ApiClient _apiClient;
 
   Future<TeamInfo> fetchTeamInfo() async {
-    final response = await _apiClient.get('/team-info');
+    final response = await _apiClient.get('/team-info', authenticated: true);
     final rawTeamInfo = switch (response) {
       {'teamInfo': final Map teamInfo} => Map<String, dynamic>.from(teamInfo),
       Map teamInfo => Map<String, dynamic>.from(teamInfo),

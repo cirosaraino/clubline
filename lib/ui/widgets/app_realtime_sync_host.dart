@@ -180,6 +180,8 @@ class _AppRealtimeSyncHostState extends State<AppRealtimeSyncHost>
 
   AppDataScope? _mapScope(String rawScope) {
     switch (rawScope) {
+      case 'clubs':
+        return AppDataScope.clubs;
       case 'players':
         return AppDataScope.players;
       case 'streams':

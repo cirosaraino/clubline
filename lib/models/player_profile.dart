@@ -5,6 +5,8 @@ import 'vice_permissions.dart';
 class PlayerProfile {
   const PlayerProfile({
     this.id,
+    this.clubId,
+    this.membershipId,
     required this.nome,
     required this.cognome,
     this.authUserId,
@@ -18,6 +20,8 @@ class PlayerProfile {
   });
 
   final dynamic id;
+  final dynamic clubId;
+  final dynamic membershipId;
   final String nome;
   final String cognome;
   final String? authUserId;
@@ -36,6 +40,8 @@ class PlayerProfile {
 
     return PlayerProfile(
       id: map['id'],
+      clubId: map['club_id'],
+      membershipId: map['membership_id'],
       nome: map['nome']?.toString() ?? '',
       cognome: map['cognome']?.toString() ?? '',
       authUserId: map['auth_user_id']?.toString(),
@@ -57,6 +63,8 @@ class PlayerProfile {
 
   PlayerProfile copyWith({
     dynamic id,
+    dynamic clubId,
+    dynamic membershipId,
     String? nome,
     String? cognome,
     String? authUserId,
@@ -70,6 +78,8 @@ class PlayerProfile {
   }) {
     return PlayerProfile(
       id: id ?? this.id,
+      clubId: clubId ?? this.clubId,
+      membershipId: membershipId ?? this.membershipId,
       nome: nome ?? this.nome,
       cognome: cognome ?? this.cognome,
       authUserId: authUserId ?? this.authUserId,
@@ -91,6 +101,8 @@ class PlayerProfile {
     return {
       'nome': normalizePlayerName(nome),
       'cognome': normalizePlayerName(cognome),
+      'club_id': clubId,
+      'membership_id': membershipId,
       'auth_user_id': authUserId,
       'account_email': normalizePlayerAccountEmail(accountEmail),
       'shirt_number': shirtNumber,

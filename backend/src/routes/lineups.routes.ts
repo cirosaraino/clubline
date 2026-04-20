@@ -36,7 +36,7 @@ lineupsRouter.get(
   '/',
   requireAuth,
   asyncHandler(async (_req, res) => {
-    const lineups = await lineupsService.listLineups();
+    const lineups = await lineupsService.listLineups(_req.principal!);
     sendOk(res, { lineups });
   }),
 );
@@ -51,7 +51,7 @@ lineupsRouter.get(
       .map((value) => value.trim())
       .filter(Boolean);
 
-    const assignments = await lineupsService.listAssignmentsForLineups(lineupIds);
+    const assignments = await lineupsService.listAssignmentsForLineups(lineupIds, req.principal!);
     sendOk(res, { assignments });
   }),
 );
@@ -73,7 +73,7 @@ lineupsRouter.get(
   '/:id/players',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const assignments = await lineupsService.listLineupPlayers(req.params.id);
+    const assignments = await lineupsService.listLineupPlayers(req.params.id, req.principal!);
     sendOk(res, { assignments });
   }),
 );

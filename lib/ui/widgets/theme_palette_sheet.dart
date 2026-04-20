@@ -111,7 +111,7 @@ class _ThemePaletteSheetState extends State<ThemePaletteSheet> {
     }
 
     messenger.showSnackBar(
-      const SnackBar(content: Text('Ripristinati i colori originali dello stemma')),
+      const SnackBar(content: Text('Ripristinati i colori originali del logo club')),
     );
     Navigator.pop(context);
   }
@@ -151,7 +151,7 @@ class _ThemePaletteSheetState extends State<ThemePaletteSheet> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Di default restano i colori dello stemma. Qui puoi scegliere una palette gia pronta oppure combinare i colori con una selezione visuale, senza usare codici.',
+              'Di default restano i colori del logo club. Qui puoi scegliere una palette gia pronta oppure combinare i colori con una selezione visuale, senza usare codici.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: UltrasAppTheme.textMuted,
                     height: 1.35,
