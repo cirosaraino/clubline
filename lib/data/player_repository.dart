@@ -10,7 +10,7 @@ class PlayerRepository {
   final ApiClient _apiClient;
 
   Future<List<PlayerProfile>> fetchPlayers() async {
-    final response = await _apiClient.get('/players');
+    final response = await _apiClient.get('/players', authenticated: true);
     final rawPlayers = switch (response) {
       {'players': final List players} => players,
       List players => players,
@@ -88,6 +88,7 @@ class PlayerRepository {
     try {
       final response = await _apiClient.get(
         '/players/by-console/${Uri.encodeComponent(normalizedConsoleId)}',
+        authenticated: true,
       );
       return _extractPlayer(response);
     } on ApiException catch (error) {

@@ -35,6 +35,7 @@ class AppSessionController extends ChangeNotifier {
   bool _isRefreshing = false;
   bool _refreshQueued = false;
   String? _errorMessage;
+  bool _canBootstrapCaptainRegistration = false;
   int _lastHandledSyncRevision = 0;
   bool _disposed = false;
 
@@ -49,13 +50,14 @@ class AppSessionController extends ChangeNotifier {
   bool get needsProfileSetup => isAuthenticated && currentUser == null;
   bool get requiresPasswordRecovery =>
       _authRepository.currentSession?.isRecoverySession == true;
+  bool get isCaptainRegistrationOpen => _canBootstrapCaptainRegistration;
 
   bool get canBootstrapCaptain {
     if (!needsProfileSetup) {
       return false;
     }
 
-    return !_players.any((player) => player.hasLinkedAuthAccount);
+    return _canBootstrapCaptainRegistration;
   }
 
   PlayerProfile? get currentUser {
@@ -152,16 +154,21 @@ class AppSessionController extends ChangeNotifier {
       _authUser = await _authRepository.restoreSession();
       _notifyIfMounted();
 
-      final loadedPlayersFuture = _repository.fetchPlayers();
+      final bootstrapStatusFuture = _authRepository.fetchCanBootstrapCaptainRegistration();
+      final loadedPlayersFuture = _authUser == null
+          ? Future<List<PlayerProfile>>.value(const [])
+          : _repository.fetchPlayers();
       final loadedTeamInfoFuture = _teamInfoRepository.fetchTeamInfo();
       final loadedVicePermissionsFuture = _authUser == null
           ? Future<VicePermissions>.value(VicePermissions.defaults)
           : _vicePermissionsRepository.fetchPermissions();
 
+      final canBootstrapCaptainRegistration = await bootstrapStatusFuture;
       final loadedPlayers = await loadedPlayersFuture;
       final loadedTeamInfo = await loadedTeamInfoFuture;
       final loadedVicePermissions = await loadedVicePermissionsFuture;
 
+      _canBootstrapCaptainRegistration = canBootstrapCaptainRegistration;
       _teamInfo = loadedTeamInfo;
       _vicePermissions = loadedVicePermissions;
       _players = loadedPlayers

@@ -10,7 +10,7 @@ class StreamLinkRepository {
   final ApiClient _apiClient;
 
   Future<List<StreamLink>> fetchStreamLinks() async {
-    final response = await _apiClient.get('/streams');
+    final response = await _apiClient.get('/streams', authenticated: true);
     final rawStreams = switch (response) {
       {'streams': final List streams} => streams,
       List streams => streams,

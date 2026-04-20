@@ -20,6 +20,12 @@ class AuthRepository {
 
   AuthSession? get currentSession => _session;
 
+  Future<bool> fetchCanBootstrapCaptainRegistration() async {
+    final response = await _apiClient.get('/auth/bootstrap-status');
+    final responseMap = Map<String, dynamic>.from(response as Map);
+    return responseMap['canBootstrapCaptainRegistration'] == true;
+  }
+
   Future<AuthenticatedUser?> restoreSession() async {
     await _restoreRecoverySessionFromUrl();
     _session ??= await _sessionStore.readSession();

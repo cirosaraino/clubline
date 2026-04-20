@@ -691,8 +691,6 @@ class _PitchSpot extends StatelessWidget {
             final showFullName = hasPlayer && width >= 78 && height >= 62;
             final showPositionBadge = !ultraCompact;
 
-            final primaryLabel = hasPlayer ? player!.idConsoleDisplay : 'Scegli';
-
             final displayedLabel = hasPlayer
                 ? _mobileFriendlyPrimaryLabel(
                     player!.idConsoleDisplay,

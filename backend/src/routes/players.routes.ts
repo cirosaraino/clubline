@@ -25,6 +25,7 @@ const playerService = new PlayerService(supabaseDb);
 
 playersRouter.get(
   '/',
+  requireAuth,
   asyncHandler(async (req, res) => {
     const players = await playerService.listPlayers({
       macro_role: typeof req.query.macro_role === 'string' ? req.query.macro_role : undefined,
@@ -41,6 +42,7 @@ playersRouter.get(
 
 playersRouter.get(
   '/by-console/:consoleId',
+  requireAuth,
   asyncHandler(async (req, res) => {
     const player = await playerService.findByConsoleId(req.params.consoleId);
     if (!player) {

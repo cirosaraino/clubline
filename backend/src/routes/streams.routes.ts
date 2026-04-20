@@ -30,6 +30,7 @@ const streamMetadataService = new StreamMetadataService(supabaseDb);
 
 streamsRouter.get(
   '/',
+  requireAuth,
   asyncHandler(async (_req, res) => {
     const streams = await streamsService.listStreams();
     sendOk(res, { streams });

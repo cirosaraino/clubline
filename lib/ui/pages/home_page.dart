@@ -220,8 +220,7 @@ class HomePage extends StatelessWidget {
                     currentUserEmail: currentUserEmail,
                     needsProfileSetup: needsProfileSetup,
                     requiresPasswordRecovery: session.requiresPasswordRecovery,
-                    isCaptainRegistrationOpen:
-                        !session.players.any((player) => player.hasLinkedAuthAccount),
+                    isCaptainRegistrationOpen: session.isCaptainRegistrationOpen,
                     errorMessage: session.errorMessage,
                     onCreateProfile: onOpenCreateProfile,
                     onOpenSignIn: onOpenSignIn,
@@ -884,4 +883,3 @@ class _TeamCrestAvatar extends StatelessWidget {
     );
   }
 }
-

@@ -49,7 +49,7 @@ attendanceRouter.post(
   '/weeks/:id/sync',
   requireAuth,
   asyncHandler(async (req, res) => {
-    await attendanceService.syncWeekEntries(req.params.id);
+    await attendanceService.syncWeekEntriesForManager(req.params.id, req.principal!);
     sendNoContent(res);
   }),
 );

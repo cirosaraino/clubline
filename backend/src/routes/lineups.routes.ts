@@ -34,6 +34,7 @@ const lineupsService = new LineupsService(supabaseDb);
 
 lineupsRouter.get(
   '/',
+  requireAuth,
   asyncHandler(async (_req, res) => {
     const lineups = await lineupsService.listLineups();
     sendOk(res, { lineups });
@@ -42,6 +43,7 @@ lineupsRouter.get(
 
 lineupsRouter.get(
   '/assignments',
+  requireAuth,
   asyncHandler(async (req, res) => {
     const rawIds = typeof req.query.lineup_ids === 'string' ? req.query.lineup_ids : '';
     const lineupIds = rawIds
@@ -69,6 +71,7 @@ lineupsRouter.post(
 
 lineupsRouter.get(
   '/:id/players',
+  requireAuth,
   asyncHandler(async (req, res) => {
     const assignments = await lineupsService.listLineupPlayers(req.params.id);
     sendOk(res, { assignments });

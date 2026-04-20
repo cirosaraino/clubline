@@ -83,6 +83,14 @@ export class AttendanceService {
     return this.getWeekById(weekId);
   }
 
+  async syncWeekEntriesForManager(
+    weekId: string | number,
+    principal: RequestPrincipal,
+  ): Promise<void> {
+    this.ensureCanManageAttendance(principal);
+    await this.syncWeekEntries(weekId);
+  }
+
   async syncWeekEntries(weekId: string | number): Promise<void> {
     const response = await this.db.rpc('sync_attendance_entries_for_week', {
       target_week_id: weekId,
@@ -128,6 +136,11 @@ export class AttendanceService {
     weekId: string | number,
     principal: RequestPrincipal,
   ): Promise<AttendanceEntryRow[]> {
+    const week = await this.getWeekById(weekId);
+    if (week.archived_at && !principal.canManageAttendance) {
+      throw new ForbiddenError('Solo capitano e vice possono consultare settimane archiviate');
+    }
+
     await this.syncWeekEntries(weekId);
 
     let query = this.db
@@ -185,6 +198,16 @@ export class AttendanceService {
       throw new ForbiddenError('Profilo squadra non collegato');
     }
 
+    const week = await this.getWeekById(input.week_id);
+    if (week.archived_at) {
+      throw new ConflictError('La settimana presenze e gia archiviata');
+    }
+
+    const normalizedAttendanceDate = normalizeDateOnly(input.attendance_date);
+    if (!week.selected_dates.includes(normalizedAttendanceDate)) {
+      throw new ConflictError('Puoi salvare la presenza solo nei giorni previsti per la settimana');
+    }
+
     const canEditTarget =
       principal.canManageAttendance || `${principal.player.id}` === `${input.player_id}`;
     if (!canEditTarget) {
@@ -195,7 +218,7 @@ export class AttendanceService {
       {
         week_id: input.week_id,
         player_id: input.player_id,
-        attendance_date: normalizeDateOnly(input.attendance_date),
+        attendance_date: normalizedAttendanceDate,
         availability: input.availability,
         updated_by_player_id: principal.player.id,
         updated_at: new Date().toISOString(),

@@ -143,7 +143,7 @@ class _AuthSheetState extends State<AuthSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final session = AppSessionScope.of(context);
-    final isCaptainRegistrationOpen = !session.players.any((player) => player.hasLinkedAuthAccount);
+    final isCaptainRegistrationOpen = session.isCaptainRegistrationOpen;
     final compact = AppResponsive.isCompact(context);
     final horizontalPadding = AppResponsive.horizontalPadding(context) + 4;
 

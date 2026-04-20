@@ -10,7 +10,7 @@ class LineupRepository {
   final ApiClient _apiClient;
 
   Future<List<Lineup>> fetchLineups() async {
-    final response = await _apiClient.get('/lineups');
+    final response = await _apiClient.get('/lineups', authenticated: true);
     final rawLineups = switch (response) {
       {'lineups': final List lineups} => lineups,
       List lineups => lineups,
@@ -71,7 +71,10 @@ class LineupRepository {
   }
 
   Future<List<LineupPlayerAssignment>> fetchLineupPlayers(dynamic lineupId) async {
-    final response = await _apiClient.get('/lineups/$lineupId/players');
+    final response = await _apiClient.get(
+      '/lineups/$lineupId/players',
+      authenticated: true,
+    );
     final rawAssignments = switch (response) {
       {'assignments': final List assignments} => assignments,
       List assignments => assignments,
@@ -94,6 +97,7 @@ class LineupRepository {
 
     final response = await _apiClient.get(
       '/lineups/assignments?lineup_ids=${lineupIds.map((id) => Uri.encodeComponent(id.toString())).join(',')}',
+      authenticated: true,
     );
     final rawAssignments = switch (response) {
       {'assignments': final List assignments} => assignments,

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../core/app_backend_config.dart';
 import '../../core/app_data_sync.dart';
 import '../../core/realtime/app_realtime_bridge.dart';
+import '../../data/api_client.dart';
 import '../../data/auth_session_store.dart';
 
 class AppRealtimeSyncHost extends StatefulWidget {
@@ -33,6 +34,7 @@ class _AppRealtimeSyncHostState extends State<AppRealtimeSyncHost>
   Timer? _dispatchTimer;
   int _lastReceivedRevision = 0;
   final AuthSessionStore _sessionStore = AuthSessionStore();
+  final ApiClient _apiClient = ApiClient.shared;
   final Set<AppDataScope> _pendingScopes = <AppDataScope>{};
   final List<DateTime> _recentEventTimestamps = <DateTime>[];
   String _lastPendingReason = 'remote_change';
@@ -139,25 +141,41 @@ class _AppRealtimeSyncHostState extends State<AppRealtimeSyncHost>
   }
 
   Future<void> _connectRealtime() async {
-    final session = await _sessionStore.readSession();
-    final accessToken = session?.accessToken.trim() ?? '';
+    try {
+      final session = await _sessionStore.readSession();
+      final accessToken = session?.accessToken.trim() ?? '';
 
-    if (accessToken.isEmpty) {
+      if (accessToken.isEmpty) {
+        appRealtimeBridge.disconnect();
+        return;
+      }
+
+      final realtimeSession = await _apiClient.post(
+        '/realtime/session',
+        authenticated: true,
+        accessToken: accessToken,
+      );
+      final realtimeSessionMap = Map<String, dynamic>.from(realtimeSession as Map);
+      final ticket = realtimeSessionMap['ticket']?.toString().trim() ?? '';
+      if (ticket.isEmpty) {
+        appRealtimeBridge.disconnect();
+        return;
+      }
+
+      final baseEventsUri = Uri.parse('${AppBackendConfig.baseUrl}/realtime/events');
+      final eventsUri = baseEventsUri.replace(
+        queryParameters: {
+          'since': '$_lastReceivedRevision',
+          'ticket': ticket,
+        },
+      );
+
+      await appRealtimeBridge.connect(eventsUri.toString());
+
+      _messageSubscription ??= appRealtimeBridge.messages.listen(_handleRawMessage);
+    } catch (_) {
       appRealtimeBridge.disconnect();
-      return;
     }
-
-    final baseEventsUri = Uri.parse('${AppBackendConfig.baseUrl}/realtime/events');
-    final eventsUri = baseEventsUri.replace(
-      queryParameters: {
-        'since': '$_lastReceivedRevision',
-        'token': accessToken,
-      },
-    );
-
-    await appRealtimeBridge.connect(eventsUri.toString());
-
-    _messageSubscription ??= appRealtimeBridge.messages.listen(_handleRawMessage);
   }
 
   AppDataScope? _mapScope(String rawScope) {

@@ -2,8 +2,9 @@ import type { Response } from 'express';
 import { Router } from 'express';
 
 import { sendError } from '../lib/http';
+import { realtimeTicketStore } from '../lib/realtime-ticket-store';
 import { realtimeEventsBus } from '../lib/realtime-events';
-import { resolvePrincipalFromToken } from '../middleware/auth';
+import { requireAuth } from '../middleware/auth';
 
 export const realtimeRouter = Router();
 
@@ -11,17 +12,30 @@ function sendSsePayload(res: Response, payload: unknown) {
   res.write(`data: ${JSON.stringify(payload)}\n\n`);
 }
 
-realtimeRouter.get('/events', async (req, res) => {
-  const queryToken =
-    typeof req.query.token === 'string' ? req.query.token.trim() : '';
-  if (!queryToken) {
-    sendError(res, 401, 'Token mancante');
+realtimeRouter.post('/session', requireAuth, async (req, res) => {
+  const principal = req.principal;
+  if (!principal) {
+    sendError(res, 401, 'Sessione non valida');
     return;
   }
 
-  try {
-    await resolvePrincipalFromToken(queryToken);
-  } catch (_error) {
+  const ticket = realtimeTicketStore.issue(principal.authUser.id);
+  res.status(201).json({
+    ticket: ticket.ticket,
+    expiresAt: new Date(ticket.expiresAt).toISOString(),
+  });
+});
+
+realtimeRouter.get('/events', async (req, res) => {
+  const queryTicket =
+    typeof req.query.ticket === 'string' ? req.query.ticket.trim() : '';
+  if (!queryTicket) {
+    sendError(res, 401, 'Ticket realtime mancante');
+    return;
+  }
+
+  const ticket = realtimeTicketStore.validate(queryTicket);
+  if (ticket == null) {
     sendError(res, 401, 'Sessione non valida');
     return;
   }

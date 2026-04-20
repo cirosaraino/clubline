@@ -3,11 +3,49 @@ import { z } from 'zod';
 
 import { supabaseAuth, supabaseDb } from '../lib/supabase';
 import { asyncHandler } from '../middleware/async-handler';
+import { createRateLimitMiddleware } from '../middleware/rate-limit';
 import { requireAuth } from '../middleware/auth';
 import { sendCreated, sendOk } from '../lib/http';
 import { AuthService } from '../services/auth.service';
+import { AccessService } from '../services/access.service';
 
 const authService = new AuthService(supabaseAuth, supabaseDb);
+const accessService = new AccessService(supabaseDb);
+
+function extractNormalizedEmail(body: unknown): string {
+  if (typeof body !== 'object' || body == null || Array.isArray(body)) {
+    return 'unknown';
+  }
+
+  const rawEmail = (body as Record<string, unknown>).email;
+  if (typeof rawEmail !== 'string') {
+    return 'unknown';
+  }
+
+  const normalized = rawEmail.trim().toLowerCase();
+  return normalized.length === 0 ? 'unknown' : normalized;
+}
+
+const loginRateLimit = createRateLimitMiddleware({
+  keyPrefix: 'auth-login',
+  windowMs: 15 * 60 * 1000,
+  maxRequests: 10,
+  keyGenerator: ({ ip, body }) => `${ip}:${extractNormalizedEmail(body)}`,
+});
+
+const registerRateLimit = createRateLimitMiddleware({
+  keyPrefix: 'auth-register',
+  windowMs: 60 * 60 * 1000,
+  maxRequests: 5,
+  keyGenerator: ({ ip, body }) => `${ip}:${extractNormalizedEmail(body)}`,
+});
+
+const passwordResetRateLimit = createRateLimitMiddleware({
+  keyPrefix: 'auth-password-reset',
+  windowMs: 60 * 60 * 1000,
+  maxRequests: 5,
+  keyGenerator: ({ ip, body }) => `${ip}:${extractNormalizedEmail(body)}`,
+});
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -31,6 +69,7 @@ export const authRouter = Router();
 
 authRouter.post(
   '/register',
+  registerRateLimit,
   asyncHandler(async (req, res) => {
     const { email, password } = credentialsSchema.parse(req.body);
     const result = await authService.register(email, password);
@@ -40,6 +79,7 @@ authRouter.post(
 
 authRouter.post(
   '/login',
+  loginRateLimit,
   asyncHandler(async (req, res) => {
     const { email, password } = credentialsSchema.parse(req.body);
     const result = await authService.login(email, password);
@@ -58,6 +98,7 @@ authRouter.post(
 
 authRouter.post(
   '/request-password-reset',
+  passwordResetRateLimit,
   asyncHandler(async (req, res) => {
     const { email, redirectTo } = passwordResetRequestSchema.parse(req.body);
     const result = await authService.requestPasswordReset(email, redirectTo);
@@ -99,6 +140,16 @@ authRouter.post(
 
     await authService.logout(principal.authUser.id);
     sendOk(res, { success: true });
+  }),
+);
+
+authRouter.get(
+  '/bootstrap-status',
+  asyncHandler(async (_req, res) => {
+    const hasLinkedAuthAccount = await accessService.hasLinkedAuthAccount();
+    sendOk(res, {
+      canBootstrapCaptainRegistration: !hasLinkedAuthAccount,
+    });
   }),
 );
 

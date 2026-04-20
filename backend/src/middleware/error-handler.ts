@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import { ZodError } from 'zod';
 
+import { env } from '../config/env';
 import { HttpError } from '../lib/errors';
 import { sendError } from '../lib/http';
 
@@ -35,5 +36,15 @@ export function errorHandler(
     return;
   }
 
-  sendError(res, 500, error instanceof Error ? error.message : 'Errore interno');
+  console.error(error);
+
+  sendError(
+    res,
+    500,
+    env.NODE_ENV == 'production'
+      ? 'Errore interno'
+      : error instanceof Error
+          ? error.message
+          : 'Errore interno',
+  );
 }
