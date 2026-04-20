@@ -27,10 +27,11 @@ void main() {
 
     expect(signInButton, findsOneWidget);
     expect(signUpButton, findsOneWidget);
+    expect(find.text('Colori app'), findsNothing);
 
     await tester.tap(signInButton);
     await tester.pumpAndSettle(const Duration(seconds: 3));
-    final signInSheetTitle = find.text('Accedi alla squadra');
+    final signInSheetTitle = find.text('Accedi a Clubline');
     expect(signInSheetTitle, findsOneWidget);
 
     Navigator.of(tester.element(signInSheetTitle)).pop();
@@ -38,7 +39,7 @@ void main() {
 
     await tester.tap(signUpButton);
     await tester.pumpAndSettle(const Duration(seconds: 3));
-    expect(find.text('Registrati nella squadra'), findsOneWidget);
+    expect(find.text('Crea account Clubline'), findsOneWidget);
   }
 
   setUp(() async {

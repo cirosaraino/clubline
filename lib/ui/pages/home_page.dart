@@ -48,16 +48,13 @@ class HomePage extends StatelessWidget {
   Future<void> _openExternalLink(BuildContext context, String rawUrl) async {
     final uri = Uri.tryParse(rawUrl);
     if (uri == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Link non valido')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Link non valido')));
       return;
     }
 
-    final opened = await launchUrl(
-      uri,
-      mode: LaunchMode.externalApplication,
-    );
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
 
     if (!opened && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -66,7 +63,10 @@ class HomePage extends StatelessWidget {
     }
   }
 
-  Future<void> _signOut(BuildContext context, AppSessionController session) async {
+  Future<void> _signOut(
+    BuildContext context,
+    AppSessionController session,
+  ) async {
     await session.signOut();
 
     if (!context.mounted) {
@@ -119,16 +119,18 @@ class HomePage extends StatelessWidget {
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Richiesta di uscita inviata al capitano.')),
+        const SnackBar(
+          content: Text('Richiesta di uscita inviata al capitano.'),
+        ),
       );
     } catch (error) {
       if (!context.mounted) {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString())),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
     }
   }
 
@@ -136,16 +138,20 @@ class HomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final session = AppSessionScope.of(context);
     final isAuthenticated = session.isAuthenticated;
+    final hasClubMembership = session.hasClubMembership;
     final currentUser = session.currentUser;
     final currentUserEmail = session.currentUserEmail;
     final needsProfileSetup = session.needsProfileSetup;
     final teamInfo = session.teamInfo;
     final canShowProfileMenu = isAuthenticated;
     final canManageVicePermissions = currentUser?.isCaptain == true;
+    final isPersonalizedExperience = hasClubMembership;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(teamInfo.displayTeamName),
+        title: Text(
+          isPersonalizedExperience ? teamInfo.displayTeamName : 'Clubline',
+        ),
         actions: [
           if (canShowProfileMenu)
             PopupMenuButton<_HomeProfileMenuAction>(
@@ -185,8 +191,8 @@ class HomePage extends StatelessWidget {
                     contentPadding: EdgeInsets.zero,
                     leading: Icon(Icons.password_outlined),
                     title: Text('Cambia password'),
-                    ),
                   ),
+                ),
                 if (currentUser?.isCaptain == true)
                   const PopupMenuItem<_HomeProfileMenuAction>(
                     value: _HomeProfileMenuAction.manageClub,
@@ -261,11 +267,16 @@ class HomePage extends StatelessWidget {
                     teamInfo: teamInfo,
                     currentUser: currentUser,
                     isAuthenticated: isAuthenticated,
+                    isPersonalizedExperience: isPersonalizedExperience,
                     currentUserEmail: currentUserEmail,
                     needsProfileSetup: needsProfileSetup,
-                    onOpenThemeSettings: onOpenThemeSettings,
+                    onOpenThemeSettings: isPersonalizedExperience
+                        ? onOpenThemeSettings
+                        : null,
                     onOpenTeamInfoSettings:
-                        currentUser?.canManageTeamInfo == true ? onOpenTeamInfoSettings : null,
+                        currentUser?.canManageTeamInfo == true
+                        ? onOpenTeamInfoSettings
+                        : null,
                     onOpenLink: (url) => _openExternalLink(context, url),
                   ),
                   if (currentUser != null &&
@@ -287,7 +298,8 @@ class HomePage extends StatelessWidget {
                     currentUserEmail: currentUserEmail,
                     needsProfileSetup: needsProfileSetup,
                     requiresPasswordRecovery: session.requiresPasswordRecovery,
-                    isCaptainRegistrationOpen: session.isCaptainRegistrationOpen,
+                    isCaptainRegistrationOpen:
+                        session.isCaptainRegistrationOpen,
                     errorMessage: session.errorMessage,
                     onCreateProfile: onOpenCreateProfile,
                     onOpenSignIn: onOpenSignIn,
@@ -301,7 +313,6 @@ class HomePage extends StatelessWidget {
       ),
     );
   }
-
 }
 
 class _GlowCircle extends StatelessWidget {
@@ -318,12 +329,7 @@ class _GlowCircle extends StatelessWidget {
         height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: RadialGradient(
-            colors: [
-              color,
-              Colors.transparent,
-            ],
-          ),
+          gradient: RadialGradient(colors: [color, Colors.transparent]),
         ),
       ),
     );
@@ -350,14 +356,16 @@ class _ClubPulseCard extends StatelessWidget {
     final title = isCaptain
         ? 'Dashboard capitano pronta'
         : session.hasPendingLeaveRequest
-            ? 'Richiesta di uscita in attesa'
-            : 'Club attivo';
+        ? 'Richiesta di uscita in attesa'
+        : 'Club attivo';
     final message = isCaptain
         ? 'Hai $pendingJoin richieste di ingresso e $pendingLeave richieste di uscita da gestire.'
         : 'La tua richiesta di uscita è stata inviata e resta in attesa della decisione del capitano.';
 
     return AppStatusCard(
-      icon: isCaptain ? Icons.admin_panel_settings_outlined : Icons.hourglass_top_outlined,
+      icon: isCaptain
+          ? Icons.admin_panel_settings_outlined
+          : Icons.hourglass_top_outlined,
       title: title,
       message: message,
       actionLabel: isCaptain ? 'Apri dashboard capitano' : null,
@@ -372,6 +380,7 @@ class _HomeWelcomeCard extends StatelessWidget {
     required this.teamInfo,
     required this.currentUser,
     required this.isAuthenticated,
+    required this.isPersonalizedExperience,
     required this.currentUserEmail,
     required this.needsProfileSetup,
     required this.onOpenThemeSettings,
@@ -382,15 +391,16 @@ class _HomeWelcomeCard extends StatelessWidget {
   final TeamInfo teamInfo;
   final PlayerProfile? currentUser;
   final bool isAuthenticated;
+  final bool isPersonalizedExperience;
   final String? currentUserEmail;
   final bool needsProfileSetup;
-  final VoidCallback onOpenThemeSettings;
+  final VoidCallback? onOpenThemeSettings;
   final VoidCallback? onOpenTeamInfoSettings;
   final ValueChanged<String> onOpenLink;
 
   String _welcomeText() {
     if (!isAuthenticated) {
-      return 'Benvenuto. Accedi o registrati per entrare in Clubline e vedere subito cosa puoi fare come membro, vice o capitano.';
+      return 'Crea il tuo account oppure accedi con le tue credenziali. La grafica del club e le personalizzazioni compariranno solo dopo l ingresso in una squadra.';
     }
 
     if (needsProfileSetup) {
@@ -413,6 +423,11 @@ class _HomeWelcomeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final compact = AppResponsive.isCompact(context);
     final cardPadding = AppResponsive.cardPadding(context);
+    final heroTitle = isPersonalizedExperience
+        ? teamInfo.displayTeamName
+        : 'Clubline';
+    final heroCrestUrl = isPersonalizedExperience ? teamInfo.crestUrl : null;
+    final showUsefulLinks = isPersonalizedExperience && teamInfo.hasAnyLinks;
 
     return Container(
       width: double.infinity,
@@ -423,33 +438,41 @@ class _HomeWelcomeCard extends StatelessWidget {
         boxShadow: UltrasAppTheme.softShadow,
       ),
       child: Padding(
-        padding: EdgeInsets.fromLTRB(cardPadding, compact ? 18 : 24, cardPadding, cardPadding),
+        padding: EdgeInsets.fromLTRB(
+          cardPadding,
+          compact ? 18 : 24,
+          cardPadding,
+          cardPadding,
+        ),
         child: Column(
           children: [
             _TeamCrestAvatar(
-              crestUrl: teamInfo.crestUrl,
+              crestUrl: heroCrestUrl,
               size: compact ? 96 : 126,
+              fallbackIcon: isPersonalizedExperience
+                  ? Icons.shield_outlined
+                  : Icons.person_add_alt_1_outlined,
             ),
             SizedBox(height: compact ? 14 : 18),
             Text(
-              teamInfo.displayTeamName,
+              heroTitle,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
-                    height: 1.05,
-                    fontSize: compact ? 28 : null,
-                  ),
+                fontWeight: FontWeight.w900,
+                height: 1.05,
+                fontSize: compact ? 28 : null,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               _welcomeText(),
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: UltrasAppTheme.textMuted,
-                    height: 1.4,
-                  ),
+                color: UltrasAppTheme.textMuted,
+                height: 1.4,
+              ),
             ),
-            if (teamInfo.hasAnyLinks) ...[
+            if (showUsefulLinks) ...[
               SizedBox(height: compact ? 14 : 18),
               Wrap(
                 alignment: WrapAlignment.center,
@@ -464,46 +487,52 @@ class _HomeWelcomeCard extends StatelessWidget {
                 ],
               ),
             ],
-            SizedBox(height: compact ? 14 : 18),
-            if (compact) ...[
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: onOpenThemeSettings,
-                  icon: const Icon(Icons.palette_outlined),
-                  label: const Text('Colori app'),
-                ),
-              ),
-              if (onOpenTeamInfoSettings != null) ...[
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: onOpenTeamInfoSettings,
-                    icon: const Icon(Icons.edit_note_outlined),
-                    label: const Text('Info club'),
+            if (onOpenThemeSettings != null ||
+                onOpenTeamInfoSettings != null) ...[
+              SizedBox(height: compact ? 14 : 18),
+              if (compact) ...[
+                if (onOpenThemeSettings != null)
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: onOpenThemeSettings,
+                      icon: const Icon(Icons.palette_outlined),
+                      label: const Text('Colori app'),
+                    ),
                   ),
-                ),
-              ],
-            ] else
-              Wrap(
-                alignment: WrapAlignment.center,
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: onOpenThemeSettings,
-                    icon: const Icon(Icons.palette_outlined),
-                    label: const Text('Colori app'),
-                  ),
-                  if (onOpenTeamInfoSettings != null)
-                    ElevatedButton.icon(
+                if (onOpenThemeSettings != null &&
+                    onOpenTeamInfoSettings != null)
+                  const SizedBox(height: 10),
+                if (onOpenTeamInfoSettings != null)
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
                       onPressed: onOpenTeamInfoSettings,
                       icon: const Icon(Icons.edit_note_outlined),
                       label: const Text('Info club'),
                     ),
-                ],
-              ),
+                  ),
+              ] else
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    if (onOpenThemeSettings != null)
+                      OutlinedButton.icon(
+                        onPressed: onOpenThemeSettings,
+                        icon: const Icon(Icons.palette_outlined),
+                        label: const Text('Colori app'),
+                      ),
+                    if (onOpenTeamInfoSettings != null)
+                      ElevatedButton.icon(
+                        onPressed: onOpenTeamInfoSettings,
+                        icon: const Icon(Icons.edit_note_outlined),
+                        label: const Text('Info club'),
+                      ),
+                  ],
+                ),
+            ],
           ],
         ),
       ),
@@ -546,13 +575,17 @@ class _AccessCard extends StatelessWidget {
         label: user.canManagePlayers ? 'Gestione rosa' : 'Rosa con filtri',
       ),
       AppCountPill(
-        label: user.canManageLineups ? 'Gestione formazioni' : 'Formazioni solo lettura',
+        label: user.canManageLineups
+            ? 'Gestione formazioni'
+            : 'Formazioni solo lettura',
       ),
       AppCountPill(
         label: user.canManageStreams ? 'Gestione live' : 'Live solo lettura',
       ),
       AppCountPill(
-        label: user.canManageAttendanceAll ? 'Presenze club' : 'Presenze personali',
+        label: user.canManageAttendanceAll
+            ? 'Presenze club'
+            : 'Presenze personali',
       ),
       AppCountPill(
         label: user.canManageTeamInfo ? 'Info club' : 'Info club sola lettura',
@@ -609,47 +642,47 @@ class _AccessCard extends StatelessWidget {
               !isAuthenticated
                   ? 'Accesso reale'
                   : needsProfileSetup
-                      ? 'Profilo da completare'
-                      : currentUser == null
-                          ? 'Accesso autenticato'
-                          : 'Accesso come ${currentUser!.fullName}',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+                  ? 'Profilo da completare'
+                  : currentUser == null
+                  ? 'Accesso autenticato'
+                  : 'Accesso come ${currentUser!.fullName}',
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 6),
             Text(
               _sessionSubtitle(),
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: UltrasAppTheme.textMuted,
-                    height: 1.35,
-                  ),
+                color: UltrasAppTheme.textMuted,
+                height: 1.35,
+              ),
             ),
             if (errorMessage != null) ...[
               const SizedBox(height: 12),
               Text(
                 errorMessage!,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.error,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  color: Theme.of(context).colorScheme.error,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ],
             const SizedBox(height: 16),
             if (!isAuthenticated) ...[
               Text(
                 'Nessun accesso attivo',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 6),
               Text(
                 'Accedi con un account esistente oppure registrane uno nuovo. Dopo il login potrai creare un club o chiedere l ingresso in uno esistente.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: UltrasAppTheme.textMuted,
-                      height: 1.35,
-                    ),
+                  color: UltrasAppTheme.textMuted,
+                  height: 1.35,
+                ),
               ),
               const SizedBox(height: 14),
               if (compact) ...[
@@ -694,25 +727,25 @@ class _AccessCard extends StatelessWidget {
             ] else if (needsProfileSetup) ...[
               Text(
                 'Profilo non ancora collegato',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 14),
               Text(
                 'Sei autenticato con ${currentUserEmail ?? 'un account valido'}, ma manca ancora il profilo club da compilare.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: UltrasAppTheme.textMuted,
-                      height: 1.35,
-                    ),
+                  color: UltrasAppTheme.textMuted,
+                  height: 1.35,
+                ),
               ),
               const SizedBox(height: 14),
               Text(
                 'Usa l icona profilo in alto a destra per completare il profilo giocatore, cambiare password o uscire.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: UltrasAppTheme.textMuted,
-                      height: 1.35,
-                    ),
+                  color: UltrasAppTheme.textMuted,
+                  height: 1.35,
+                ),
               ),
               const SizedBox(height: 12),
               _CompleteProfileCtaButton(
@@ -724,17 +757,17 @@ class _AccessCard extends StatelessWidget {
                 currentUserEmail == null
                     ? 'Sessione attiva'
                     : 'Sessione attiva: $currentUserEmail',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 6),
               Text(
                 'Hai un profilo collegato e puoi continuare usando Clubline con i tuoi permessi.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: UltrasAppTheme.textMuted,
-                      height: 1.35,
-                    ),
+                  color: UltrasAppTheme.textMuted,
+                  height: 1.35,
+                ),
               ),
               if (requiresPasswordRecovery) ...[
                 const SizedBox(height: 12),
@@ -751,10 +784,10 @@ class _AccessCard extends StatelessWidget {
                   child: Text(
                     'Sei entrato dal link di recupero password. Impostane una nuova per chiudere il recupero e continuare ad usare Clubline normalmente.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: UltrasAppTheme.warningSoft,
-                          fontWeight: FontWeight.w700,
-                          height: 1.35,
-                        ),
+                      color: UltrasAppTheme.warningSoft,
+                      fontWeight: FontWeight.w700,
+                      height: 1.35,
+                    ),
                   ),
                 ),
               ],
@@ -762,17 +795,15 @@ class _AccessCard extends StatelessWidget {
               Wrap(
                 spacing: compact ? 8 : 10,
                 runSpacing: compact ? 8 : 10,
-                children: [
-                  if (permissionPills.isNotEmpty) ...permissionPills,
-                ],
+                children: [if (permissionPills.isNotEmpty) ...permissionPills],
               ),
               const SizedBox(height: 12),
               Text(
                 'Le azioni account (modifica profilo, password ed uscita) sono nel menu profilo in alto a destra.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: UltrasAppTheme.textMuted,
-                      height: 1.35,
-                    ),
+                  color: UltrasAppTheme.textMuted,
+                  height: 1.35,
+                ),
               ),
             ],
           ],
@@ -813,13 +844,17 @@ class _CompleteProfileCtaButtonState extends State<_CompleteProfileCtaButton>
     );
     _scale = TweenSequence<double>([
       TweenSequenceItem(
-        tween: Tween<double>(begin: 1, end: 1.05)
-            .chain(CurveTween(curve: Curves.easeOutCubic)),
+        tween: Tween<double>(
+          begin: 1,
+          end: 1.05,
+        ).chain(CurveTween(curve: Curves.easeOutCubic)),
         weight: 45,
       ),
       TweenSequenceItem(
-        tween: Tween<double>(begin: 1.05, end: 1)
-            .chain(CurveTween(curve: Curves.easeOutCubic)),
+        tween: Tween<double>(
+          begin: 1.05,
+          end: 1,
+        ).chain(CurveTween(curve: Curves.easeOutCubic)),
         weight: 55,
       ),
     ]).animate(_controller);
@@ -868,17 +903,11 @@ class _CompleteProfileCtaButtonState extends State<_CompleteProfileCtaButton>
     );
 
     final animatedButton = _shouldAnimate
-        ? ScaleTransition(
-            scale: _scale,
-            child: button,
-          )
+        ? ScaleTransition(scale: _scale, child: button)
         : button;
 
     if (widget.fullWidth) {
-      return SizedBox(
-        width: double.infinity,
-        child: animatedButton,
-      );
+      return SizedBox(width: double.infinity, child: animatedButton);
     }
 
     return animatedButton;
@@ -886,10 +915,7 @@ class _CompleteProfileCtaButtonState extends State<_CompleteProfileCtaButton>
 }
 
 class _UsefulLinkChip extends StatelessWidget {
-  const _UsefulLinkChip({
-    required this.link,
-    required this.onTap,
-  });
+  const _UsefulLinkChip({required this.link, required this.onTap});
 
   final TeamInfoLinkItem link;
   final VoidCallback onTap;
@@ -927,9 +953,9 @@ class _UsefulLinkChip extends StatelessWidget {
       side: BorderSide(color: UltrasAppTheme.outlineSoft),
       backgroundColor: UltrasAppTheme.surfaceAlt.withValues(alpha: 0.8),
       labelStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: UltrasAppTheme.textPrimary,
-            fontWeight: FontWeight.w700,
-          ),
+        color: UltrasAppTheme.textPrimary,
+        fontWeight: FontWeight.w700,
+      ),
       label: Text(link.label),
     );
   }
@@ -939,10 +965,12 @@ class _TeamCrestAvatar extends StatelessWidget {
   const _TeamCrestAvatar({
     required this.crestUrl,
     required this.size,
+    required this.fallbackIcon,
   });
 
   final String? crestUrl;
   final double size;
+  final IconData fallbackIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -953,19 +981,16 @@ class _TeamCrestAvatar extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: UltrasAppTheme.surfaceAlt.withValues(alpha: 0.82),
-        border: Border.all(
-          color: UltrasAppTheme.outlineStrong,
-          width: 2,
-        ),
+        border: Border.all(color: UltrasAppTheme.outlineStrong, width: 2),
       ),
       child: ClipOval(
         child: crestUrl == null
-            ? _ClubFallbackCrest(size: size)
+            ? _ClubFallbackCrest(size: size, icon: fallbackIcon)
             : Image.network(
                 crestUrl!,
                 fit: BoxFit.cover,
                 errorBuilder: (_, error, stackTrace) {
-                  return _ClubFallbackCrest(size: size);
+                  return _ClubFallbackCrest(size: size, icon: fallbackIcon);
                 },
               ),
       ),
@@ -974,20 +999,17 @@ class _TeamCrestAvatar extends StatelessWidget {
 }
 
 class _ClubFallbackCrest extends StatelessWidget {
-  const _ClubFallbackCrest({required this.size});
+  const _ClubFallbackCrest({required this.size, required this.icon});
 
   final double size;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       color: UltrasAppTheme.surfaceAlt,
       alignment: Alignment.center,
-      child: Icon(
-        Icons.shield_outlined,
-        size: size * 0.42,
-        color: UltrasAppTheme.goldSoft,
-      ),
+      child: Icon(icon, size: size * 0.42, color: UltrasAppTheme.goldSoft),
     );
   }
 }

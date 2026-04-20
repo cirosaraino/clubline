@@ -139,6 +139,19 @@ class PlayerProfile {
 
   String get idConsoleDisplay => (idConsole == null || idConsole!.isEmpty) ? '-' : idConsole!;
 
+  bool get hasConsoleId => (idConsole ?? '').trim().isNotEmpty;
+
+  bool get hasPrimaryRole => (primaryRole ?? '').trim().isNotEmpty;
+
+  bool get isProfileSetupComplete =>
+      nome.trim().isNotEmpty &&
+      cognome.trim().isNotEmpty &&
+      hasConsoleId &&
+      shirtNumber != null &&
+      hasPrimaryRole;
+
+  bool get needsProfileCompletion => !isProfileSetupComplete;
+
   String get teamRoleDisplay => teamRoleLabel(teamRole);
 
   bool get isCaptain => teamRole == 'captain';

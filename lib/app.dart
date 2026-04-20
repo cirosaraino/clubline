@@ -43,17 +43,21 @@ class _SquadraAppState extends State<SquadraApp> {
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: themeController,
+      animation: Listenable.merge([themeController, sessionController]),
       builder: (context, _) {
+        final activePalette = sessionController.hasClubMembership
+            ? themeController.palette
+            : UltrasAppTheme.defaultPalette;
+
         return MaterialApp(
           title: 'Clubline',
           debugShowCheckedModeBanner: false,
-          theme: UltrasAppTheme.buildTheme(themeController.palette),
+          theme: UltrasAppTheme.buildTheme(activePalette),
           builder: (context, child) {
             return AppThemeScope(
               controller: themeController,
               child: AppSessionScope(
-              controller: sessionController,
+                controller: sessionController,
                 child: AppRealtimeSyncHost(
                   child: MobileWebInstallPromptHost(
                     child: child ?? const SizedBox.shrink(),

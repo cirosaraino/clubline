@@ -176,6 +176,7 @@ export interface CreateClubInput {
   logo_data_url?: string | null;
   owner_nome?: string | null;
   owner_cognome?: string | null;
+  owner_id_console?: string | null;
   owner_shirt_number?: number | null;
   owner_primary_role?: string | null;
   primary_color?: string | null;
@@ -226,6 +227,13 @@ export class ClubsService {
     await this.ensureNoPendingJoinRequest(principal.authUser.id);
 
     const clubName = normalizeClubName(input.name);
+    const ownerNome = normalizeOptionalText(input.owner_nome);
+    const ownerCognome = normalizeOptionalText(input.owner_cognome);
+    const ownerConsoleId = normalizeOptionalText(input.owner_id_console);
+    if (!ownerNome || !ownerCognome || !ownerConsoleId) {
+      throw new ValidationError('Inserisci nome, cognome e ID console del capitano');
+    }
+
     const normalizedName = normalizeClubKey(clubName);
     await this.ensureUniqueClubName(normalizedName);
 
@@ -285,8 +293,9 @@ export class ClubsService {
     await this.ensurePlayerProfileForMembership({
       membership,
       email: principal.authUser.email,
-      nome: input.owner_nome,
-      cognome: input.owner_cognome,
+      nome: ownerNome,
+      cognome: ownerCognome,
+      consoleId: ownerConsoleId,
       shirtNumber: input.owner_shirt_number,
       primaryRole: input.owner_primary_role,
       teamRole: 'captain',
@@ -540,7 +549,7 @@ export class ClubsService {
     const captainMembership = ensureCaptain(principal);
     const response = await this.db
       .from('leave_requests')
-      .select('*, membership:memberships(*)')
+      .select('*, membership:memberships!leave_requests_membership_id_fkey(*)')
       .eq('club_id', captainMembership.club_id)
       .eq('status', 'pending')
       .order('created_at', { ascending: true });
@@ -783,6 +792,7 @@ export class ClubsService {
     email: string | null;
     nome?: string | null;
     cognome?: string | null;
+    consoleId?: string | null;
     shirtNumber?: number | null;
     primaryRole?: string | null;
     teamRole: TeamRole;
@@ -801,7 +811,7 @@ export class ClubsService {
         primary_role: normalizeOptionalText(options.primaryRole),
         secondary_role: null,
         secondary_roles: [],
-        id_console: null,
+        id_console: normalizeOptionalText(options.consoleId),
         team_role: options.teamRole,
       });
 
@@ -865,7 +875,7 @@ export class ClubsService {
   private async getLeaveRequest(leaveRequestId: string | number): Promise<LeaveRequestRow> {
     const response = await this.db
       .from('leave_requests')
-      .select('*, membership:memberships(*)')
+      .select('*, membership:memberships!leave_requests_membership_id_fkey(*)')
       .eq('id', leaveRequestId)
       .maybeSingle();
 

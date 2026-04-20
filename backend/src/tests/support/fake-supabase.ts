@@ -443,7 +443,12 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
       nextRow.club = this.db.findById('clubs', row.club_id);
     }
 
-    if (this.table === 'leave_requests' && this.selectColumns.includes('membership:memberships(*)')) {
+    if (
+      this.table === 'leave_requests' &&
+      this.selectColumns.includes(
+        'membership:memberships!leave_requests_membership_id_fkey(*)',
+      )
+    ) {
       nextRow.membership = this.db.findById('memberships', row.membership_id);
     }
 

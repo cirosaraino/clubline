@@ -60,9 +60,9 @@ class _ClubAccessHubPageState extends State<ClubAccessHubPage> {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Richiesta annullata.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Richiesta annullata.')));
     } finally {
       if (mounted) {
         setState(() {
@@ -105,8 +105,8 @@ class _ClubAccessHubPageState extends State<ClubAccessHubPage> {
                   Text(
                     'Benvenuto su Clubline',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                   const SizedBox(height: 10),
                   Text(
@@ -116,23 +116,29 @@ class _ClubAccessHubPageState extends State<ClubAccessHubPage> {
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 18),
-                  if (pendingJoinRequest != null && pendingJoinRequest.isPending) ...[
+                  if (pendingJoinRequest != null &&
+                      pendingJoinRequest.isPending) ...[
                     AppStatusCard(
                       icon: Icons.hourglass_top_outlined,
                       title: 'Richiesta in attesa',
                       message: pendingJoinRequest.club == null
                           ? 'La tua richiesta di ingresso è in revisione.'
                           : 'Hai inviato una richiesta per ${pendingJoinRequest.club!.name}. Appena il capitano la gestirà, ti porteremo dentro il club.',
-                      actionLabel: isCancellingJoinRequest ? 'Annullamento...' : 'Annulla richiesta',
+                      actionLabel: isCancellingJoinRequest
+                          ? 'Annullamento...'
+                          : 'Annulla richiesta',
                       actionIcon: Icons.close_outlined,
                       actionLoading: isCancellingJoinRequest,
-                      onAction: isCancellingJoinRequest ? null : _cancelPendingJoinRequest,
+                      onAction: isCancellingJoinRequest
+                          ? null
+                          : _cancelPendingJoinRequest,
                     ),
                   ] else ...[
                     _HubActionCard(
                       icon: Icons.add_business_outlined,
                       title: 'Crea un nuovo club',
-                      message: 'Imposta nome, logo e profilo iniziale del capitano. Il club nascerà già pronto per usare le funzioni esistenti.',
+                      message:
+                          'Scegli nome e logo del club, poi completa i dati essenziali del capitano. Il resto lo potrai aggiungere dopo.',
                       actionLabel: 'Crea club',
                       onAction: _openCreateClub,
                     ),
@@ -140,7 +146,8 @@ class _ClubAccessHubPageState extends State<ClubAccessHubPage> {
                     _HubActionCard(
                       icon: Icons.group_add_outlined,
                       title: 'Unisciti a un club esistente',
-                      message: 'Cerca un club, invia la tua richiesta di ingresso e attendi l approvazione del capitano.',
+                      message:
+                          'Cerca un club, invia la tua richiesta di ingresso e attendi l approvazione del capitano.',
                       actionLabel: 'Cerca club',
                       onAction: _openJoinClub,
                     ),

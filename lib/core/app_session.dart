@@ -18,13 +18,12 @@ import '../models/vice_permissions.dart';
 import 'app_data_sync.dart';
 
 class AppSessionController extends ChangeNotifier {
-  AppSessionController({
-    this.onTeamInfoChanged,
-  })  : _authRepository = AuthRepository(),
-        _clubRepository = ClubRepository(),
-        _playerRepository = PlayerRepository(),
-        _teamInfoRepository = TeamInfoRepository(),
-        _vicePermissionsRepository = VicePermissionsRepository() {
+  AppSessionController({this.onTeamInfoChanged})
+    : _authRepository = AuthRepository(),
+      _clubRepository = ClubRepository(),
+      _playerRepository = PlayerRepository(),
+      _teamInfoRepository = TeamInfoRepository(),
+      _vicePermissionsRepository = VicePermissionsRepository() {
     AppDataSync.instance.addListener(_handleAppDataSync);
     refresh();
   }
@@ -65,12 +64,16 @@ class AppSessionController extends ChangeNotifier {
   Membership? get membership => _membership;
   JoinRequest? get pendingJoinRequest => _pendingJoinRequest;
   LeaveRequest? get pendingLeaveRequest => _pendingLeaveRequest;
-  List<JoinRequest> get captainPendingJoinRequests => _captainPendingJoinRequests;
-  List<LeaveRequest> get captainPendingLeaveRequests => _captainPendingLeaveRequests;
-  bool get hasClubMembership => _membership?.isActive == true && _currentClub != null;
+  List<JoinRequest> get captainPendingJoinRequests =>
+      _captainPendingJoinRequests;
+  List<LeaveRequest> get captainPendingLeaveRequests =>
+      _captainPendingLeaveRequests;
+  bool get hasClubMembership =>
+      _membership?.isActive == true && _currentClub != null;
   bool get hasPendingJoinRequest => _pendingJoinRequest?.isPending == true;
   bool get hasPendingLeaveRequest => _pendingLeaveRequest?.isPending == true;
-  bool get needsClubSelection => isAuthenticated && !hasClubMembership && !hasPendingJoinRequest;
+  bool get needsClubSelection =>
+      isAuthenticated && !hasClubMembership && !hasPendingJoinRequest;
   bool get needsProfileSetup => hasClubMembership && currentUser == null;
   bool get requiresPasswordRecovery =>
       _authRepository.currentSession?.isRecoverySession == true;
@@ -131,15 +134,11 @@ class AppSessionController extends ChangeNotifier {
     _resetAuthenticatedState();
   }
 
-  Future<String> requestPasswordReset({
-    required String email,
-  }) {
+  Future<String> requestPasswordReset({required String email}) {
     return _authRepository.requestPasswordReset(email: email);
   }
 
-  Future<String> updatePassword({
-    required String password,
-  }) async {
+  Future<String> updatePassword({required String password}) async {
     final message = await _authRepository.updatePassword(password: password);
     unawaited(refresh(showLoadingState: false));
     return message;
@@ -168,7 +167,8 @@ class AppSessionController extends ChangeNotifier {
 
       final membershipFuture = _clubRepository.fetchCurrentMembership();
       final clubFuture = _clubRepository.fetchCurrentClub();
-      final pendingJoinRequestFuture = _clubRepository.fetchCurrentPendingJoinRequest();
+      final pendingJoinRequestFuture = _clubRepository
+          .fetchCurrentPendingJoinRequest();
 
       final membership = await membershipFuture;
       final currentClub = await clubFuture;
@@ -191,15 +191,36 @@ class AppSessionController extends ChangeNotifier {
         return;
       }
 
+      _teamInfo = _fallbackTeamInfoForClub(currentClub!);
       final loadedPlayersFuture = _playerRepository.fetchPlayers();
-      final loadedTeamInfoFuture = _teamInfoRepository.fetchTeamInfo();
-      final loadedVicePermissionsFuture = _vicePermissionsRepository.fetchPermissions();
-      final pendingLeaveRequestFuture = _clubRepository.fetchCurrentPendingLeaveRequest();
+      final loadedTeamInfoFuture = _loadOptionalData<TeamInfo>(
+        _teamInfoRepository.fetchTeamInfo(),
+        fallback: _teamInfo,
+        label: 'team_info',
+      );
+      final loadedVicePermissionsFuture = _loadOptionalData<VicePermissions>(
+        _vicePermissionsRepository.fetchPermissions(),
+        fallback: VicePermissions.defaults,
+        label: 'vice_permissions',
+      );
+      final pendingLeaveRequestFuture = _loadOptionalData<LeaveRequest?>(
+        _clubRepository.fetchCurrentPendingLeaveRequest(),
+        fallback: null,
+        label: 'current_pending_leave_request',
+      );
       final captainJoinRequestsFuture = membership!.isCaptain
-          ? _clubRepository.fetchPendingJoinRequests()
+          ? _loadOptionalData<List<JoinRequest>>(
+              _clubRepository.fetchPendingJoinRequests(),
+              fallback: const [],
+              label: 'captain_pending_join_requests',
+            )
           : Future<List<JoinRequest>>.value(const []);
       final captainLeaveRequestsFuture = membership.isCaptain
-          ? _clubRepository.fetchPendingLeaveRequests()
+          ? _loadOptionalData<List<LeaveRequest>>(
+              _clubRepository.fetchPendingLeaveRequests(),
+              fallback: const [],
+              label: 'captain_pending_leave_requests',
+            )
           : Future<List<LeaveRequest>>.value(const []);
 
       final loadedPlayers = await loadedPlayersFuture;
@@ -216,9 +237,7 @@ class AppSessionController extends ChangeNotifier {
       _vicePermissions = loadedVicePermissions;
       _players = loadedPlayers
           .map(
-            (player) => player.copyWith(
-              vicePermissions: loadedVicePermissions,
-            ),
+            (player) => player.copyWith(vicePermissions: loadedVicePermissions),
           )
           .toList();
       _isLoading = false;
@@ -236,6 +255,31 @@ class AppSessionController extends ChangeNotifier {
         unawaited(refresh(showLoadingState: false));
       }
     }
+  }
+
+  Future<T> _loadOptionalData<T>(
+    Future<T> future, {
+    required T fallback,
+    required String label,
+  }) async {
+    try {
+      return await future;
+    } catch (error) {
+      debugPrint('AppSession optional fetch failed for $label: $error');
+      return fallback;
+    }
+  }
+
+  TeamInfo _fallbackTeamInfoForClub(Club club) {
+    return TeamInfo(
+      id: club.id is num ? (club.id as num).toInt() : 1,
+      teamName: club.name,
+      crestUrl: club.logoUrl,
+      slug: club.slug,
+      primaryColor: club.primaryColor,
+      accentColor: club.accentColor,
+      surfaceColor: club.surfaceColor,
+    );
   }
 
   void _resetAuthenticatedState() {
@@ -292,9 +336,7 @@ class AppSessionScope extends InheritedNotifier<AppSessionController> {
     super.key,
     required AppSessionController controller,
     required super.child,
-  }) : super(
-          notifier: controller,
-        );
+  }) : super(notifier: controller);
 
   static AppSessionController of(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<AppSessionScope>();
@@ -303,7 +345,8 @@ class AppSessionScope extends InheritedNotifier<AppSessionController> {
   }
 
   static AppSessionController read(BuildContext context) {
-    final element = context.getElementForInheritedWidgetOfExactType<AppSessionScope>();
+    final element = context
+        .getElementForInheritedWidgetOfExactType<AppSessionScope>();
     final scope = element?.widget as AppSessionScope?;
     assert(scope != null, 'AppSessionScope non trovato nel widget tree.');
     return scope!.notifier!;

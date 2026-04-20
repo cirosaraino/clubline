@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import type {
   ClubRow,
+  LeaveRequestRow,
   MembershipRow,
   PlayerProfileRow,
   RequestPrincipal,
@@ -181,8 +182,7 @@ test('createClub creates the club, captain membership, player profile, and defau
       name: 'Clubline Roma',
       owner_nome: 'Ciro',
       owner_cognome: 'Saraino',
-      owner_shirt_number: 9,
-      owner_primary_role: 'ATT',
+      owner_id_console: 'ciro10',
     },
     buildPrincipal({
       userId: 'founder-1',
@@ -204,6 +204,7 @@ test('createClub creates the club, captain membership, player profile, and defau
   assert.equal(players.length, 1);
   assert.equal(players[0]?.membership_id, memberships[0]?.id);
   assert.equal(players[0]?.team_role, 'captain');
+  assert.equal(players[0]?.id_console, 'ciro10');
   assert.equal(db.rows('club_settings').length, 1);
   assert.equal(db.rows('club_permission_settings').length, 1);
 });
@@ -228,6 +229,7 @@ test('createClub rejects duplicate club names with case-insensitive normalizatio
           name: '  CLUBLINE   roma ',
           owner_nome: 'Mario',
           owner_cognome: 'Bianchi',
+          owner_id_console: 'mario-bia',
         },
         buildPrincipal({ userId: 'founder-2' }),
       ),
@@ -493,6 +495,48 @@ test('captains can reject leave requests and cannot leave until the role is tran
   assert.equal(db.rows<any>('leave_requests')[0]?.status, 'rejected');
 });
 
+test('captains can list pending leave requests with membership details', async () => {
+  const seed = createClubSeed({ clubId: 1 });
+  const memberMembership = createMembership({
+    id: 14,
+    club_id: seed.club.id,
+    auth_user_id: 'pending-leaver',
+    role: 'player',
+  });
+  const pendingLeave: LeaveRequestRow = {
+    id: 2,
+    club_id: seed.club.id,
+    membership_id: memberMembership.id,
+    requested_by_user_id: memberMembership.auth_user_id,
+    status: 'pending',
+    decided_by_membership_id: null,
+    decided_at: null,
+    cancelled_at: null,
+    expires_at: null,
+  };
+
+  const db = new FakeSupabaseClient({
+    clubs: [seed.club],
+    memberships: [seed.captainMembership, memberMembership],
+    player_profiles: [seed.captainPlayer],
+    leave_requests: [pendingLeave],
+  });
+  const service = new ClubsService(db as any);
+
+  const requests = await service.listPendingLeaveRequests(
+    buildPrincipal({
+      userId: seed.captainMembership.auth_user_id,
+      club: seed.club,
+      membership: seed.captainMembership,
+      player: seed.captainPlayer,
+    }),
+  );
+
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0]?.membership?.id, memberMembership.id);
+  assert.equal(requests[0]?.membership?.auth_user_id, memberMembership.auth_user_id);
+});
+
 test('player data is isolated by club when listing the roster', async () => {
   const clubOne = createClubSeed({ clubId: 1 });
   const clubTwo = createClubSeed({ clubId: 2 });
@@ -557,6 +601,7 @@ test('protected club flows require a verified email address', async () => {
         name: 'Clubline Napoli',
         owner_nome: 'Anna',
         owner_cognome: 'Rossi',
+        owner_id_console: 'anna-rossi',
       },
       buildPrincipal({
         userId: 'unverified-user',

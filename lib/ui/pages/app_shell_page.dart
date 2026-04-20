@@ -26,10 +26,18 @@ class AppShellPage extends StatefulWidget {
 }
 
 class _AppShellPageState extends State<AppShellPage> {
-  static const Duration _initialAccessOverlayTimeout = Duration(milliseconds: 1500);
-  static const Duration _postVerificationGuardDuration = Duration(milliseconds: 1000);
-  static const Duration _accessConfirmedLabelLeadTime = Duration(milliseconds: 300);
-  static const Duration _initialAccessTransitionDuration = Duration(milliseconds: 420);
+  static const Duration _initialAccessOverlayTimeout = Duration(
+    milliseconds: 1500,
+  );
+  static const Duration _postVerificationGuardDuration = Duration(
+    milliseconds: 1000,
+  );
+  static const Duration _accessConfirmedLabelLeadTime = Duration(
+    milliseconds: 300,
+  );
+  static const Duration _initialAccessTransitionDuration = Duration(
+    milliseconds: 420,
+  );
 
   int selectedIndex = 0;
   bool _hasAutoOpenedRecoverySheet = false;
@@ -53,7 +61,8 @@ class _AppShellPageState extends State<AppShellPage> {
         _showAccessConfirmedLabel = false;
       });
 
-      final accessConfirmedDelay = _postVerificationGuardDuration - _accessConfirmedLabelLeadTime;
+      final accessConfirmedDelay =
+          _postVerificationGuardDuration - _accessConfirmedLabelLeadTime;
       _accessConfirmedLabelTimer = Timer(accessConfirmedDelay, () {
         if (!mounted) {
           return;
@@ -95,9 +104,7 @@ class _AppShellPageState extends State<AppShellPage> {
     await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (context) => const PlayerFormPage(
-          selfRegistration: true,
-        ),
+        builder: (context) => const PlayerFormPage(selfRegistration: true),
       ),
     );
   }
@@ -128,9 +135,7 @@ class _AppShellPageState extends State<AppShellPage> {
     final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      builder: (context) => AuthSheet(
-        initialMode: initialMode,
-      ),
+      builder: (context) => AuthSheet(initialMode: initialMode),
     );
 
     if (result != true || !mounted) {
@@ -170,8 +175,8 @@ class _AppShellPageState extends State<AppShellPage> {
     final overlayMessage = showInitialOverlay
         ? 'Verifica accesso in corso...'
         : _showAccessConfirmedLabel && session.isAuthenticated
-            ? 'Accesso confermato'
-            : 'Sincronizzazione profilo...';
+        ? 'Accesso confermato'
+        : 'Sincronizzazione profilo...';
     final shouldBlockTouches = overlayVisible && session.isAuthenticated;
     final overlayBackgroundAlpha = showInitialOverlay ? 0.22 : 0.14;
     final panelPadding = showInitialOverlay
@@ -207,7 +212,9 @@ class _AppShellPageState extends State<AppShellPage> {
                     margin: const EdgeInsets.symmetric(horizontal: 22),
                     padding: panelPadding,
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.surface.withValues(alpha: 0.95),
                       borderRadius: BorderRadius.circular(18),
                     ),
                     child: Row(
@@ -216,12 +223,12 @@ class _AppShellPageState extends State<AppShellPage> {
                         SizedBox(
                           width: spinnerSize,
                           height: spinnerSize,
-                          child: const CircularProgressIndicator(strokeWidth: 2.2),
+                          child: const CircularProgressIndicator(
+                            strokeWidth: 2.2,
+                          ),
                         ),
                         const SizedBox(width: 12),
-                        Flexible(
-                          child: Text(overlayMessage),
-                        ),
+                        Flexible(child: Text(overlayMessage)),
                       ],
                     ),
                   ),
@@ -233,9 +240,7 @@ class _AppShellPageState extends State<AppShellPage> {
     );
   }
 
-  Future<void> _openPasswordSheet({
-    bool isRecoveryFlow = false,
-  }) async {
+  Future<void> _openPasswordSheet({bool isRecoveryFlow = false}) async {
     final result = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
@@ -249,9 +254,7 @@ class _AppShellPageState extends State<AppShellPage> {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(result)),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result)));
   }
 
   void _maybeOpenRecoverySheet(AppSessionController session) {
@@ -274,6 +277,11 @@ class _AppShellPageState extends State<AppShellPage> {
   }
 
   Future<void> _openThemeSettings() async {
+    final session = AppSessionScope.read(context);
+    if (!session.hasClubMembership) {
+      return;
+    }
+
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -300,9 +308,7 @@ class _AppShellPageState extends State<AppShellPage> {
   Future<void> _openClubManagement() async {
     await Navigator.push<void>(
       context,
-      MaterialPageRoute(
-        builder: (context) => const ClubManagementPage(),
-      ),
+      MaterialPageRoute(builder: (context) => const ClubManagementPage()),
     );
   }
 
@@ -332,10 +338,7 @@ class _AppShellPageState extends State<AppShellPage> {
 
     if (!session.isAuthenticated) {
       return Scaffold(
-        body: _wrapHomeWithInitialOverlay(
-          child: pages.first,
-          session: session,
-        ),
+        body: _wrapHomeWithInitialOverlay(child: pages.first, session: session),
       );
     }
 
@@ -344,10 +347,7 @@ class _AppShellPageState extends State<AppShellPage> {
     }
 
     return Scaffold(
-      body: IndexedStack(
-        index: selectedIndex,
-        children: pages,
-      ),
+      body: IndexedStack(index: selectedIndex, children: pages),
       bottomNavigationBar: NavigationBar(
         height: AppResponsive.isCompact(context) ? 74 : null,
         selectedIndex: selectedIndex,

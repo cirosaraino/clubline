@@ -13,8 +13,9 @@ const clubsService = new ClubsService(supabaseDb);
 const createClubSchema = z.object({
   name: z.string().min(1),
   logo_data_url: z.string().min(1).nullable().optional(),
-  owner_nome: z.string().min(1).nullable().optional(),
-  owner_cognome: z.string().min(1).nullable().optional(),
+  owner_nome: z.string().min(1),
+  owner_cognome: z.string().min(1),
+  owner_id_console: z.string().min(1),
   owner_shirt_number: z.number().int().nullable().optional(),
   owner_primary_role: z.string().min(1).nullable().optional(),
   primary_color: z.string().min(1).nullable().optional(),
