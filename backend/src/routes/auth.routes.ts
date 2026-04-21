@@ -5,7 +5,7 @@ import { supabaseAuth, supabaseDb } from '../lib/supabase';
 import { asyncHandler } from '../middleware/async-handler';
 import { createRateLimitMiddleware } from '../middleware/rate-limit';
 import { requireAuth } from '../middleware/auth';
-import { sendCreated, sendOk } from '../lib/http';
+import { sendCreated, sendNoContent, sendOk } from '../lib/http';
 import { AuthService } from '../services/auth.service';
 import { AccessService } from '../services/access.service';
 
@@ -141,6 +141,21 @@ authRouter.post(
 
     await authService.logout(principal.authUser.id);
     sendOk(res, { success: true });
+  }),
+);
+
+authRouter.delete(
+  '/account',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const principal = req.principal;
+    if (!principal) {
+      sendNoContent(res);
+      return;
+    }
+
+    await authService.deleteAccount(principal.authUser.id);
+    sendNoContent(res);
   }),
 );
 

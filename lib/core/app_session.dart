@@ -1,10 +1,12 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../data/auth_repository.dart';
 import '../data/club_repository.dart';
 import '../data/player_repository.dart';
+import '../data/profile_setup_draft_store.dart';
 import '../data/team_info_repository.dart';
 import '../data/vice_permissions_repository.dart';
 import '../models/authenticated_user.dart';
@@ -16,6 +18,7 @@ import '../models/player_profile.dart';
 import '../models/team_info.dart';
 import '../models/vice_permissions.dart';
 import 'app_data_sync.dart';
+import 'player_formatters.dart';
 
 class AppSessionController extends ChangeNotifier {
   AppSessionController({this.onTeamInfoChanged})
@@ -43,6 +46,7 @@ class AppSessionController extends ChangeNotifier {
   List<JoinRequest> _captainPendingJoinRequests = const [];
   List<LeaveRequest> _captainPendingLeaveRequests = const [];
   List<PlayerProfile> _players = const [];
+  ProfileSetupDraft? _profileSetupDraft;
   TeamInfo _teamInfo = TeamInfo.defaults;
   VicePermissions _vicePermissions = VicePermissions.defaults;
   bool _isLoading = true;
@@ -53,6 +57,7 @@ class AppSessionController extends ChangeNotifier {
   bool _disposed = false;
 
   List<PlayerProfile> get players => _players;
+  ProfileSetupDraft? get profileSetupDraft => _profileSetupDraft;
   TeamInfo get teamInfo => _teamInfo;
   VicePermissions get vicePermissions => _vicePermissions;
   bool get isLoading => _isLoading;
@@ -72,9 +77,17 @@ class AppSessionController extends ChangeNotifier {
       _membership?.isActive == true && _currentClub != null;
   bool get hasPendingJoinRequest => _pendingJoinRequest?.isPending == true;
   bool get hasPendingLeaveRequest => _pendingLeaveRequest?.isPending == true;
+  bool get hasPlayerIdentityDraft => _profileSetupDraft?.isValid == true;
+  bool get needsPlayerIdentitySetup =>
+      isAuthenticated &&
+      !hasClubMembership &&
+      !hasPendingJoinRequest &&
+      !hasPlayerIdentityDraft;
   bool get needsClubSelection =>
       isAuthenticated && !hasClubMembership && !hasPendingJoinRequest;
-  bool get needsProfileSetup => hasClubMembership && currentUser == null;
+  bool get needsProfileSetup =>
+      hasClubMembership &&
+      (currentUser == null || currentUser!.needsProfileCompletion);
   bool get requiresPasswordRecovery =>
       _authRepository.currentSession?.isRecoverySession == true;
   bool get isCaptainRegistrationOpen => false;
@@ -116,21 +129,28 @@ class AppSessionController extends ChangeNotifier {
     await refresh(showLoadingState: false);
   }
 
-  Future<String> signUpWithEmail({
+  Future<void> signUpWithEmail({
     required String email,
     required String password,
   }) async {
-    final message = await _authRepository.signUpWithEmail(
+    final session = await _authRepository.signUpWithEmail(
       email: email,
       password: password,
     );
+    _authUser = session?.user;
     _errorMessage = null;
     _notifyIfMounted();
-    return message;
+    await refresh(showLoadingState: false);
   }
 
   Future<void> signOut() async {
     await _authRepository.signOut();
+    _resetAuthenticatedState();
+  }
+
+  Future<void> deleteAccount() async {
+    await _authRepository.deleteAccount();
+    await ProfileSetupDraftStore.instance.clear();
     _resetAuthenticatedState();
   }
 
@@ -164,6 +184,10 @@ class AppSessionController extends ChangeNotifier {
         _resetAuthenticatedState();
         return;
       }
+
+      _profileSetupDraft = await ProfileSetupDraftStore.instance.loadForAccount(
+        _authUser?.email,
+      );
 
       final membershipFuture = _clubRepository.fetchCurrentMembership();
       final clubFuture = _clubRepository.fetchCurrentClub();
@@ -240,6 +264,7 @@ class AppSessionController extends ChangeNotifier {
             (player) => player.copyWith(vicePermissions: loadedVicePermissions),
           )
           .toList();
+      await _syncDraftIntoCurrentUserIfNeeded();
       _isLoading = false;
       _errorMessage = null;
       onTeamInfoChanged?.call(_teamInfo);
@@ -270,6 +295,63 @@ class AppSessionController extends ChangeNotifier {
     }
   }
 
+  Future<void> _syncDraftIntoCurrentUserIfNeeded() async {
+    final draft = _profileSetupDraft;
+    final player = currentUser;
+    if (!hasClubMembership ||
+        draft == null ||
+        player == null ||
+        player.id == null) {
+      return;
+    }
+
+    final normalizedPlayerName = normalizePlayerName(player.nome);
+    final normalizedPlayerSurname = normalizePlayerName(player.cognome);
+    final normalizedDraftName = normalizePlayerName(draft.nome);
+    final normalizedDraftSurname = normalizePlayerName(draft.cognome);
+    final normalizedDraftSecondaryRoles = normalizeRoleCodes(
+      draft.secondaryRoles.where((role) => role != draft.primaryRole),
+    );
+    final normalizedCurrentSecondaryRoles = normalizeRoleCodes(
+      player.secondaryRoles.where((role) => role != player.primaryRole),
+    );
+
+    final shouldSync =
+        normalizedPlayerName != normalizedDraftName ||
+        normalizedPlayerSurname != normalizedDraftSurname ||
+        (player.idConsole ?? '') != draft.idConsole ||
+        player.shirtNumber != draft.shirtNumber ||
+        (player.primaryRole ?? '') != (draft.primaryRole ?? '') ||
+        !listEquals(
+          normalizedCurrentSecondaryRoles,
+          normalizedDraftSecondaryRoles,
+        );
+    if (!shouldSync) {
+      return;
+    }
+
+    try {
+      await _playerRepository.updatePlayer(
+        player.copyWith(
+          nome: draft.nome,
+          cognome: draft.cognome,
+          accountEmail: player.accountEmail ?? _authUser?.email,
+          shirtNumber: draft.shirtNumber,
+          primaryRole: draft.primaryRole,
+          secondaryRoles: normalizedDraftSecondaryRoles,
+          idConsole: draft.idConsole,
+        ),
+      );
+
+      final refreshedPlayers = await _playerRepository.fetchPlayers();
+      _players = refreshedPlayers
+          .map((current) => current.copyWith(vicePermissions: _vicePermissions))
+          .toList();
+    } catch (error) {
+      debugPrint('AppSession draft sync failed: $error');
+    }
+  }
+
   TeamInfo _fallbackTeamInfoForClub(Club club) {
     return TeamInfo(
       id: club.id is num ? (club.id as num).toInt() : 1,
@@ -291,6 +373,7 @@ class AppSessionController extends ChangeNotifier {
     _captainPendingJoinRequests = const [];
     _captainPendingLeaveRequests = const [];
     _players = const [];
+    _profileSetupDraft = null;
     _teamInfo = TeamInfo.defaults;
     _vicePermissions = VicePermissions.defaults;
     _isLoading = false;

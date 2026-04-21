@@ -45,7 +45,9 @@ class PlayerProfile {
       nome: map['nome']?.toString() ?? '',
       cognome: map['cognome']?.toString() ?? '',
       authUserId: map['auth_user_id']?.toString(),
-      accountEmail: normalizePlayerAccountEmail(map['account_email']?.toString()),
+      accountEmail: normalizePlayerAccountEmail(
+        map['account_email']?.toString(),
+      ),
       shirtNumber: shirtNumberValue is num ? shirtNumberValue.toInt() : null,
       primaryRole: map['primary_role']?.toString(),
       secondaryRoles: normalizeRoleCodes([
@@ -94,9 +96,9 @@ class PlayerProfile {
   }
 
   Map<String, dynamic> toDatabaseMap() {
-    final normalizedSecondaryRoles = normalizeRoleCodes(secondaryRoles)
-        .where((role) => role != primaryRole)
-        .toList();
+    final normalizedSecondaryRoles = normalizeRoleCodes(
+      secondaryRoles,
+    ).where((role) => role != primaryRole).toList();
 
     return {
       'nome': normalizePlayerName(nome),
@@ -111,7 +113,9 @@ class PlayerProfile {
           ? null
           : normalizedSecondaryRoles.first,
       'secondary_roles': normalizedSecondaryRoles,
-      'id_console': idConsole?.trim().isEmpty == true ? null : idConsole?.trim(),
+      'id_console': idConsole?.trim().isEmpty == true
+          ? null
+          : idConsole?.trim(),
       'team_role': normalizeTeamRole(teamRole),
     };
   }
@@ -124,20 +128,23 @@ class PlayerProfile {
 
   bool get hasLinkedAuthAccount => authUserId != null && authUserId!.isNotEmpty;
 
-  bool get canBeClaimedByAuthenticatedUser => !hasLinkedAuthAccount && !hasAccountEmail;
+  bool get canBeClaimedByAuthenticatedUser =>
+      !hasLinkedAuthAccount && !hasAccountEmail;
 
   String get shirtNumberDisplay => shirtNumberLabel(shirtNumber);
 
   String get primaryRoleDisplay => primaryRole ?? '-';
 
-  String? get secondaryRole => secondaryRoles.isEmpty ? null : secondaryRoles.first;
+  String? get secondaryRole =>
+      secondaryRoles.isEmpty ? null : secondaryRoles.first;
 
   String get secondaryRoleDisplay => secondaryRolesDisplay;
 
   String get secondaryRolesDisplay =>
       secondaryRoles.isEmpty ? '-' : secondaryRoles.join(' / ');
 
-  String get idConsoleDisplay => (idConsole == null || idConsole!.isEmpty) ? '-' : idConsole!;
+  String get idConsoleDisplay =>
+      (idConsole == null || idConsole!.isEmpty) ? '-' : idConsole!;
 
   bool get hasConsoleId => (idConsole ?? '').trim().isNotEmpty;
 
@@ -215,17 +222,16 @@ class PlayerProfile {
   }
 
   bool matchesAccountEmail(String? email) {
-    return normalizePlayerAccountEmail(accountEmail) == normalizePlayerAccountEmail(email);
+    return normalizePlayerAccountEmail(accountEmail) ==
+        normalizePlayerAccountEmail(email);
   }
 
   List<String> get roleCodes {
-    return normalizeRoleCodes([
-      primaryRole,
-      ...secondaryRoles,
-    ]);
+    return normalizeRoleCodes([primaryRole, ...secondaryRoles]);
   }
 
-  String get roleCodesDisplay => roleCodes.isEmpty ? '-' : roleCodes.join(' / ');
+  String get roleCodesDisplay =>
+      roleCodes.isEmpty ? '-' : roleCodes.join(' / ');
 
   String get playerListSubtitle =>
       '$fullName • Ruoli: $roleCodesDisplay • Maglia: $shirtNumberDisplay';

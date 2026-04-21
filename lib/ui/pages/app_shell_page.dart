@@ -41,6 +41,7 @@ class _AppShellPageState extends State<AppShellPage> {
 
   int selectedIndex = 0;
   bool _hasAutoOpenedRecoverySheet = false;
+  bool _hasAutoOpenedProfileCompletion = false;
   bool _isInitialAccessOverlayActive = true;
   bool _isPostVerificationGuardActive = true;
   bool _showAccessConfirmedLabel = false;
@@ -101,16 +102,32 @@ class _AppShellPageState extends State<AppShellPage> {
   }
 
   Future<void> _openCreateProfile() async {
-    await Navigator.push<bool>(
+    final session = AppSessionScope.read(context);
+    final currentUser = session.currentUser;
+    final requiresDraftOnly = !session.hasClubMembership;
+    final updated = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (context) => const PlayerFormPage(selfRegistration: true),
+        builder: (context) => requiresDraftOnly
+            ? const PlayerFormPage(draftOnly: true)
+            : currentUser == null
+            ? const PlayerFormPage(selfRegistration: true)
+            : PlayerFormPage(player: currentUser),
       ),
     );
+
+    if (updated == true && mounted) {
+      await session.refresh(showLoadingState: false);
+    }
   }
 
   Future<void> _openEditCurrentProfile() async {
     final session = AppSessionScope.read(context);
+    if (!session.hasClubMembership) {
+      await _openCreateProfile();
+      return;
+    }
+
     final currentUser = session.currentUser;
     if (currentUser == null) {
       await _openCreateProfile();
@@ -257,6 +274,53 @@ class _AppShellPageState extends State<AppShellPage> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result)));
   }
 
+  Future<void> _deleteAccount() async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancella account'),
+        content: const Text(
+          'Questa azione elimina il tuo accesso a Clubline. Se fai ancora parte di un club o hai una richiesta di ingresso pendente, dovrai prima chiudere quei flussi.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annulla'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Cancella account'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete != true || !mounted) {
+      return;
+    }
+
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await AppSessionScope.read(context).deleteAccount();
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        selectedIndex = 0;
+      });
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Account eliminato correttamente.')),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      messenger.showSnackBar(SnackBar(content: Text(error.toString())));
+    }
+  }
+
   void _maybeOpenRecoverySheet(AppSessionController session) {
     if (!session.requiresPasswordRecovery) {
       _hasAutoOpenedRecoverySheet = false;
@@ -274,6 +338,56 @@ class _AppShellPageState extends State<AppShellPage> {
       }
       _openPasswordSheet(isRecoveryFlow: true);
     });
+  }
+
+  void _maybeOpenProfileCompletion(AppSessionController session) {
+    if (!session.needsProfileSetup) {
+      _hasAutoOpenedProfileCompletion = false;
+      return;
+    }
+
+    if (selectedIndex != 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          selectedIndex = 0;
+        });
+      });
+    }
+
+    if (_hasAutoOpenedProfileCompletion) {
+      return;
+    }
+
+    _hasAutoOpenedProfileCompletion = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      unawaited(_openCreateProfile());
+    });
+  }
+
+  Future<void> _handleDestinationSelected(int index) async {
+    final session = AppSessionScope.read(context);
+    if (session.needsProfileSetup && index != 0) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Completa prima il profilo giocatore per sbloccare il resto dell app.',
+            ),
+          ),
+        );
+      }
+      await _openCreateProfile();
+      return;
+    }
+
+    _goToTab(index);
   }
 
   Future<void> _openThemeSettings() async {
@@ -306,16 +420,23 @@ class _AppShellPageState extends State<AppShellPage> {
   }
 
   Future<void> _openClubManagement() async {
-    await Navigator.push<void>(
+    final deletedClub = await Navigator.push<bool>(
       context,
       MaterialPageRoute(builder: (context) => const ClubManagementPage()),
     );
+
+    if (deletedClub == true && mounted) {
+      setState(() {
+        selectedIndex = 0;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final session = AppSessionScope.of(context);
     _maybeOpenRecoverySheet(session);
+    _maybeOpenProfileCompletion(session);
     final pages = [
       HomePage(
         onOpenCreateProfile: _openCreateProfile,
@@ -329,6 +450,7 @@ class _AppShellPageState extends State<AppShellPage> {
         onOpenThemeSettings: _openThemeSettings,
         onOpenVicePermissionsSettings: _openVicePermissionsSettings,
         onOpenTeamInfoSettings: _openTeamInfoSettings,
+        onDeleteAccount: _deleteAccount,
       ),
       const PlayersPage(),
       const LineupsPage(),
@@ -343,7 +465,10 @@ class _AppShellPageState extends State<AppShellPage> {
     }
 
     if (!session.hasClubMembership) {
-      return const ClubAccessHubPage();
+      return ClubAccessHubPage(
+        onOpenPlayerSetup: _openCreateProfile,
+        onDeleteAccount: _deleteAccount,
+      );
     }
 
     return Scaffold(
@@ -351,7 +476,9 @@ class _AppShellPageState extends State<AppShellPage> {
       bottomNavigationBar: NavigationBar(
         height: AppResponsive.isCompact(context) ? 74 : null,
         selectedIndex: selectedIndex,
-        onDestinationSelected: _goToTab,
+        onDestinationSelected: (index) {
+          unawaited(_handleDestinationSelected(index));
+        },
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home_outlined),

@@ -9,6 +9,7 @@ import '../../core/team_info_formatters.dart';
 import '../../data/team_info_repository.dart';
 import '../../models/team_info.dart';
 import 'app_chrome.dart';
+import 'club_logo_avatar.dart';
 
 class TeamInfoSheet extends StatefulWidget {
   const TeamInfoSheet({super.key});
@@ -86,10 +87,7 @@ class _TeamInfoSheetState extends State<TeamInfoSheet> {
       ..clear()
       ..addAll(
         teamInfo.customLinks.map(
-          (link) => _EditableCustomLink(
-            label: link.label,
-            url: link.url,
-          ),
+          (link) => _EditableCustomLink(label: link.label, url: link.url),
         ),
       );
   }
@@ -148,7 +146,8 @@ class _TeamInfoSheetState extends State<TeamInfoSheet> {
       final entry = customLinks[index];
       final label = normalizeTeamLinkLabel(entry.labelController.text);
       final url = normalizeOptionalTeamUrl(entry.urlController.text);
-      final hasAnyValue = label.isNotEmpty || entry.urlController.text.trim().isNotEmpty;
+      final hasAnyValue =
+          label.isNotEmpty || entry.urlController.text.trim().isNotEmpty;
 
       if (hasAnyValue && (label.isEmpty || url == null)) {
         invalidFields.add('link extra ${index + 1}');
@@ -187,7 +186,8 @@ class _TeamInfoSheetState extends State<TeamInfoSheet> {
 
     if (currentUser?.canManageTeamInfo != true) {
       setState(() {
-        errorMessage = 'Solo il capitano o un vice autorizzato possono modificare le info club.';
+        errorMessage =
+            'Solo il capitano o un vice autorizzato possono modificare le info club.';
       });
       return;
     }
@@ -209,18 +209,17 @@ class _TeamInfoSheetState extends State<TeamInfoSheet> {
     try {
       await repository.saveTeamInfo(_buildDraft());
       unawaited(session.refresh(showLoadingState: false));
-      AppDataSync.instance.notifyDataChanged(
-        {AppDataScope.teamInfo},
-        reason: 'team_info_updated',
-      );
+      AppDataSync.instance.notifyDataChanged({
+        AppDataScope.teamInfo,
+      }, reason: 'team_info_updated');
 
       if (!mounted) {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Info club aggiornate')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Info club aggiornate')));
       Navigator.pop(context);
     } catch (error) {
       if (!mounted) {
@@ -260,8 +259,8 @@ class _TeamInfoSheetState extends State<TeamInfoSheet> {
                   child: Text(
                     'Info club',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
                 IconButton(
@@ -324,49 +323,70 @@ class _TeamInfoSheetState extends State<TeamInfoSheet> {
                     controller: websiteUrlController,
                     enabled: canManage && !isSaving,
                     keyboardType: TextInputType.url,
-                    decoration: _inputDecoration('Sito o link principale', icon: Icons.language_outlined),
+                    decoration: _inputDecoration(
+                      'Sito o link principale',
+                      icon: Icons.language_outlined,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: youtubeUrlController,
                     enabled: canManage && !isSaving,
                     keyboardType: TextInputType.url,
-                    decoration: _inputDecoration('YouTube', icon: Icons.smart_display_outlined),
+                    decoration: _inputDecoration(
+                      'YouTube',
+                      icon: Icons.smart_display_outlined,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: twitchUrlController,
                     enabled: canManage && !isSaving,
                     keyboardType: TextInputType.url,
-                    decoration: _inputDecoration('Twitch', icon: Icons.videocam_outlined),
+                    decoration: _inputDecoration(
+                      'Twitch',
+                      icon: Icons.videocam_outlined,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: discordUrlController,
                     enabled: canManage && !isSaving,
                     keyboardType: TextInputType.url,
-                    decoration: _inputDecoration('Discord', icon: Icons.forum_outlined),
+                    decoration: _inputDecoration(
+                      'Discord',
+                      icon: Icons.forum_outlined,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: instagramUrlController,
                     enabled: canManage && !isSaving,
                     keyboardType: TextInputType.url,
-                    decoration: _inputDecoration('Instagram', icon: Icons.photo_camera_back_outlined),
+                    decoration: _inputDecoration(
+                      'Instagram',
+                      icon: Icons.photo_camera_back_outlined,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: facebookUrlController,
                     enabled: canManage && !isSaving,
                     keyboardType: TextInputType.url,
-                    decoration: _inputDecoration('Facebook', icon: Icons.facebook),
+                    decoration: _inputDecoration(
+                      'Facebook',
+                      icon: Icons.facebook,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: tiktokUrlController,
                     enabled: canManage && !isSaving,
                     keyboardType: TextInputType.url,
-                    decoration: _inputDecoration('TikTok', icon: Icons.music_note_outlined),
+                    decoration: _inputDecoration(
+                      'TikTok',
+                      icon: Icons.music_note_outlined,
+                    ),
                   ),
                 ],
               ),
@@ -387,9 +407,9 @@ class _TeamInfoSheetState extends State<TeamInfoSheet> {
                     Text(
                       'Nessun link extra configurato. Qui puoi aggiungere sponsor, canali secondari o riferimenti utili.',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: UltrasAppTheme.textMuted,
-                            height: 1.35,
-                          ),
+                        color: UltrasAppTheme.textMuted,
+                        height: 1.35,
+                      ),
                     ),
                   for (final customLink in customLinks) ...[
                     _CustomLinkRow(
@@ -397,7 +417,8 @@ class _TeamInfoSheetState extends State<TeamInfoSheet> {
                       enabled: canManage && !isSaving,
                       onRemove: () => _removeCustomLink(customLink),
                     ),
-                    if (customLink != customLinks.last) const SizedBox(height: 12),
+                    if (customLink != customLinks.last)
+                      const SizedBox(height: 12),
                   ],
                 ],
               ),
@@ -407,9 +428,9 @@ class _TeamInfoSheetState extends State<TeamInfoSheet> {
               Text(
                 errorMessage!,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.error,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  color: Theme.of(context).colorScheme.error,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ],
             const SizedBox(height: 18),
@@ -422,9 +443,13 @@ class _TeamInfoSheetState extends State<TeamInfoSheet> {
                   child: ElevatedButton.icon(
                     onPressed: canManage && !isSaving ? _save : null,
                     icon: Icon(
-                      isSaving ? Icons.hourglass_top_outlined : Icons.save_outlined,
+                      isSaving
+                          ? Icons.hourglass_top_outlined
+                          : Icons.save_outlined,
                     ),
-                    label: Text(isSaving ? 'Salvataggio...' : 'Salva info club'),
+                    label: Text(
+                      isSaving ? 'Salvataggio...' : 'Salva info club',
+                    ),
                   ),
                 ),
                 SizedBox(
@@ -445,10 +470,7 @@ class _TeamInfoSheetState extends State<TeamInfoSheet> {
 }
 
 class _TeamPreviewCard extends StatelessWidget {
-  const _TeamPreviewCard({
-    required this.teamName,
-    required this.crestUrl,
-  });
+  const _TeamPreviewCard({required this.teamName, required this.crestUrl});
 
   final String teamName;
   final String? crestUrl;
@@ -467,24 +489,21 @@ class _TeamPreviewCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _TeamCrestPreview(
-            crestUrl: crestUrl,
-            size: compact ? 88 : 104,
-          ),
+          _TeamCrestPreview(crestUrl: crestUrl, size: compact ? 88 : 104),
           const SizedBox(height: 14),
           Text(
             teamName,
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w900,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 6),
           Text(
             'Anteprima Home del club',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: UltrasAppTheme.textMuted,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: UltrasAppTheme.textMuted),
           ),
         ],
       ),
@@ -516,9 +535,9 @@ class _TeamSectionCard extends StatelessWidget {
             if (compact && trailing != null) ...[
               Text(
                 title,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 12),
               SizedBox(width: double.infinity, child: trailing!),
@@ -529,9 +548,8 @@ class _TeamSectionCard extends StatelessWidget {
                         Expanded(
                           child: Text(
                             title,
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                ),
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w800),
                           ),
                         ),
                       ]
@@ -539,9 +557,8 @@ class _TeamSectionCard extends StatelessWidget {
                         Expanded(
                           child: Text(
                             title,
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                ),
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w800),
                           ),
                         ),
                         trailing!,
@@ -601,7 +618,9 @@ class _CustomLinkRow extends StatelessWidget {
                   onPressed: enabled ? onRemove : null,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: UltrasAppTheme.dangerSoft,
-                    side: BorderSide(color: UltrasAppTheme.danger.withValues(alpha: 0.34)),
+                    side: BorderSide(
+                      color: UltrasAppTheme.danger.withValues(alpha: 0.34),
+                    ),
                   ),
                   icon: const Icon(Icons.delete_outline),
                   label: const Text('Rimuovi link'),
@@ -613,7 +632,9 @@ class _CustomLinkRow extends StatelessWidget {
                   onPressed: enabled ? onRemove : null,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: UltrasAppTheme.dangerSoft,
-                    side: BorderSide(color: UltrasAppTheme.danger.withValues(alpha: 0.34)),
+                    side: BorderSide(
+                      color: UltrasAppTheme.danger.withValues(alpha: 0.34),
+                    ),
                   ),
                   icon: const Icon(Icons.delete_outline),
                   label: const Text('Rimuovi link'),
@@ -625,63 +646,25 @@ class _CustomLinkRow extends StatelessWidget {
 }
 
 class _TeamCrestPreview extends StatelessWidget {
-  const _TeamCrestPreview({
-    required this.crestUrl,
-    required this.size,
-  });
+  const _TeamCrestPreview({required this.crestUrl, required this.size});
 
   final String? crestUrl;
   final double size;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: UltrasAppTheme.surfaceAlt.withValues(alpha: 0.82),
-        border: Border.all(color: UltrasAppTheme.outlineStrong, width: 2),
-      ),
-      child: ClipOval(
-        child: crestUrl == null
-            ? const _ClubFallbackPreview()
-            : Image.network(
-                crestUrl!,
-                fit: BoxFit.cover,
-                errorBuilder: (_, error, stackTrace) {
-                  return const _ClubFallbackPreview();
-                },
-              ),
-      ),
-    );
-  }
-}
-
-class _ClubFallbackPreview extends StatelessWidget {
-  const _ClubFallbackPreview();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: UltrasAppTheme.surfaceAlt,
-      alignment: Alignment.center,
-      child: Icon(
-        Icons.shield_outlined,
-        color: UltrasAppTheme.goldSoft,
-        size: 42,
-      ),
+    return ClubLogoAvatar(
+      logoUrl: crestUrl,
+      size: size,
+      fallbackIcon: Icons.shield_outlined,
     );
   }
 }
 
 class _EditableCustomLink {
-  _EditableCustomLink({
-    String label = '',
-    String url = '',
-  })  : labelController = TextEditingController(text: label),
-        urlController = TextEditingController(text: url);
+  _EditableCustomLink({String label = '', String url = ''})
+    : labelController = TextEditingController(text: label),
+      urlController = TextEditingController(text: url);
 
   final TextEditingController labelController;
   final TextEditingController urlController;

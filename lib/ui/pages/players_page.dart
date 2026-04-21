@@ -124,9 +124,7 @@ class _PlayersPageState extends State<PlayersPage> {
     final editedPlayerId = player?.id;
     final result = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(
-        builder: (context) => PlayerFormPage(player: player),
-      ),
+      MaterialPageRoute(builder: (context) => PlayerFormPage(player: player)),
     );
 
     if (result == true && editedPlayerId != null) {
@@ -135,7 +133,19 @@ class _PlayersPageState extends State<PlayersPage> {
     }
   }
 
-  Future<void> _deletePlayer(PlayerProfile player) async {
+  bool _canReleasePlayer(PlayerProfile player, PlayerProfile? currentUser) {
+    if (currentUser?.canManagePlayers != true) {
+      return false;
+    }
+
+    if (player.isCaptain) {
+      return false;
+    }
+
+    return currentUser?.id != player.id;
+  }
+
+  Future<void> _releasePlayer(PlayerProfile player) async {
     final session = AppSessionScope.read(context);
     if (session.currentUser?.canManagePlayers != true) {
       return;
@@ -143,16 +153,18 @@ class _PlayersPageState extends State<PlayersPage> {
 
     if (player.id == null) {
       setState(() {
-        errorMessage = 'Impossibile cancellare il giocatore: ID mancante';
+        errorMessage = 'Impossibile svincolare il giocatore: ID mancante';
       });
       return;
     }
 
-    final shouldDelete = await showDialog<bool>(
+    final shouldRelease = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Cancella giocatore'),
-        content: Text('Vuoi davvero cancellare ${player.fullName}?'),
+        title: const Text('Svincola giocatore'),
+        content: Text(
+          'Vuoi davvero rimuovere ${player.fullName} dalla squadra?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -160,13 +172,13 @@ class _PlayersPageState extends State<PlayersPage> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Cancella'),
+            child: const Text('Svincola'),
           ),
         ],
       ),
     );
 
-    if (shouldDelete != true) return;
+    if (shouldRelease != true) return;
 
     setState(() {
       isLoading = true;
@@ -174,18 +186,15 @@ class _PlayersPageState extends State<PlayersPage> {
     });
 
     try {
-      await repository.deletePlayer(player.id);
+      await repository.releasePlayerFromClub(player.id);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${player.fullName} cancellato dal database')),
+        SnackBar(content: Text('${player.fullName} svincolato dal club')),
       );
-      AppDataSync.instance.notifyDataChanged(
-        {
-          AppDataScope.players,
-          AppDataScope.attendance,
-        },
-        reason: 'player_deleted',
-      );
+      AppDataSync.instance.notifyDataChanged({
+        AppDataScope.players,
+        AppDataScope.attendance,
+      }, reason: 'player_released');
     } catch (e) {
       setState(() {
         errorMessage = e.toString();
@@ -278,7 +287,8 @@ class _PlayersPageState extends State<PlayersPage> {
 
   List<_PlayerSectionData> _buildSections(List<PlayerProfile> sourcePlayers) {
     final groupedPlayers = {
-      for (final category in kPrimaryRoleCategoryOrder) category: <PlayerProfile>[],
+      for (final category in kPrimaryRoleCategoryOrder)
+        category: <PlayerProfile>[],
     };
     final unassignedPlayers = <PlayerProfile>[];
 
@@ -329,7 +339,9 @@ class _PlayersPageState extends State<PlayersPage> {
     }
   }
 
-  Map<String, int> _primaryRoleCategoryTotals(List<PlayerProfile> sourcePlayers) {
+  Map<String, int> _primaryRoleCategoryTotals(
+    List<PlayerProfile> sourcePlayers,
+  ) {
     final totals = {
       for (final category in kPrimaryRoleCategoryOrder) category: 0,
     };
@@ -352,9 +364,7 @@ class _PlayersPageState extends State<PlayersPage> {
     final canManagePlayers = currentUser?.canManagePlayers ?? false;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Rosa club'),
-      ),
+      appBar: AppBar(title: const Text('Rosa club')),
       floatingActionButton: canManagePlayers
           ? FloatingActionButton(
               heroTag: 'players_page_fab',
@@ -385,37 +395,30 @@ class _PlayersPageState extends State<PlayersPage> {
 
   Widget _buildBody() {
     final currentUser = AppSessionScope.of(context).currentUser;
-    final canManagePlayers = currentUser?.canManagePlayers ?? false;
 
     if (isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
     if (errorMessage != null) {
-      return _buildScrollableBody(
-        [
-          AppStatusCard(
-            icon: Icons.error_outline,
-            title: 'Errore nel caricamento della rosa',
-            message: errorMessage!,
-          ),
-        ],
-        padding: AppResponsive.pagePadding(context, top: 24),
-      );
+      return _buildScrollableBody([
+        AppStatusCard(
+          icon: Icons.error_outline,
+          title: 'Errore nel caricamento della rosa',
+          message: errorMessage!,
+        ),
+      ], padding: AppResponsive.pagePadding(context, top: 24));
     }
 
     if (players.isEmpty) {
-      return _buildScrollableBody(
-        const [
-          AppStatusCard(
-            icon: Icons.groups_2_outlined,
-            title: 'Nessun giocatore trovato',
-            message:
-                'Aggiungi i primi giocatori per iniziare a costruire la rosa del club.',
-          ),
-        ],
-        padding: AppResponsive.pagePadding(context, top: 24),
-      );
+      return _buildScrollableBody(const [
+        AppStatusCard(
+          icon: Icons.groups_2_outlined,
+          title: 'Nessun giocatore trovato',
+          message:
+              'Aggiungi i primi giocatori per iniziare a costruire la rosa del club.',
+        ),
+      ], padding: AppResponsive.pagePadding(context, top: 24));
     }
 
     final filteredPlayers = _filteredPlayers;
@@ -520,7 +523,9 @@ class _PlayersPageState extends State<PlayersPage> {
             onEdit: currentUser?.canEditPlayer(player.id) == true
                 ? () => _openPlayerForm(player: player)
                 : null,
-            onDelete: canManagePlayers ? () => _deletePlayer(player) : null,
+            onRelease: _canReleasePlayer(player, currentUser)
+                ? () => _releasePlayer(player)
+                : null,
           ),
         const SizedBox(height: 16),
       ],
@@ -580,8 +585,8 @@ class _PlayersMacroRoleRecapCard extends StatelessWidget {
                   child: Text(
                     'Rosa totale: $totalPlayers giocatori',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
               ],
@@ -665,10 +670,7 @@ class _PlayersFilterCard extends StatelessWidget {
         DropdownButtonFormField<String>(
           key: ValueKey('players-filter-macro-$selectedMacroRoleFilter'),
           initialValue: selectedMacroRoleFilter,
-          decoration: _inputDecoration(
-            'Macroruolo',
-            Icons.category_outlined,
-          ),
+          decoration: _inputDecoration('Macroruolo', Icons.category_outlined),
           hint: const Text('Tutti i macroruoli'),
           items: kPrimaryRoleCategoryOrder
               .map(
@@ -744,9 +746,8 @@ class _PlayersFilterCard extends StatelessWidget {
                     Expanded(
                       child: Text(
                         'Filtri rosa',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w800,
-                            ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w800),
                       ),
                     ),
                     AppCountPill(
@@ -775,9 +776,9 @@ class _PlayersFilterCard extends StatelessWidget {
                       child: Text(
                         'Filtri attivi: apri per modificarli',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).colorScheme.primary,
-                              fontWeight: FontWeight.w700,
-                            ),
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     )
                   : const SizedBox.shrink(),

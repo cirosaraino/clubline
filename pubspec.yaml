@@ -66,6 +66,7 @@ flutter:
   uses-material-design: true
 
   assets:
+    - assets/images/clubline_generic_logo.png
     - assets/images/ultras_mentality_logo.jpg
 
   # To add assets to your application, add an assets section, like this:

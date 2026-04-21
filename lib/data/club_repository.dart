@@ -92,6 +92,8 @@ class ClubRepository {
     required String ownerNome,
     required String ownerCognome,
     required String ownerConsoleId,
+    int? ownerShirtNumber,
+    String? ownerPrimaryRole,
     String? logoDataUrl,
     String? primaryColor,
     String? accentColor,
@@ -105,6 +107,10 @@ class ClubRepository {
         'owner_nome': ownerNome.trim(),
         'owner_cognome': ownerCognome.trim(),
         'owner_id_console': ownerConsoleId.trim(),
+        'owner_shirt_number': ownerShirtNumber,
+        'owner_primary_role': ownerPrimaryRole?.trim().isEmpty == true
+            ? null
+            : ownerPrimaryRole?.trim(),
         'logo_data_url': logoDataUrl,
         'primary_color': primaryColor,
         'accent_color': accentColor,

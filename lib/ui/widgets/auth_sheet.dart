@@ -5,14 +5,12 @@ import '../../core/app_theme.dart';
 import '../../data/api_client.dart';
 import 'app_chrome.dart';
 import 'auth_password_sheet.dart';
+import 'clubline_brand_logo.dart';
 
 enum AuthSheetMode { signIn, signUp }
 
 class AuthSheet extends StatefulWidget {
-  const AuthSheet({
-    super.key,
-    this.initialMode = AuthSheetMode.signIn,
-  });
+  const AuthSheet({super.key, this.initialMode = AuthSheetMode.signIn});
 
   final AuthSheetMode initialMode;
 
@@ -65,9 +63,22 @@ class _AuthSheetState extends State<AuthSheet> {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(result)),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result)));
+  }
+
+  bool _isEmailRateLimitMessage(String message) {
+    final normalized = message.toLowerCase();
+    return normalized.contains('limite temporaneo') &&
+            normalized.contains('email di verifica') ||
+        (normalized.contains('rate limit') && normalized.contains('email'));
+  }
+
+  String _friendlyErrorMessage(String message) {
+    if (_isEmailRateLimitMessage(message)) {
+      return 'Stiamo inviando troppe email di verifica in questo momento. Attendi un attimo, poi riprova. Prima di ripetere la registrazione controlla anche Posta indesiderata o Promozioni.';
+    }
+
+    return message;
   }
 
   Future<void> _submit() async {
@@ -97,44 +108,26 @@ class _AuthSheetState extends State<AuthSheet> {
     try {
       final session = AppSessionScope.read(context);
       if (selectedMode == AuthSheetMode.signIn) {
-        await session.signInWithEmail(
-          email: email,
-          password: password,
-        );
+        await session.signInWithEmail(email: email, password: password);
         if (!mounted) return;
         Navigator.pop(context, true);
         return;
       }
 
-      final message = await session.signUpWithEmail(
-        email: email,
-        password: password,
-      );
+      await session.signUpWithEmail(email: email, password: password);
 
       if (!mounted) return;
 
-      if (session.isAuthenticated) {
-        Navigator.pop(context, true);
-        return;
-      }
-
-      setState(() {
-        isSubmitting = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-        ),
-      );
+      Navigator.pop(context, true);
     } on ApiException catch (e) {
       setState(() {
         isSubmitting = false;
-        errorMessage = e.message;
+        errorMessage = _friendlyErrorMessage(e.message);
       });
     } catch (e) {
       setState(() {
         isSubmitting = false;
-        errorMessage = e.toString();
+        errorMessage = _friendlyErrorMessage(e.toString());
       });
     }
   }
@@ -169,27 +162,23 @@ class _AuthSheetState extends State<AuthSheet> {
                 ),
               ),
               const SizedBox(height: 18),
-              Row(
-                children: [
-                  const Icon(Icons.lock_outline),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      selectedMode == AuthSheetMode.signIn
-                          ? 'Accedi a Clubline'
-                          : 'Crea account Clubline',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                ],
+              Center(child: ClublineBrandLogo(width: compact ? 170 : 220)),
+              const SizedBox(height: 18),
+              Text(
+                selectedMode == AuthSheetMode.signIn
+                    ? 'Accedi a Clubline'
+                    : 'Crea account Clubline',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
                 selectedMode == AuthSheetMode.signIn
                     ? 'Usa email e password per entrare nella piattaforma.'
-                    : 'Registrati, verifica la mail e poi crea o raggiungi il tuo club.',
+                    : 'Registrati ed entra subito in Clubline.',
+                textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: UltrasAppTheme.textMuted,
                   height: 1.35,
@@ -207,10 +196,8 @@ class _AuthSheetState extends State<AuthSheet> {
                     ),
                   ),
                   child: Text(
-                    'Dopo la registrazione ti invieremo una mail di verifica. Solo dopo la conferma potrai accedere e creare o richiedere l ingresso in un club.',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      height: 1.35,
-                    ),
+                    'Con la configurazione attuale, dopo la registrazione entrerai direttamente nell app.',
+                    style: theme.textTheme.bodyMedium?.copyWith(height: 1.35),
                   ),
                 ),
               ],
@@ -255,7 +242,10 @@ class _AuthSheetState extends State<AuthSheet> {
                 keyboardType: TextInputType.emailAddress,
                 autocorrect: false,
                 enableSuggestions: false,
-                decoration: _decoration('Email', icon: Icons.alternate_email_outlined),
+                decoration: _decoration(
+                  'Email',
+                  icon: Icons.alternate_email_outlined,
+                ),
                 enabled: !isSubmitting,
               ),
               const SizedBox(height: 12),
@@ -280,17 +270,38 @@ class _AuthSheetState extends State<AuthSheet> {
                 TextField(
                   controller: confirmPasswordController,
                   obscureText: true,
-                  decoration: _decoration('Conferma password', icon: Icons.lock_reset_outlined),
+                  decoration: _decoration(
+                    'Conferma password',
+                    icon: Icons.lock_reset_outlined,
+                  ),
                   enabled: !isSubmitting,
                 ),
               ],
               if (errorMessage != null) ...[
                 const SizedBox(height: 14),
-                Text(
-                  errorMessage!,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.error,
-                    fontWeight: FontWeight.w700,
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: _isEmailRateLimitMessage(errorMessage!)
+                        ? theme.colorScheme.primary.withValues(alpha: 0.08)
+                        : theme.colorScheme.error.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: _isEmailRateLimitMessage(errorMessage!)
+                          ? theme.colorScheme.primary.withValues(alpha: 0.22)
+                          : theme.colorScheme.error.withValues(alpha: 0.22),
+                    ),
+                  ),
+                  child: Text(
+                    errorMessage!,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: _isEmailRateLimitMessage(errorMessage!)
+                          ? theme.colorScheme.onSurface
+                          : theme.colorScheme.error,
+                      fontWeight: FontWeight.w700,
+                      height: 1.35,
+                    ),
                   ),
                 ),
               ],
@@ -303,8 +314,8 @@ class _AuthSheetState extends State<AuthSheet> {
                     isSubmitting
                         ? 'Attendi...'
                         : selectedMode == AuthSheetMode.signIn
-                            ? 'Accedi'
-                            : 'Crea account',
+                        ? 'Accedi'
+                        : 'Crea account',
                   ),
                 ),
               ),

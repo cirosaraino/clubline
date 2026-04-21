@@ -8,6 +8,8 @@ import '../../data/club_repository.dart';
 import '../../models/player_profile.dart';
 import '../../models/team_info.dart';
 import '../widgets/app_chrome.dart';
+import '../widgets/clubline_brand_logo.dart';
+import '../widgets/club_logo_avatar.dart';
 
 enum _HomeProfileMenuAction {
   completeProfile,
@@ -16,6 +18,7 @@ enum _HomeProfileMenuAction {
   manageClub,
   requestLeaveClub,
   manageVicePermissions,
+  deleteAccount,
   signOut,
 }
 
@@ -31,6 +34,7 @@ class HomePage extends StatelessWidget {
     required this.onOpenThemeSettings,
     required this.onOpenVicePermissionsSettings,
     required this.onOpenTeamInfoSettings,
+    required this.onDeleteAccount,
   });
 
   final VoidCallback onOpenCreateProfile;
@@ -42,6 +46,7 @@ class HomePage extends StatelessWidget {
   final VoidCallback onOpenThemeSettings;
   final VoidCallback onOpenVicePermissionsSettings;
   final VoidCallback onOpenTeamInfoSettings;
+  final Future<void> Function() onDeleteAccount;
 
   static final ClubRepository _clubRepository = ClubRepository();
 
@@ -100,6 +105,9 @@ class HomePage extends StatelessWidget {
       case _HomeProfileMenuAction.manageVicePermissions:
         onOpenVicePermissionsSettings();
         return;
+      case _HomeProfileMenuAction.deleteAccount:
+        await onDeleteAccount();
+        return;
       case _HomeProfileMenuAction.signOut:
         await _signOut(context, session);
         return;
@@ -144,7 +152,8 @@ class HomePage extends StatelessWidget {
     final needsProfileSetup = session.needsProfileSetup;
     final teamInfo = session.teamInfo;
     final canShowProfileMenu = isAuthenticated;
-    final canManageVicePermissions = currentUser?.isCaptain == true;
+    final canManageVicePermissions =
+        currentUser?.isCaptain == true && !needsProfileSetup;
     final isPersonalizedExperience = hasClubMembership;
 
     return Scaffold(
@@ -164,17 +173,7 @@ class HomePage extends StatelessWidget {
               onSelected: (action) =>
                   _handleProfileMenuAction(context, session, action),
               itemBuilder: (_) => [
-                if (currentUser != null)
-                  const PopupMenuItem<_HomeProfileMenuAction>(
-                    key: Key('home-profile-menu-edit-player'),
-                    value: _HomeProfileMenuAction.editProfile,
-                    child: ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(Icons.edit_outlined),
-                      title: Text('Modifica profilo giocatore'),
-                    ),
-                  )
-                else
+                if (needsProfileSetup)
                   const PopupMenuItem<_HomeProfileMenuAction>(
                     key: Key('home-profile-menu-complete-player'),
                     value: _HomeProfileMenuAction.completeProfile,
@@ -182,6 +181,16 @@ class HomePage extends StatelessWidget {
                       contentPadding: EdgeInsets.zero,
                       leading: Icon(Icons.person_add_alt_1_outlined),
                       title: Text('Completa Profilo giocatore'),
+                    ),
+                  )
+                else if (currentUser != null)
+                  const PopupMenuItem<_HomeProfileMenuAction>(
+                    key: Key('home-profile-menu-edit-player'),
+                    value: _HomeProfileMenuAction.editProfile,
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.edit_outlined),
+                      title: Text('Modifica profilo giocatore'),
                     ),
                   ),
                 const PopupMenuItem<_HomeProfileMenuAction>(
@@ -194,23 +203,25 @@ class HomePage extends StatelessWidget {
                   ),
                 ),
                 if (currentUser?.isCaptain == true)
-                  const PopupMenuItem<_HomeProfileMenuAction>(
-                    value: _HomeProfileMenuAction.manageClub,
-                    child: ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(Icons.admin_panel_settings_outlined),
-                      title: Text('Dashboard capitano'),
+                  if (!needsProfileSetup)
+                    const PopupMenuItem<_HomeProfileMenuAction>(
+                      value: _HomeProfileMenuAction.manageClub,
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.admin_panel_settings_outlined),
+                        title: Text('Dashboard capitano'),
+                      ),
                     ),
-                  ),
                 if (currentUser != null && currentUser.isCaptain != true)
-                  const PopupMenuItem<_HomeProfileMenuAction>(
-                    value: _HomeProfileMenuAction.requestLeaveClub,
-                    child: ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(Icons.exit_to_app_outlined),
-                      title: Text('Richiedi uscita club'),
+                  if (!needsProfileSetup)
+                    const PopupMenuItem<_HomeProfileMenuAction>(
+                      value: _HomeProfileMenuAction.requestLeaveClub,
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.exit_to_app_outlined),
+                        title: Text('Richiedi uscita club'),
+                      ),
                     ),
-                  ),
                 if (canManageVicePermissions)
                   const PopupMenuItem<_HomeProfileMenuAction>(
                     key: Key('home-profile-menu-manage-vice-permissions'),
@@ -221,6 +232,15 @@ class HomePage extends StatelessWidget {
                       title: Text('Gestione permessi vice'),
                     ),
                   ),
+                const PopupMenuItem<_HomeProfileMenuAction>(
+                  key: Key('home-profile-menu-delete-account'),
+                  value: _HomeProfileMenuAction.deleteAccount,
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.delete_forever_outlined),
+                    title: Text('Cancella account'),
+                  ),
+                ),
                 const PopupMenuDivider(),
                 const PopupMenuItem<_HomeProfileMenuAction>(
                   key: Key('home-profile-menu-sign-out'),
@@ -270,16 +290,19 @@ class HomePage extends StatelessWidget {
                     isPersonalizedExperience: isPersonalizedExperience,
                     currentUserEmail: currentUserEmail,
                     needsProfileSetup: needsProfileSetup,
-                    onOpenThemeSettings: isPersonalizedExperience
+                    onOpenThemeSettings:
+                        isPersonalizedExperience && !needsProfileSetup
                         ? onOpenThemeSettings
                         : null,
                     onOpenTeamInfoSettings:
-                        currentUser?.canManageTeamInfo == true
+                        currentUser?.canManageTeamInfo == true &&
+                            !needsProfileSetup
                         ? onOpenTeamInfoSettings
                         : null,
                     onOpenLink: (url) => _openExternalLink(context, url),
                   ),
                   if (currentUser != null &&
+                      !needsProfileSetup &&
                       (currentUser.isCaptain ||
                           session.hasPendingLeaveRequest ||
                           session.captainPendingJoinRequests.isNotEmpty ||
@@ -400,16 +423,20 @@ class _HomeWelcomeCard extends StatelessWidget {
 
   String _welcomeText() {
     if (!isAuthenticated) {
-      return 'Crea il tuo account oppure accedi con le tue credenziali. La grafica del club e le personalizzazioni compariranno solo dopo l ingresso in una squadra.';
+      return 'Crea il tuo account oppure accedi con le tue credenziali. Dopo il login creerai prima il tuo giocatore, poi sceglierai il club. La grafica personalizzata comparira solo dopo l ingresso in squadra.';
     }
 
     if (needsProfileSetup) {
+      if (currentUser != null) {
+        return 'Benvenuto ${currentUser!.fullName}. Sei gia dentro il club, ma per sbloccare Clubline devi completare subito il profilo giocatore.';
+      }
+
       final email = currentUserEmail;
       if (email == null) {
         return 'Sei autenticato, ma manca ancora il profilo club collegato.';
       }
 
-      return 'Benvenuto $email. Ora manca solo il profilo club per completare l accesso.';
+      return 'Benvenuto $email. Prima di usare il club devi completare il profilo giocatore.';
     }
 
     if (currentUser == null) {
@@ -423,9 +450,6 @@ class _HomeWelcomeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final compact = AppResponsive.isCompact(context);
     final cardPadding = AppResponsive.cardPadding(context);
-    final heroTitle = isPersonalizedExperience
-        ? teamInfo.displayTeamName
-        : 'Clubline';
     final heroCrestUrl = isPersonalizedExperience ? teamInfo.crestUrl : null;
     final showUsefulLinks = isPersonalizedExperience && teamInfo.hasAnyLinks;
 
@@ -446,24 +470,27 @@ class _HomeWelcomeCard extends StatelessWidget {
         ),
         child: Column(
           children: [
-            _TeamCrestAvatar(
-              crestUrl: heroCrestUrl,
-              size: compact ? 96 : 126,
-              fallbackIcon: isPersonalizedExperience
-                  ? Icons.shield_outlined
-                  : Icons.person_add_alt_1_outlined,
-            ),
+            if (isPersonalizedExperience)
+              ClubLogoAvatar(
+                logoUrl: heroCrestUrl,
+                size: compact ? 96 : 126,
+                fallbackIcon: Icons.shield_outlined,
+              )
+            else
+              ClublineBrandLogo(width: compact ? 172 : 224),
             SizedBox(height: compact ? 14 : 18),
-            Text(
-              heroTitle,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.w900,
-                height: 1.05,
-                fontSize: compact ? 28 : null,
+            if (isPersonalizedExperience) ...[
+              Text(
+                teamInfo.displayTeamName,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  height: 1.05,
+                  fontSize: compact ? 28 : null,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
+              const SizedBox(height: 8),
+            ],
             Text(
               _welcomeText(),
               textAlign: TextAlign.center,
@@ -599,12 +626,16 @@ class _AccessCard extends StatelessWidget {
     }
 
     if (needsProfileSetup) {
+      if (currentUser != null) {
+        return 'Hai gia un profilo collegato al club, ma mancano ancora i dati sportivi finali per completarlo.';
+      }
+
       final email = currentUserEmail;
       if (email == null) {
         return 'Sei autenticato, ma manca il profilo club collegato.';
       }
 
-      return 'Hai eseguito l accesso come $email, ma devi ancora completare il profilo club.';
+      return 'Hai eseguito l accesso come $email, ma devi ancora completare il profilo giocatore prima di usare il club.';
     }
 
     if (currentUser == null) {
@@ -678,7 +709,7 @@ class _AccessCard extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                'Accedi con un account esistente oppure registrane uno nuovo. Dopo il login potrai creare un club o chiedere l ingresso in uno esistente.',
+                'Accedi con un account esistente oppure registrane uno nuovo. Dopo il login creerai prima il tuo giocatore e poi potrai creare un club o chiedere l ingresso in uno esistente.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: UltrasAppTheme.textMuted,
                   height: 1.35,
@@ -726,14 +757,18 @@ class _AccessCard extends StatelessWidget {
                 ),
             ] else if (needsProfileSetup) ...[
               Text(
-                'Profilo non ancora collegato',
+                currentUser == null
+                    ? 'Profilo non ancora collegato'
+                    : 'Profilo da completare',
                 style: Theme.of(
                   context,
                 ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 14),
               Text(
-                'Sei autenticato con ${currentUserEmail ?? 'un account valido'}, ma manca ancora il profilo club da compilare.',
+                currentUser == null
+                    ? 'Sei autenticato con ${currentUserEmail ?? 'un account valido'}, ma manca ancora il profilo club da compilare.'
+                    : 'Sei dentro il club come ${currentUser!.fullName}, ma devi ancora completare il profilo giocatore con maglia, ruolo e dati mancanti.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: UltrasAppTheme.textMuted,
                   height: 1.35,
@@ -741,7 +776,9 @@ class _AccessCard extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               Text(
-                'Usa l icona profilo in alto a destra per completare il profilo giocatore, cambiare password o uscire.',
+                currentUser == null
+                    ? 'Usa l icona profilo in alto a destra per completare il profilo giocatore. Finche non lo fai, gli altri tab restano bloccati.'
+                    : 'Usa l icona profilo in alto a destra per aprire il completamento del profilo e salvare i dettagli mancanti. Finche non completi il giocatore, gli altri tab restano bloccati.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: UltrasAppTheme.textMuted,
                   height: 1.35,
@@ -799,7 +836,7 @@ class _AccessCard extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                'Le azioni account (modifica profilo, password ed uscita) sono nel menu profilo in alto a destra.',
+                'Le azioni account (modifica profilo, password, cancellazione ed uscita) sono nel menu profilo in alto a destra.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: UltrasAppTheme.textMuted,
                   height: 1.35,
@@ -957,59 +994,6 @@ class _UsefulLinkChip extends StatelessWidget {
         fontWeight: FontWeight.w700,
       ),
       label: Text(link.label),
-    );
-  }
-}
-
-class _TeamCrestAvatar extends StatelessWidget {
-  const _TeamCrestAvatar({
-    required this.crestUrl,
-    required this.size,
-    required this.fallbackIcon,
-  });
-
-  final String? crestUrl;
-  final double size;
-  final IconData fallbackIcon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: UltrasAppTheme.surfaceAlt.withValues(alpha: 0.82),
-        border: Border.all(color: UltrasAppTheme.outlineStrong, width: 2),
-      ),
-      child: ClipOval(
-        child: crestUrl == null
-            ? _ClubFallbackCrest(size: size, icon: fallbackIcon)
-            : Image.network(
-                crestUrl!,
-                fit: BoxFit.cover,
-                errorBuilder: (_, error, stackTrace) {
-                  return _ClubFallbackCrest(size: size, icon: fallbackIcon);
-                },
-              ),
-      ),
-    );
-  }
-}
-
-class _ClubFallbackCrest extends StatelessWidget {
-  const _ClubFallbackCrest({required this.size, required this.icon});
-
-  final double size;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: UltrasAppTheme.surfaceAlt,
-      alignment: Alignment.center,
-      child: Icon(icon, size: size * 0.42, color: UltrasAppTheme.goldSoft),
     );
   }
 }

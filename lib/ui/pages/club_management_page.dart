@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/app_session.dart';
+import '../../data/api_client.dart';
 import '../../data/club_repository.dart';
+import '../../data/profile_setup_draft_store.dart';
 import '../../models/join_request.dart';
 import '../../models/leave_request.dart';
 import '../../models/player_profile.dart';
@@ -20,6 +22,19 @@ class _ClubManagementPageState extends State<ClubManagementPage> {
   final ClubRepository repository = ClubRepository();
   bool isBusy = false;
   dynamic selectedCaptainMembershipId;
+
+  String _errorMessage(Object error) {
+    if (error is ApiException) {
+      return error.message;
+    }
+
+    final message = error.toString().trim();
+    if (message.isEmpty) {
+      return 'Operazione non riuscita. Riprova tra un attimo.';
+    }
+
+    return message;
+  }
 
   Future<void> _runAction(
     Future<void> Function() action, {
@@ -39,9 +54,13 @@ class _ClubManagementPageState extends State<ClubManagementPage> {
         return;
       }
 
-      messenger.showSnackBar(
-        SnackBar(content: Text(successMessage)),
-      );
+      messenger.showSnackBar(SnackBar(content: Text(successMessage)));
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      messenger.showSnackBar(SnackBar(content: Text(_errorMessage(error))));
     } finally {
       if (mounted) {
         setState(() {
@@ -95,11 +114,50 @@ class _ClubManagementPageState extends State<ClubManagementPage> {
     }
   }
 
-  Future<void> _deleteCurrentClub() {
-    return _runAction(
-      () => repository.deleteCurrentClub(),
-      successMessage: 'Club eliminato.',
-    );
+  Future<void> _deleteCurrentClub() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final session = AppSessionScope.read(context);
+    final currentUser = session.currentUser;
+    setState(() {
+      isBusy = true;
+    });
+
+    try {
+      if (currentUser != null && currentUser.hasConsoleId) {
+        await ProfileSetupDraftStore.instance.save(
+          ProfileSetupDraft(
+            nome: currentUser.nome,
+            cognome: currentUser.cognome,
+            idConsole: currentUser.idConsole!,
+            shirtNumber: currentUser.shirtNumber,
+            primaryRole: currentUser.primaryRole,
+            secondaryRoles: currentUser.secondaryRoles,
+            accountEmail: session.currentUserEmail,
+          ),
+        );
+      }
+      await repository.deleteCurrentClub();
+      await session.refresh(showLoadingState: false);
+
+      if (!mounted) {
+        return;
+      }
+
+      messenger.showSnackBar(const SnackBar(content: Text('Club eliminato.')));
+      Navigator.pop(context, true);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      messenger.showSnackBar(SnackBar(content: Text(_errorMessage(error))));
+    } finally {
+      if (mounted) {
+        setState(() {
+          isBusy = false;
+        });
+      }
+    }
   }
 
   @override
@@ -109,15 +167,12 @@ class _ClubManagementPageState extends State<ClubManagementPage> {
     final otherMembers = session.players
         .where(
           (player) =>
-              player.membershipId != null &&
-              player.id != currentUser?.id,
+              player.membershipId != null && player.id != currentUser?.id,
         )
         .toList();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Dashboard capitano'),
-      ),
+      appBar: AppBar(title: const Text('Dashboard capitano')),
       body: Stack(
         children: [
           const AppPageBackground(child: SizedBox.expand()),
@@ -133,15 +188,21 @@ class _ClubManagementPageState extends State<ClubManagementPage> {
                         ? const Text('Nessuna richiesta pendente.')
                         : Column(
                             children: [
-                              for (final request in session.captainPendingJoinRequests) ...[
+                              for (final request
+                                  in session.captainPendingJoinRequests) ...[
                                 _RequestTile(
-                                  title: '${request.requestedNome} ${request.requestedCognome}'.trim(),
-                                  subtitle: request.club?.name ?? 'Richiesta ingresso club',
+                                  title:
+                                      '${request.requestedNome} ${request.requestedCognome}'
+                                          .trim(),
+                                  subtitle:
+                                      request.club?.name ??
+                                      'Richiesta ingresso club',
                                   primaryLabel: 'Approva',
                                   secondaryLabel: 'Rifiuta',
                                   busy: isBusy,
                                   onPrimary: () => _approveJoinRequest(request),
-                                  onSecondary: () => _rejectJoinRequest(request),
+                                  onSecondary: () =>
+                                      _rejectJoinRequest(request),
                                 ),
                                 const SizedBox(height: 10),
                               ],
@@ -155,15 +216,21 @@ class _ClubManagementPageState extends State<ClubManagementPage> {
                         ? const Text('Nessuna richiesta pendente.')
                         : Column(
                             children: [
-                              for (final request in session.captainPendingLeaveRequests) ...[
+                              for (final request
+                                  in session.captainPendingLeaveRequests) ...[
                                 _RequestTile(
-                                  title: _memberNameForRequest(session.players, request),
+                                  title: _memberNameForRequest(
+                                    session.players,
+                                    request,
+                                  ),
                                   subtitle: 'Richiesta di uscita dal club',
                                   primaryLabel: 'Approva',
                                   secondaryLabel: 'Rifiuta',
                                   busy: isBusy,
-                                  onPrimary: () => _approveLeaveRequest(request),
-                                  onSecondary: () => _rejectLeaveRequest(request),
+                                  onPrimary: () =>
+                                      _approveLeaveRequest(request),
+                                  onSecondary: () =>
+                                      _rejectLeaveRequest(request),
                                 ),
                                 const SizedBox(height: 10),
                               ],
@@ -205,7 +272,8 @@ class _ClubManagementPageState extends State<ClubManagementPage> {
                         SizedBox(
                           width: double.infinity,
                           child: OutlinedButton.icon(
-                            onPressed: isBusy || selectedCaptainMembershipId == null
+                            onPressed:
+                                isBusy || selectedCaptainMembershipId == null
                                 ? null
                                 : _transferCaptain,
                             icon: const Icon(Icons.flag_outlined),
@@ -245,13 +313,13 @@ class _ClubManagementPageState extends State<ClubManagementPage> {
     );
   }
 
-  String _memberNameForRequest(List<PlayerProfile> players, LeaveRequest request) {
+  String _memberNameForRequest(
+    List<PlayerProfile> players,
+    LeaveRequest request,
+  ) {
     final matchingPlayer = players.firstWhere(
       (player) => '${player.membershipId}' == '${request.membershipId}',
-      orElse: () => const PlayerProfile(
-        nome: 'Membro',
-        cognome: 'club',
-      ),
+      orElse: () => const PlayerProfile(nome: 'Membro', cognome: 'club'),
     );
 
     return matchingPlayer.fullName;
@@ -259,10 +327,7 @@ class _ClubManagementPageState extends State<ClubManagementPage> {
 }
 
 class _SectionCard extends StatelessWidget {
-  const _SectionCard({
-    required this.title,
-    required this.child,
-  });
+  const _SectionCard({required this.title, required this.child});
 
   final String title;
   final Widget child;
@@ -277,9 +342,9 @@ class _SectionCard extends StatelessWidget {
           children: [
             Text(
               title,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 12),
             child,
@@ -322,9 +387,9 @@ class _RequestTile extends StatelessWidget {
         children: [
           Text(
             title,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 6),
           Text(subtitle),

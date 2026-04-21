@@ -107,8 +107,19 @@ playersRouter.delete(
   requireAuth,
   asyncHandler(async (req, res) => {
     const principal = req.principal;
-    await playerService.deletePlayer(req.params.id, principal!);
-    realtimeEventsBus.publishChange(['players', 'attendance', 'lineups'], 'player_deleted');
+    await playerService.releasePlayerFromClub(req.params.id, principal!);
+    realtimeEventsBus.publishChange(['players', 'attendance', 'lineups'], 'player_released');
+    sendNoContent(res);
+  }),
+);
+
+playersRouter.post(
+  '/:id/release',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const principal = req.principal;
+    await playerService.releasePlayerFromClub(req.params.id, principal!);
+    realtimeEventsBus.publishChange(['players', 'attendance', 'lineups'], 'player_released');
     sendNoContent(res);
   }),
 );

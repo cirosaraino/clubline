@@ -587,27 +587,7 @@ export class ClubsService {
       .eq('status', 'pending');
     ensureSuccess(updateLeaveResponse);
 
-    const updateMembershipResponse = await this.db
-      .from('memberships')
-      .update({
-        status: 'left',
-        left_at: now,
-      })
-      .eq('id', targetMembership.id)
-      .eq('status', 'active');
-    ensureSuccess(updateMembershipResponse);
-
-    const archiveProfileResponse = await this.db
-      .from('player_profiles')
-      .update({
-        membership_id: null,
-        auth_user_id: null,
-        account_email: null,
-        archived_at: now,
-      })
-      .eq('membership_id', targetMembership.id)
-      .is('archived_at', null);
-    ensureSuccess(archiveProfileResponse);
+    await this.finalizeMembershipLeave(targetMembership.id, now);
   }
 
   async rejectLeaveRequest(
@@ -847,9 +827,83 @@ export class ClubsService {
       .select('*')
       .eq('auth_user_id', authUserId)
       .eq('status', 'active')
+      .order('created_at', { ascending: false });
+
+    const activeMemberships =
+      ((optionalData(response) as MembershipRow[] | null) ?? []);
+    if (activeMemberships.length === 0) {
+      return null;
+    }
+
+    const stillActiveMemberships: MembershipRow[] = [];
+    for (const membership of activeMemberships) {
+      const approvedLeave = await this.getLatestApprovedLeaveForMembership(
+        membership.id,
+      );
+      if (approvedLeave != null) {
+        await this.finalizeMembershipLeave(
+          membership.id,
+          approvedLeave.decided_at ?? approvedLeave.created_at ?? new Date().toISOString(),
+        );
+        continue;
+      }
+
+      stillActiveMemberships.push(membership);
+    }
+
+    if (stillActiveMemberships.length === 0) {
+      return null;
+    }
+
+    if (stillActiveMemberships.length > 1) {
+      throw new ConflictError(
+        'Sono presenti piu membership attive per questo utente',
+      );
+    }
+
+    return stillActiveMemberships[0] ?? null;
+  }
+
+  private async getLatestApprovedLeaveForMembership(
+    membershipId: string | number,
+  ): Promise<LeaveRequestRow | null> {
+    const response = await this.db
+      .from('leave_requests')
+      .select('*')
+      .eq('membership_id', membershipId)
+      .eq('status', 'approved')
+      .order('decided_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
 
-    return optionalData(response) as MembershipRow | null;
+    return optionalData(response) as LeaveRequestRow | null;
+  }
+
+  private async finalizeMembershipLeave(
+    membershipId: string | number,
+    leftAt: string,
+  ): Promise<void> {
+    const updateMembershipResponse = await this.db
+      .from('memberships')
+      .update({
+        status: 'left',
+        left_at: leftAt,
+      })
+      .eq('id', membershipId)
+      .eq('status', 'active');
+    ensureSuccess(updateMembershipResponse);
+
+    const archiveProfileResponse = await this.db
+      .from('player_profiles')
+      .update({
+        membership_id: null,
+        auth_user_id: null,
+        account_email: null,
+        archived_at: leftAt,
+      })
+      .eq('membership_id', membershipId)
+      .is('archived_at', null);
+    ensureSuccess(archiveProfileResponse);
   }
 
   private async getMembershipById(membershipId: string | number): Promise<MembershipRow> {
@@ -885,10 +939,32 @@ export class ClubsService {
   private async countActiveMembers(clubId: string | number): Promise<number> {
     const response = await this.db
       .from('memberships')
-      .select('id', { count: 'exact', head: true })
+      .select('*')
       .eq('club_id', clubId)
-      .eq('status', 'active');
+      .eq('status', 'active')
+      .order('created_at', { ascending: false });
 
-    return response.count ?? 0;
+    const activeMemberships = ((optionalData(response) as MembershipRow[] | null) ?? []);
+    if (activeMemberships.length === 0) {
+      return 0;
+    }
+
+    let stillActiveCount = 0;
+    for (const membership of activeMemberships) {
+      const approvedLeave = await this.getLatestApprovedLeaveForMembership(
+        membership.id,
+      );
+      if (approvedLeave != null) {
+        await this.finalizeMembershipLeave(
+          membership.id,
+          approvedLeave.decided_at ?? approvedLeave.created_at ?? new Date().toISOString(),
+        );
+        continue;
+      }
+
+      stillActiveCount += 1;
+    }
+
+    return stillActiveCount;
   }
 }

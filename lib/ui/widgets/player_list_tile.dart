@@ -9,24 +9,24 @@ class PlayerListTile extends StatelessWidget {
     super.key,
     required this.player,
     this.onEdit,
-    this.onDelete,
+    this.onRelease,
     this.isCurrentUser = false,
   });
 
   final PlayerProfile player;
   final VoidCallback? onEdit;
-  final VoidCallback? onDelete;
+  final VoidCallback? onRelease;
   final bool isCurrentUser;
 
   @override
   Widget build(BuildContext context) {
     final compact = AppResponsive.isCompact(context);
-    final titleStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
-          fontWeight: FontWeight.w800,
-        );
-    final subtitleStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: UltrasAppTheme.textMuted,
-        );
+    final titleStyle = Theme.of(
+      context,
+    ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800);
+    final subtitleStyle = Theme.of(
+      context,
+    ).textTheme.bodyMedium?.copyWith(color: UltrasAppTheme.textMuted);
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 5),
@@ -67,11 +67,8 @@ class PlayerListTile extends StatelessWidget {
                   ),
                   const SizedBox(width: 6),
                 ],
-                if (compact && (onEdit != null || onDelete != null))
-                  _PlayerTileMenu(
-                    onEdit: onEdit,
-                    onDelete: onDelete,
-                  )
+                if (compact && (onEdit != null || onRelease != null))
+                  _PlayerTileMenu(onEdit: onEdit, onRelease: onRelease)
                 else ...[
                   if (onEdit != null) ...[
                     _ActionButton(
@@ -81,12 +78,12 @@ class PlayerListTile extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                   ],
-                  if (onDelete != null)
+                  if (onRelease != null)
                     _ActionButton(
-                      icon: Icons.delete_outline,
-                      tooltip: 'Cancella giocatore',
+                      icon: Icons.person_remove_outlined,
+                      tooltip: 'Svincola dal club',
                       isDestructive: true,
-                      onPressed: onDelete!,
+                      onPressed: onRelease!,
                     ),
                 ],
               ],
@@ -102,8 +99,8 @@ class PlayerListTile extends StatelessWidget {
                     icon: player.isCaptain
                         ? Icons.workspace_premium_outlined
                         : player.isViceCaptain
-                            ? Icons.shield_outlined
-                            : Icons.person_outline,
+                        ? Icons.shield_outlined
+                        : Icons.person_outline,
                     label: player.teamRoleDisplay,
                     highlighted: player.isCaptain || player.isViceCaptain,
                   ),
@@ -136,13 +133,10 @@ class PlayerListTile extends StatelessWidget {
 }
 
 class _PlayerTileMenu extends StatelessWidget {
-  const _PlayerTileMenu({
-    required this.onEdit,
-    required this.onDelete,
-  });
+  const _PlayerTileMenu({required this.onEdit, required this.onRelease});
 
   final VoidCallback? onEdit;
-  final VoidCallback? onDelete;
+  final VoidCallback? onRelease;
 
   @override
   Widget build(BuildContext context) {
@@ -151,8 +145,8 @@ class _PlayerTileMenu extends StatelessWidget {
       onSelected: (value) {
         if (value == 'edit') {
           onEdit?.call();
-        } else if (value == 'delete') {
-          onDelete?.call();
+        } else if (value == 'release') {
+          onRelease?.call();
         }
       },
       itemBuilder: (context) => [
@@ -165,19 +159,17 @@ class _PlayerTileMenu extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
             ),
           ),
-        if (onDelete != null)
+        if (onRelease != null)
           PopupMenuItem<String>(
-            value: 'delete',
+            value: 'release',
             child: ListTile(
               leading: Icon(
-                Icons.delete_outline,
+                Icons.person_remove_outlined,
                 color: Theme.of(context).colorScheme.error,
               ),
               title: Text(
-                'Cancella',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.error,
-                ),
+                'Svincola',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
               contentPadding: EdgeInsets.zero,
             ),
@@ -207,8 +199,9 @@ class _MetaPill extends StatelessWidget {
     final backgroundColor = highlighted
         ? UltrasAppTheme.gold.withValues(alpha: 0.18)
         : UltrasAppTheme.surfaceAlt;
-    final foregroundColor =
-        highlighted ? UltrasAppTheme.goldSoft : UltrasAppTheme.textMuted;
+    final foregroundColor = highlighted
+        ? UltrasAppTheme.goldSoft
+        : UltrasAppTheme.textMuted;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
@@ -229,9 +222,9 @@ class _MetaPill extends StatelessWidget {
           Text(
             label,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: foregroundColor,
-                  fontWeight: FontWeight.w700,
-                ),
+              color: foregroundColor,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
       ),

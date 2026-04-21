@@ -5,11 +5,9 @@ import 'api_client.dart';
 import 'auth_session_store.dart';
 
 class AuthRepository {
-  AuthRepository({
-    ApiClient? apiClient,
-    AuthSessionStore? sessionStore,
-  })  : _apiClient = apiClient ?? ApiClient.shared,
-        _sessionStore = sessionStore ?? AuthSessionStore();
+  AuthRepository({ApiClient? apiClient, AuthSessionStore? sessionStore})
+    : _apiClient = apiClient ?? ApiClient.shared,
+      _sessionStore = sessionStore ?? AuthSessionStore();
 
   final ApiClient _apiClient;
   final AuthSessionStore _sessionStore;
@@ -58,27 +56,21 @@ class AuthRepository {
   }) async {
     final response = await _apiClient.post(
       '/auth/login',
-      body: {
-        'email': email.trim(),
-        'password': password,
-      },
+      body: {'email': email.trim(), 'password': password},
     );
 
-    final session = AuthSession.fromMap(Map<String, dynamic>.from(response as Map));
+    final session = AuthSession.fromMap(
+      Map<String, dynamic>.from(response as Map),
+    );
     await _sessionStore.saveSession(session);
     _session = session;
     return session;
   }
 
-  Future<String> requestPasswordReset({
-    required String email,
-  }) async {
+  Future<String> requestPasswordReset({required String email}) async {
     final response = await _apiClient.post(
       '/auth/request-password-reset',
-      body: {
-        'email': email.trim(),
-        'redirectTo': _passwordResetRedirectUrl(),
-      },
+      body: {'email': email.trim(), 'redirectTo': _passwordResetRedirectUrl()},
     );
 
     final responseMap = Map<String, dynamic>.from(response as Map);
@@ -86,15 +78,11 @@ class AuthRepository {
         'Se l account esiste, abbiamo inviato una mail con le istruzioni.';
   }
 
-  Future<String> updatePassword({
-    required String password,
-  }) async {
+  Future<String> updatePassword({required String password}) async {
     final response = await _apiClient.post(
       '/auth/update-password',
       authenticated: true,
-      body: {
-        'password': password,
-      },
+      body: {'password': password},
       accessToken: _session?.accessToken,
     );
 
@@ -110,7 +98,7 @@ class AuthRepository {
         'Password aggiornata con successo.';
   }
 
-  Future<String> signUpWithEmail({
+  Future<AuthSession?> signUpWithEmail({
     required String email,
     required String password,
   }) async {
@@ -124,8 +112,17 @@ class AuthRepository {
     );
 
     final responseMap = Map<String, dynamic>.from(response as Map);
-    return responseMap['message']?.toString() ??
-        'Ti abbiamo inviato una mail di verifica. Conferma l indirizzo email prima di accedere.';
+    final rawSession = responseMap['session'];
+    if (rawSession is Map) {
+      final session = AuthSession.fromMap(responseMap);
+      await _sessionStore.saveSession(session);
+      _session = session;
+      return session;
+    }
+
+    throw const ApiException(
+      'La conferma email e ancora attiva nel progetto. Disattiva Confirm email in Supabase Auth > Providers > Email.',
+    );
   }
 
   Future<void> signOut() async {
@@ -147,6 +144,22 @@ class AuthRepository {
     }
   }
 
+  Future<void> deleteAccount() async {
+    final currentSession = _session ?? await _sessionStore.readSession();
+    final accessToken = currentSession?.accessToken;
+    if (accessToken == null || accessToken.isEmpty) {
+      throw const ApiUnauthorizedException('Sessione non valida');
+    }
+
+    await _apiClient.delete(
+      '/auth/account',
+      authenticated: true,
+      accessToken: accessToken,
+    );
+    await _sessionStore.clear();
+    _session = null;
+  }
+
   Future<AuthenticatedUser?> _refreshSession() async {
     final currentSession = _session ?? await _sessionStore.readSession();
     if (currentSession == null || currentSession.refreshToken.isEmpty) {
@@ -158,11 +171,11 @@ class AuthRepository {
     try {
       final response = await _apiClient.post(
         '/auth/refresh',
-        body: {
-          'refreshToken': currentSession.refreshToken,
-        },
+        body: {'refreshToken': currentSession.refreshToken},
       );
-      final refreshedSession = AuthSession.fromMap(Map<String, dynamic>.from(response as Map));
+      final refreshedSession = AuthSession.fromMap(
+        Map<String, dynamic>.from(response as Map),
+      );
       await _sessionStore.saveSession(refreshedSession);
       _session = refreshedSession;
       return refreshedSession.user;

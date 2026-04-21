@@ -3,9 +3,8 @@ import '../models/player_profile.dart';
 import 'api_client.dart';
 
 class PlayerRepository {
-  PlayerRepository({
-    ApiClient? apiClient,
-  }) : _apiClient = apiClient ?? ApiClient.shared;
+  PlayerRepository({ApiClient? apiClient})
+    : _apiClient = apiClient ?? ApiClient.shared;
 
   final ApiClient _apiClient;
 
@@ -18,16 +17,20 @@ class PlayerRepository {
     };
 
     final players = rawPlayers
-        .map<PlayerProfile>((player) => PlayerProfile.fromMap(Map<String, dynamic>.from(player)))
+        .map<PlayerProfile>(
+          (player) => PlayerProfile.fromMap(Map<String, dynamic>.from(player)),
+        )
         .toList();
 
     players.sort((a, b) {
-      final roleComparison = a.primaryRoleSortIndex.compareTo(b.primaryRoleSortIndex);
+      final roleComparison = a.primaryRoleSortIndex.compareTo(
+        b.primaryRoleSortIndex,
+      );
       if (roleComparison != 0) return roleComparison;
 
-      final surnameComparison = normalizePlayerName(a.cognome).compareTo(
-        normalizePlayerName(b.cognome),
-      );
+      final surnameComparison = normalizePlayerName(
+        a.cognome,
+      ).compareTo(normalizePlayerName(b.cognome));
       if (surnameComparison != 0) return surnameComparison;
 
       return normalizePlayerName(a.nome).compareTo(normalizePlayerName(b.nome));
@@ -62,11 +65,8 @@ class PlayerRepository {
     );
   }
 
-  Future<void> deletePlayer(dynamic playerId) async {
-    await _apiClient.delete(
-      '/players/$playerId',
-      authenticated: true,
-    );
+  Future<void> releasePlayerFromClub(dynamic playerId) async {
+    await _apiClient.post('/players/$playerId/release', authenticated: true);
   }
 
   Future<bool> isConsoleIdTaken(

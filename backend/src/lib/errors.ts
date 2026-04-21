@@ -44,3 +44,10 @@ export class ValidationError extends HttpError {
     this.name = 'ValidationError';
   }
 }
+
+export class TooManyRequestsError extends HttpError {
+  constructor(message = 'Too many requests') {
+    super(429, message);
+    this.name = 'TooManyRequestsError';
+  }
+}

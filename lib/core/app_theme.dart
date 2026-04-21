@@ -84,10 +84,7 @@ class UltrasThemePalette {
 
   static Color _mix(Color base, Color overlay, double amount) {
     final normalizedAmount = amount.clamp(0.0, 1.0).toDouble();
-    return Color.alphaBlend(
-      overlay.withValues(alpha: normalizedAmount),
-      base,
-    );
+    return Color.alphaBlend(overlay.withValues(alpha: normalizedAmount), base);
   }
 
   Color get gold => accent;
@@ -123,22 +120,19 @@ class UltrasThemePalette {
   Color get warningSoft => const Color(0xFFFFEDAE);
 
   LinearGradient get pageGradient => LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          backgroundTop,
-          backgroundBottom,
-        ],
-      );
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [backgroundTop, backgroundBottom],
+  );
 
   LinearGradient get heroGradient => LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          _mix(surfaceAlt, accent, 0.1),
-          _mix(_mix(backgroundBottom, surface, 0.6), black, 0.18),
-        ],
-      );
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      _mix(surfaceAlt, accent, 0.1),
+      _mix(_mix(backgroundBottom, surface, 0.6), black, 0.18),
+    ],
+  );
 
   Color get onAccent => accent.computeLuminance() > 0.45 ? black : Colors.white;
 }
@@ -160,21 +154,15 @@ class UltrasThemePreset {
 
 class UltrasAppTheme {
   static const UltrasThemePalette defaultPalette = UltrasThemePalette(
-    black: Color(0xFF090603),
-    backgroundTop: Color(0xFF171107),
-    backgroundBottom: Color(0xFF090603),
-    surface: Color(0xFF151008),
-    surfaceAlt: Color(0xFF20180E),
-    accent: Color(0xFFF2D126),
+    black: Color(0xFF040A1C),
+    backgroundTop: Color(0xFF0D2C73),
+    backgroundBottom: Color(0xFF040A1C),
+    surface: Color(0xFF08142F),
+    surfaceAlt: Color(0xFF102247),
+    accent: Color(0xFF10E6CB),
   );
 
-  static const List<UltrasThemePreset> presets = [
-    UltrasThemePreset(
-      id: 'stemma',
-      name: 'Stemma',
-      description: 'La palette originale di Clubline, da cui parte il tema base.',
-      palette: defaultPalette,
-    ),
+  static const List<UltrasThemePreset> curatedPresets = [
     UltrasThemePreset(
       id: 'grafite_oro',
       name: 'Grafite Oro',
@@ -229,6 +217,22 @@ class UltrasAppTheme {
     ),
   ];
 
+  static UltrasThemePreset clubPreset(UltrasThemePalette palette) {
+    return UltrasThemePreset(
+      id: 'stemma',
+      name: 'Stemma',
+      description:
+          'La palette reale del club, derivata da logo e colori attuali.',
+      palette: palette,
+    );
+  }
+
+  static List<UltrasThemePreset> presetsForClub(
+    UltrasThemePalette clubPalette,
+  ) {
+    return [clubPreset(clubPalette), ...curatedPresets];
+  }
+
   static UltrasThemePalette _activePalette = defaultPalette;
 
   static UltrasThemePalette get activePalette => _activePalette;
@@ -246,10 +250,13 @@ class UltrasAppTheme {
     String? accentColor,
     String? surfaceColor,
   }) {
-    final accent = _parseHexColor(accentColor) ??
+    final accent =
+        _parseHexColor(accentColor) ??
         _parseHexColor(primaryColor) ??
         defaultPalette.accent;
-    final surface = _parseHexColor(surfaceColor) ?? _mix(accent, const Color(0xFF0E1118), 0.68);
+    final surface =
+        _parseHexColor(surfaceColor) ??
+        _mix(accent, const Color(0xFF0E1118), 0.68);
     final black = _mix(surface, Colors.black, 0.34);
     final backgroundTop = _mix(surface, accent, 0.12);
     final backgroundBottom = _mix(black, accent, 0.08);
@@ -271,7 +278,9 @@ class UltrasAppTheme {
       return null;
     }
 
-    final hex = normalized.startsWith('#') ? normalized.substring(1) : normalized;
+    final hex = normalized.startsWith('#')
+        ? normalized.substring(1)
+        : normalized;
     if (hex.length != 6) {
       return null;
     }
@@ -317,12 +326,8 @@ class UltrasAppTheme {
   static LinearGradient get heroGradient => activePalette.heroGradient;
 
   static List<BoxShadow> get softShadow => [
-        BoxShadow(
-          color: shadow,
-          blurRadius: 18,
-          offset: const Offset(0, 10),
-        ),
-      ];
+    BoxShadow(color: shadow, blurRadius: 18, offset: const Offset(0, 10)),
+  ];
 
   static BoxDecoration heroDecoration({double radius = 28}) {
     return BoxDecoration(
@@ -392,9 +397,7 @@ class UltrasAppTheme {
         backgroundColor: colors.gold,
         foregroundColor: colors.onAccent,
       ),
-      progressIndicatorTheme: ProgressIndicatorThemeData(
-        color: colors.gold,
-      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(color: colors.gold),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: colors.gold,
@@ -440,7 +443,10 @@ class UltrasAppTheme {
         fillColor: colors.surfaceAlt,
         labelStyle: TextStyle(color: colors.textMuted),
         floatingLabelStyle: TextStyle(color: colors.goldSoft),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(color: colors.outline),
@@ -466,9 +472,7 @@ class UltrasAppTheme {
           fontWeight: FontWeight.w600,
         ),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: colors.surface,

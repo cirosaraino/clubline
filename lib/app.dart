@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'core/app_session.dart';
@@ -24,10 +26,13 @@ class _SquadraAppState extends State<SquadraApp> {
     themeController = AppThemeController();
     sessionController = AppSessionController(
       onTeamInfoChanged: (teamInfo) {
-        themeController.syncWithClubTheme(
-          primaryColor: teamInfo.primaryColor,
-          accentColor: teamInfo.accentColor,
-          surfaceColor: teamInfo.surfaceColor,
+        unawaited(
+          themeController.syncWithClubTheme(
+            primaryColor: teamInfo.primaryColor,
+            accentColor: teamInfo.accentColor,
+            surfaceColor: teamInfo.surfaceColor,
+            logoUrl: teamInfo.crestUrl,
+          ),
         );
       },
     );

@@ -35,34 +35,34 @@ class ClubLogoAvatar extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: UltrasAppTheme.surfaceAlt.withValues(alpha: 0.82),
-        border: Border.all(color: UltrasAppTheme.outlineStrong, width: borderWidth),
+        border: Border.all(
+          color: UltrasAppTheme.outlineStrong,
+          width: borderWidth,
+        ),
       ),
       child: ClipOval(
         child: !_hasLogoUrl
             ? _ClubFallbackLogo(size: size, icon: fallbackIcon)
             : _isSvgLogo
-                ? SvgPicture.network(
-                    logoUrl!,
-                    fit: BoxFit.cover,
-                    placeholderBuilder: (_) =>
-                        _ClubFallbackLogo(size: size, icon: fallbackIcon),
-                  )
-                : Image.network(
-                    logoUrl!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) =>
-                        _ClubFallbackLogo(size: size, icon: fallbackIcon),
-                  ),
+            ? SvgPicture.network(
+                logoUrl!,
+                fit: BoxFit.cover,
+                placeholderBuilder: (_) =>
+                    _ClubFallbackLogo(size: size, icon: fallbackIcon),
+              )
+            : Image.network(
+                logoUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) =>
+                    _ClubFallbackLogo(size: size, icon: fallbackIcon),
+              ),
       ),
     );
   }
 }
 
 class _ClubFallbackLogo extends StatelessWidget {
-  const _ClubFallbackLogo({
-    required this.size,
-    required this.icon,
-  });
+  const _ClubFallbackLogo({required this.size, required this.icon});
 
   final double size;
   final IconData icon;

@@ -234,7 +234,10 @@ export class PlayerService {
     return requiredData(response) as PlayerProfileRow;
   }
 
-  async deletePlayer(playerId: string | number, principal: RequestPrincipal): Promise<void> {
+  async releasePlayerFromClub(
+    playerId: string | number,
+    principal: RequestPrincipal,
+  ): Promise<void> {
     const clubId = principal.membership?.club_id;
     if (!clubId) {
       throw new ForbiddenError('Devi appartenere a un club per modificare la rosa');
@@ -242,21 +245,63 @@ export class PlayerService {
 
     this.ensureCanManagePlayers(principal);
     const player = await this.getPlayer(playerId, clubId);
-    if (player.membership_id != null) {
+    if (principal.player && `${principal.player.id}` === `${player.id}`) {
       throw new ConflictError(
-        'I membri attivi non possono essere rimossi dalla rosa con questa azione. Usa i flussi club.',
+        'Usa i flussi club per uscire dalla squadra con il tuo account.',
       );
     }
 
+    if (player.team_role === 'captain') {
+      throw new ConflictError(
+        'Trasferisci prima il ruolo di capitano dal pannello club.',
+      );
+    }
+
+    const releasedAt = new Date().toISOString();
+    if (player.membership_id != null) {
+      const membershipResponse = await this.db
+        .from('memberships')
+        .update({
+          status: 'left',
+          left_at: releasedAt,
+        })
+        .eq('id', player.membership_id)
+        .eq('status', 'active');
+      ensureSuccess(membershipResponse);
+    }
+
+    const keepStandaloneIdentity =
+      normalize(player.auth_user_id) != '' || normalize(player.account_email) != '';
+    const payload = keepStandaloneIdentity
+      ? {
+          club_id: null,
+          membership_id: null,
+          auth_user_id: player.auth_user_id,
+          account_email: normalizeEmail(player.account_email),
+          shirt_number: player.shirt_number,
+          primary_role: normalizeOptional(player.primary_role),
+          secondary_role: normalizeOptional(player.secondary_role),
+          secondary_roles: normalizeRoles(player.secondary_roles),
+          id_console: normalizeOptional(player.id_console),
+          team_role: 'player' as TeamRole,
+          archived_at: null,
+        }
+      : {
+          membership_id: null,
+          team_role: 'player' as TeamRole,
+          archived_at: releasedAt,
+        };
+
     const response = await this.db
       .from('player_profiles')
-      .update({
-        archived_at: new Date().toISOString(),
-      })
+      .update(payload)
       .eq('id', player.id)
-      .eq('club_id', clubId)
       .is('archived_at', null);
     ensureSuccess(response);
+  }
+
+  async deletePlayer(playerId: string | number, principal: RequestPrincipal): Promise<void> {
+    await this.releasePlayerFromClub(playerId, principal);
   }
 
   async claimProfile(input: PlayerInput, principal: RequestPrincipal): Promise<PlayerProfileRow> {

@@ -111,7 +111,9 @@ class _ThemePaletteSheetState extends State<ThemePaletteSheet> {
     }
 
     messenger.showSnackBar(
-      const SnackBar(content: Text('Ripristinati i colori originali del logo club')),
+      const SnackBar(
+        content: Text('Ripristinati i colori originali del logo club'),
+      ),
     );
     Navigator.pop(context);
   }
@@ -145,32 +147,32 @@ class _ThemePaletteSheetState extends State<ThemePaletteSheet> {
           children: [
             Text(
               'Colori app',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 8),
             Text(
               'Di default restano i colori del logo club. Qui puoi scegliere una palette gia pronta oppure combinare i colori con una selezione visuale, senza usare codici.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: UltrasAppTheme.textMuted,
-                    height: 1.35,
-                  ),
+                color: UltrasAppTheme.textMuted,
+                height: 1.35,
+              ),
             ),
             const SizedBox(height: 18),
             _PalettePreviewCard(palette: draftPalette),
             const SizedBox(height: 20),
             Text(
               'Palette suggerite',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 12),
             Wrap(
               spacing: 12,
               runSpacing: 12,
-              children: UltrasAppTheme.presets
+              children: themeController.availablePresets
                   .map(
                     (preset) => _ThemePresetCard(
                       preset: preset,
@@ -183,17 +185,17 @@ class _ThemePaletteSheetState extends State<ThemePaletteSheet> {
             const SizedBox(height: 20),
             Text(
               'Personalizzazione rapida',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 8),
             Text(
               'Tocca un colore per aggiornare subito l anteprima qui sopra.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: UltrasAppTheme.textMuted,
-                    height: 1.35,
-                  ),
+                color: UltrasAppTheme.textMuted,
+                height: 1.35,
+              ),
             ),
             const SizedBox(height: 16),
             _ColorChoiceSection(
@@ -201,7 +203,8 @@ class _ThemePaletteSheetState extends State<ThemePaletteSheet> {
               subtitle: 'Bottoni, badge, evidenze e dettagli.',
               selectedColor: draftPalette.accent,
               choices: _accentChoices,
-              onSelected: (color) => _updatePalette(draftPalette.copyWith(accent: color)),
+              onSelected: (color) =>
+                  _updatePalette(draftPalette.copyWith(accent: color)),
             ),
             const SizedBox(height: 12),
             _ColorChoiceSection(
@@ -209,7 +212,8 @@ class _ThemePaletteSheetState extends State<ThemePaletteSheet> {
               subtitle: 'Il nero principale dell app.',
               selectedColor: draftPalette.black,
               choices: _blackChoices,
-              onSelected: (color) => _updatePalette(draftPalette.copyWith(black: color)),
+              onSelected: (color) =>
+                  _updatePalette(draftPalette.copyWith(black: color)),
             ),
             const SizedBox(height: 16),
             _ColorChoiceSection(
@@ -226,8 +230,9 @@ class _ThemePaletteSheetState extends State<ThemePaletteSheet> {
               subtitle: 'La chiusura dello sfondo pagina.',
               selectedColor: draftPalette.backgroundBottom,
               choices: _backgroundBottomChoices,
-              onSelected: (color) =>
-                  _updatePalette(draftPalette.copyWith(backgroundBottom: color)),
+              onSelected: (color) => _updatePalette(
+                draftPalette.copyWith(backgroundBottom: color),
+              ),
             ),
             const SizedBox(height: 16),
             _ColorChoiceSection(
@@ -235,7 +240,8 @@ class _ThemePaletteSheetState extends State<ThemePaletteSheet> {
               subtitle: 'Card e contenitori principali.',
               selectedColor: draftPalette.surface,
               choices: _surfaceChoices,
-              onSelected: (color) => _updatePalette(draftPalette.copyWith(surface: color)),
+              onSelected: (color) =>
+                  _updatePalette(draftPalette.copyWith(surface: color)),
             ),
             const SizedBox(height: 16),
             _ColorChoiceSection(
@@ -252,16 +258,22 @@ class _ThemePaletteSheetState extends State<ThemePaletteSheet> {
               runSpacing: 10,
               children: [
                 ElevatedButton.icon(
-                  onPressed: isSaving || themeController.isLoading ? null : _applyPalette,
+                  onPressed: isSaving || themeController.isLoading
+                      ? null
+                      : _applyPalette,
                   icon: Icon(
-                    isSaving ? Icons.hourglass_top_outlined : Icons.palette_outlined,
+                    isSaving
+                        ? Icons.hourglass_top_outlined
+                        : Icons.palette_outlined,
                   ),
                   label: Text(isSaving ? 'Salvataggio...' : 'Applica colori'),
                 ),
                 OutlinedButton.icon(
-                  onPressed: isSaving || themeController.isLoading ? null : _resetPalette,
+                  onPressed: isSaving || themeController.isLoading
+                      ? null
+                      : _resetPalette,
                   icon: const Icon(Icons.restart_alt_outlined),
-                  label: const Text('Ripristina default'),
+                  label: const Text('Ripristina colori club'),
                 ),
               ],
             ),
@@ -273,9 +285,7 @@ class _ThemePaletteSheetState extends State<ThemePaletteSheet> {
 }
 
 class _PalettePreviewCard extends StatelessWidget {
-  const _PalettePreviewCard({
-    required this.palette,
-  });
+  const _PalettePreviewCard({required this.palette});
 
   final UltrasThemePalette palette;
 
@@ -309,17 +319,17 @@ class _PalettePreviewCard extends StatelessWidget {
             Text(
               'Anteprima rapida',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: palette.textPrimary,
-                    fontWeight: FontWeight.w800,
-                  ),
+                color: palette.textPrimary,
+                fontWeight: FontWeight.w800,
+              ),
             ),
             const SizedBox(height: 6),
             Text(
               'Vedi subito come appariranno card, sfondo e colore principale dell app.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: palette.textMuted,
-                    height: 1.35,
-                  ),
+                color: palette.textMuted,
+                height: 1.35,
+              ),
             ),
             const SizedBox(height: 14),
             Wrap(
@@ -403,26 +413,22 @@ class _ThemePresetCard extends StatelessWidget {
                       child: Text(
                         preset.name,
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              color: palette.textPrimary,
-                              fontWeight: FontWeight.w800,
-                            ),
+                          color: palette.textPrimary,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
                     if (isSelected)
-                      Icon(
-                        Icons.check_circle,
-                        size: 18,
-                        color: palette.gold,
-                      ),
+                      Icon(Icons.check_circle, size: 18, color: palette.gold),
                   ],
                 ),
                 const SizedBox(height: 8),
                 Text(
                   preset.description,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: palette.textMuted,
-                        height: 1.35,
-                      ),
+                    color: palette.textMuted,
+                    height: 1.35,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -467,17 +473,17 @@ class _ColorChoiceSection extends StatelessWidget {
       children: [
         Text(
           title,
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 4),
         Text(
           subtitle,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: UltrasAppTheme.textMuted,
-                height: 1.35,
-              ),
+            color: UltrasAppTheme.textMuted,
+            height: 1.35,
+          ),
         ),
         const SizedBox(height: 12),
         Wrap(
@@ -539,7 +545,9 @@ class _ColorSwatchButton extends StatelessWidget {
               ? Icon(
                   Icons.check,
                   size: 18,
-                  color: color.computeLuminance() > 0.55 ? Colors.black : Colors.white,
+                  color: color.computeLuminance() > 0.55
+                      ? Colors.black
+                      : Colors.white,
                 )
               : null,
         ),
@@ -573,18 +581,16 @@ class _PreviewPill extends StatelessWidget {
       child: Text(
         label,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: textColor,
-              fontWeight: FontWeight.w800,
-            ),
+          color: textColor,
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }
 }
 
 class _MiniSwatch extends StatelessWidget {
-  const _MiniSwatch({
-    required this.color,
-  });
+  const _MiniSwatch({required this.color});
 
   final Color color;
 

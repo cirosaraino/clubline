@@ -18,9 +18,6 @@ class ClubCreatePage extends StatefulWidget {
 
 class _ClubCreatePageState extends State<ClubCreatePage> {
   final clubNameController = TextEditingController();
-  final ownerNomeController = TextEditingController();
-  final ownerCognomeController = TextEditingController();
-  final ownerConsoleIdController = TextEditingController();
   final ClubRepository repository = ClubRepository();
 
   PickedClubLogo? pickedLogo;
@@ -32,9 +29,6 @@ class _ClubCreatePageState extends State<ClubCreatePage> {
   @override
   void dispose() {
     clubNameController.dispose();
-    ownerNomeController.dispose();
-    ownerCognomeController.dispose();
-    ownerConsoleIdController.dispose();
     super.dispose();
   }
 
@@ -65,12 +59,10 @@ class _ClubCreatePageState extends State<ClubCreatePage> {
       }
 
       ClubThemePaletteResult? palette;
-      if (!result.isSvg) {
-        try {
-          palette = await extractClubThemePalette(result.bytes);
-        } catch (_) {
-          palette = null;
-        }
+      try {
+        palette = await extractClubThemePalette(result.bytes);
+      } catch (_) {
+        palette = null;
       }
 
       setState(() {
@@ -92,16 +84,19 @@ class _ClubCreatePageState extends State<ClubCreatePage> {
 
   Future<void> _submit() async {
     final clubName = clubNameController.text.trim();
-    final ownerNome = ownerNomeController.text.trim();
-    final ownerCognome = ownerCognomeController.text.trim();
-    final ownerConsoleId = ownerConsoleIdController.text.trim();
+    final session = AppSessionScope.read(context);
+    final playerIdentity = session.profileSetupDraft;
 
-    if (clubName.isEmpty ||
-        ownerNome.isEmpty ||
-        ownerCognome.isEmpty ||
-        ownerConsoleId.isEmpty) {
+    if (clubName.isEmpty) {
       setState(() {
-        errorMessage = 'Compila nome club, nome, cognome e ID console.';
+        errorMessage = 'Compila il nome del club.';
+      });
+      return;
+    }
+
+    if (playerIdentity == null) {
+      setState(() {
+        errorMessage = 'Prima completa il tuo giocatore.';
       });
       return;
     }
@@ -111,22 +106,22 @@ class _ClubCreatePageState extends State<ClubCreatePage> {
       errorMessage = null;
     });
 
-    final session = AppSessionScope.read(context);
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
 
     try {
       await repository.createClub(
         name: clubName,
-        ownerNome: ownerNome,
-        ownerCognome: ownerCognome,
-        ownerConsoleId: ownerConsoleId,
+        ownerNome: playerIdentity.nome,
+        ownerCognome: playerIdentity.cognome,
+        ownerConsoleId: playerIdentity.idConsole,
+        ownerShirtNumber: playerIdentity.shirtNumber,
+        ownerPrimaryRole: playerIdentity.primaryRole,
         logoDataUrl: pickedLogo?.dataUrl,
         primaryColor: extractedPalette?.primaryHex,
         accentColor: extractedPalette?.accentHex,
         surfaceColor: extractedPalette?.surfaceHex,
       );
-
       await session.refresh(showLoadingState: false);
 
       if (!mounted) {
@@ -160,6 +155,9 @@ class _ClubCreatePageState extends State<ClubCreatePage> {
 
   @override
   Widget build(BuildContext context) {
+    final session = AppSessionScope.of(context);
+    final playerIdentity = session.profileSetupDraft;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Crea club')),
       body: Stack(
@@ -172,14 +170,14 @@ class _ClubCreatePageState extends State<ClubCreatePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Avvia il tuo club su Clubline',
+                    'Crea la tua squadra',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.w900,
                     ),
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'Il creatore diventa automaticamente capitano. Qui servono solo i dati essenziali: il resto del profilo lo completerai dopo.',
+                    'Scegli nome e logo. Il giocatore che hai appena creato entrerà come capitano.',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 20),
@@ -200,32 +198,85 @@ class _ClubCreatePageState extends State<ClubCreatePage> {
                             ),
                           ),
                           const SizedBox(height: 14),
-                          TextField(
-                            controller: ownerNomeController,
-                            enabled: !isSubmitting,
-                            decoration: _inputDecoration(
-                              'Il tuo nome',
-                              icon: Icons.person_outline,
+                          if (playerIdentity == null)
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.error.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.error.withValues(alpha: 0.22),
+                                ),
+                              ),
+                              child: Text(
+                                'Prima completa il tuo giocatore dalla schermata precedente.',
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                            )
+                          else
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.surface.withValues(alpha: 0.6),
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(
+                                  color: Theme.of(
+                                    context,
+                                  ).dividerColor.withValues(alpha: 0.35),
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Capitano iniziale',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleSmall
+                                        ?.copyWith(fontWeight: FontWeight.w800),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    '${playerIdentity.nome} ${playerIdentity.cognome}',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.w900),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: [
+                                      AppCountPill(
+                                        label: 'ID',
+                                        value: playerIdentity.idConsole,
+                                        icon: Icons.sports_esports_outlined,
+                                      ),
+                                      AppCountPill(
+                                        label: 'Maglia',
+                                        value:
+                                            '#${playerIdentity.shirtNumber?.toString().padLeft(2, '0') ?? '--'}',
+                                        icon: Icons.tag_outlined,
+                                      ),
+                                      AppCountPill(
+                                        label: 'Ruolo',
+                                        value: playerIdentity.primaryRole,
+                                        icon: Icons.sports_soccer_outlined,
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 14),
-                          TextField(
-                            controller: ownerCognomeController,
-                            enabled: !isSubmitting,
-                            decoration: _inputDecoration(
-                              'Il tuo cognome',
-                              icon: Icons.badge_outlined,
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          TextField(
-                            controller: ownerConsoleIdController,
-                            enabled: !isSubmitting,
-                            decoration: _inputDecoration(
-                              'ID console',
-                              icon: Icons.badge_outlined,
-                            ),
-                          ),
                           const SizedBox(height: 18),
                           OutlinedButton.icon(
                             onPressed: isSubmitting || isPickingLogo
