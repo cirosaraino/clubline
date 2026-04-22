@@ -1,24 +1,13 @@
 import { Router } from 'express';
-import { z } from 'zod';
 
+import { ForbiddenError, NotFoundError } from '../lib/errors';
 import { supabaseDb } from '../lib/supabase';
 import { asyncHandler } from '../middleware/async-handler';
 import { requireAuth } from '../middleware/auth';
 import { sendCreated, sendNoContent, sendOk } from '../lib/http';
 import { realtimeEventsBus } from '../lib/realtime-events';
 import { PlayerService } from '../services/player.service';
-
-const playerInputSchema = z.object({
-  nome: z.string().min(1),
-  cognome: z.string().min(1),
-  account_email: z.string().email().nullable().optional(),
-  shirt_number: z.number().int().nullable().optional(),
-  primary_role: z.string().nullable().optional(),
-  secondary_role: z.string().nullable().optional(),
-  secondary_roles: z.array(z.string()).nullable().optional(),
-  id_console: z.string().min(1).nullable().optional(),
-  team_role: z.enum(['captain', 'vice_captain', 'player']).nullable().optional(),
-});
+import { playerInputSchema } from '../validation/players.validation';
 
 export const playersRouter = Router();
 const playerService = new PlayerService(supabaseDb);
@@ -44,17 +33,17 @@ playersRouter.get(
   '/by-console/:consoleId',
   requireAuth,
   asyncHandler(async (req, res) => {
+    const membership = req.principal!.membership;
+    if (!membership) {
+      throw new ForbiddenError('Devi appartenere a un club per cercare un giocatore');
+    }
+
     const player = await playerService.findByConsoleId(
       req.params.consoleId,
-      req.principal!.membership!.club_id,
+      membership.club_id,
     );
     if (!player) {
-      res.status(404).json({
-        error: {
-          message: 'Giocatore non trovato',
-        },
-      });
-      return;
+      throw new NotFoundError('Giocatore non trovato', 'player_not_found');
     }
 
     sendOk(res, { player });

@@ -122,15 +122,26 @@ test('deleteAccount blocks users with a pending join request', async () => {
 
 test('deleteAccount archives standalone profiles and deletes the auth user', async () => {
   const adminDb = createAuthAdminDb({
-    player_profiles: [createPlayerProfile()],
+    player_profiles: [
+      createPlayerProfile(),
+      createPlayerProfile({
+        id: 2,
+        archived_at: '2026-04-19T08:00:00.000Z',
+        nome: 'Storico',
+      }),
+    ],
   });
   const service = new AuthService({} as any, adminDb as any);
 
   await service.deleteAccount('user-1');
 
   const updatedProfile = adminDb.findById<PlayerProfileRow>('player_profiles', 1);
+  const archivedProfile = adminDb.findById<PlayerProfileRow>('player_profiles', 2);
   assert.equal(updatedProfile?.auth_user_id, null);
   assert.equal(updatedProfile?.account_email, null);
   assert.ok(updatedProfile?.archived_at);
+  assert.equal(archivedProfile?.auth_user_id, null);
+  assert.equal(archivedProfile?.account_email, null);
+  assert.equal(archivedProfile?.archived_at, '2026-04-19T08:00:00.000Z');
   assert.deepEqual(adminDb.deletedUserIds, ['user-1']);
 });

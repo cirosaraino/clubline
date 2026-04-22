@@ -134,7 +134,6 @@ class _AuthSheetState extends State<AuthSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final compact = AppResponsive.isCompact(context);
     final horizontalPadding = AppResponsive.horizontalPadding(context) + 4;
 
@@ -146,180 +145,155 @@ class _AuthSheetState extends State<AuthSheet> {
           top: 10,
           bottom: 18 + MediaQuery.of(context).viewInsets.bottom,
         ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Container(
-                  width: 42,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: UltrasAppTheme.outlineStrong,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
-              Center(child: ClublineBrandLogo(width: compact ? 170 : 220)),
-              const SizedBox(height: 18),
-              Text(
-                selectedMode == AuthSheetMode.signIn
-                    ? 'Accedi a Clubline'
-                    : 'Crea account Clubline',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                selectedMode == AuthSheetMode.signIn
-                    ? 'Usa email e password per entrare nella piattaforma.'
-                    : 'Registrati ed entra subito in Clubline.',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: UltrasAppTheme.textMuted,
-                  height: 1.35,
-                ),
-              ),
-              if (selectedMode == AuthSheetMode.signUp) ...[
-                const SizedBox(height: 14),
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.22),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 42,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: UltrasAppTheme.outlineStrong,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
                     ),
                   ),
-                  child: Text(
-                    'Con la configurazione attuale, dopo la registrazione entrerai direttamente nell app.',
-                    style: theme.textTheme.bodyMedium?.copyWith(height: 1.35),
+                  const SizedBox(height: 18),
+                  Center(child: ClublineBrandLogo(width: compact ? 170 : 220)),
+                  const SizedBox(height: 18),
+                  AppPageHeader(
+                    title: selectedMode == AuthSheetMode.signIn
+                        ? 'Accedi a Clubline'
+                        : 'Crea account Clubline',
+                    subtitle: selectedMode == AuthSheetMode.signIn
+                        ? 'Usa email e password per entrare nella piattaforma.'
+                        : 'Registrati ed entra subito in Clubline.',
+                    centered: true,
                   ),
-                ),
-              ],
-              const SizedBox(height: 18),
-              SizedBox(
-                width: double.infinity,
-                child: SegmentedButton<AuthSheetMode>(
-                  segments: const [
-                    ButtonSegment<AuthSheetMode>(
-                      value: AuthSheetMode.signIn,
-                      label: Text('Accedi'),
-                      icon: Icon(Icons.login_outlined),
-                    ),
-                    ButtonSegment<AuthSheetMode>(
-                      value: AuthSheetMode.signUp,
-                      label: Text('Registrati'),
-                      icon: Icon(Icons.person_add_alt_1_outlined),
+                  if (selectedMode == AuthSheetMode.signUp) ...[
+                    const SizedBox(height: 14),
+                    const AppBanner(
+                      message:
+                          'Con la configurazione attuale, dopo la registrazione entrerai direttamente nell app.',
+                      tone: AppStatusTone.info,
+                      icon: Icons.info_outline,
                     ),
                   ],
-                  selected: {selectedMode},
-                  onSelectionChanged: isSubmitting
-                      ? null
-                      : (selection) {
-                          setState(() {
-                            selectedMode = selection.first;
-                            errorMessage = null;
-                          });
-                        },
-                  style: compact
-                      ? ButtonStyle(
-                          visualDensity: const VisualDensity(
-                            horizontal: -1,
-                            vertical: -1,
-                          ),
-                        )
-                      : null,
-                ),
-              ),
-              const SizedBox(height: 18),
-              TextField(
-                controller: emailController,
-                keyboardType: TextInputType.emailAddress,
-                autocorrect: false,
-                enableSuggestions: false,
-                decoration: _decoration(
-                  'Email',
-                  icon: Icons.alternate_email_outlined,
-                ),
-                enabled: !isSubmitting,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: passwordController,
-                obscureText: true,
-                decoration: _decoration('Password', icon: Icons.lock_outline),
-                enabled: !isSubmitting,
-              ),
-              if (selectedMode == AuthSheetMode.signIn) ...[
-                const SizedBox(height: 6),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: isSubmitting ? null : _openPasswordResetSheet,
-                    child: const Text('Password dimenticata?'),
-                  ),
-                ),
-              ],
-              if (selectedMode == AuthSheetMode.signUp) ...[
-                const SizedBox(height: 12),
-                TextField(
-                  controller: confirmPasswordController,
-                  obscureText: true,
-                  decoration: _decoration(
-                    'Conferma password',
-                    icon: Icons.lock_reset_outlined,
-                  ),
-                  enabled: !isSubmitting,
-                ),
-              ],
-              if (errorMessage != null) ...[
-                const SizedBox(height: 14),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: _isEmailRateLimitMessage(errorMessage!)
-                        ? theme.colorScheme.primary.withValues(alpha: 0.08)
-                        : theme.colorScheme.error.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: _isEmailRateLimitMessage(errorMessage!)
-                          ? theme.colorScheme.primary.withValues(alpha: 0.22)
-                          : theme.colorScheme.error.withValues(alpha: 0.22),
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    width: double.infinity,
+                    child: SegmentedButton<AuthSheetMode>(
+                      segments: const [
+                        ButtonSegment<AuthSheetMode>(
+                          value: AuthSheetMode.signIn,
+                          label: Text('Accedi'),
+                          icon: Icon(Icons.login_outlined),
+                        ),
+                        ButtonSegment<AuthSheetMode>(
+                          value: AuthSheetMode.signUp,
+                          label: Text('Registrati'),
+                          icon: Icon(Icons.person_add_alt_1_outlined),
+                        ),
+                      ],
+                      selected: {selectedMode},
+                      onSelectionChanged: isSubmitting
+                          ? null
+                          : (selection) {
+                              setState(() {
+                                selectedMode = selection.first;
+                                errorMessage = null;
+                              });
+                            },
+                      style: compact
+                          ? ButtonStyle(
+                              visualDensity: const VisualDensity(
+                                horizontal: -1,
+                                vertical: -1,
+                              ),
+                            )
+                          : null,
                     ),
                   ),
-                  child: Text(
-                    errorMessage!,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: _isEmailRateLimitMessage(errorMessage!)
-                          ? theme.colorScheme.onSurface
-                          : theme.colorScheme.error,
-                      fontWeight: FontWeight.w700,
-                      height: 1.35,
+                  const SizedBox(height: 18),
+                  TextField(
+                    controller: emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    autocorrect: false,
+                    enableSuggestions: false,
+                    decoration: _decoration(
+                      'Email',
+                      icon: Icons.alternate_email_outlined,
+                    ),
+                    enabled: !isSubmitting,
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: passwordController,
+                    obscureText: true,
+                    decoration: _decoration(
+                      'Password',
+                      icon: Icons.lock_outline,
+                    ),
+                    enabled: !isSubmitting,
+                  ),
+                  if (selectedMode == AuthSheetMode.signIn) ...[
+                    const SizedBox(height: 6),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: isSubmitting
+                            ? null
+                            : _openPasswordResetSheet,
+                        child: const Text('Password dimenticata?'),
+                      ),
+                    ),
+                  ],
+                  if (selectedMode == AuthSheetMode.signUp) ...[
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: confirmPasswordController,
+                      obscureText: true,
+                      decoration: _decoration(
+                        'Conferma password',
+                        icon: Icons.lock_reset_outlined,
+                      ),
+                      enabled: !isSubmitting,
+                    ),
+                  ],
+                  if (errorMessage != null) ...[
+                    const SizedBox(height: 14),
+                    AppBanner(
+                      message: errorMessage!,
+                      tone: _isEmailRateLimitMessage(errorMessage!)
+                          ? AppStatusTone.info
+                          : AppStatusTone.error,
+                      icon: _isEmailRateLimitMessage(errorMessage!)
+                          ? Icons.schedule_outlined
+                          : Icons.error_outline,
+                    ),
+                  ],
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: isSubmitting ? null : _submit,
+                      child: Text(
+                        isSubmitting
+                            ? 'Attendi...'
+                            : selectedMode == AuthSheetMode.signIn
+                            ? 'Accedi'
+                            : 'Crea account',
+                      ),
                     ),
                   ),
-                ),
-              ],
-              const SizedBox(height: 18),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: isSubmitting ? null : _submit,
-                  child: Text(
-                    isSubmitting
-                        ? 'Attendi...'
-                        : selectedMode == AuthSheetMode.signIn
-                        ? 'Accedi'
-                        : 'Crea account',
-                  ),
-                ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),

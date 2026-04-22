@@ -600,35 +600,175 @@ class _PlayerFormPageState extends State<PlayerFormPage> {
               )
             else
               SafeArea(
-                child: SingleChildScrollView(
-                  padding: AppResponsive.pagePadding(
-                    context,
-                    top: 16,
-                    bottom: 28,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        pageTitle,
-                        style: Theme.of(context).textTheme.headlineMedium
-                            ?.copyWith(fontWeight: FontWeight.w900),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        pageSubtitle,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                      const SizedBox(height: 18),
-                      Card(
-                        child: Padding(
-                          padding: EdgeInsets.all(
-                            AppResponsive.cardPadding(context),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (showCompletionNotice) ...[
+                child: AppContentFrame(
+                  wide: true,
+                  child: SingleChildScrollView(
+                    padding: AppResponsive.pagePadding(
+                      context,
+                      top: 16,
+                      bottom: 28,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        AppPageHeader(
+                          eyebrow: widget.draftOnly
+                              ? 'Onboarding'
+                              : isEditing
+                              ? 'Player Editor'
+                              : 'Player Setup',
+                          title: pageTitle,
+                          subtitle: pageSubtitle,
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        Card(
+                          child: Padding(
+                            padding: EdgeInsets.all(
+                              AppResponsive.cardPadding(context),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (showCompletionNotice) ...[
+                                  AppBanner(
+                                    message: widget.draftOnly
+                                        ? 'Inserisci subito nome, cognome, ID console, maglia e ruolo principale. Quando sceglierai una squadra penseremo noi ad assegnare il ruolo club.'
+                                        : bootstrapAsCaptain
+                                        ? 'Questo account verra impostato come capitano quando completerai la creazione del club.'
+                                        : widget.selfRegistration
+                                        ? 'Il ruolo club verra impostato automaticamente come giocatore appena entrerai in una squadra.'
+                                        : 'Completa i dati mancanti del giocatore per sbloccare tutta la navigazione del club.',
+                                    tone: AppStatusTone.info,
+                                    icon: Icons.info_outline,
+                                  ),
+                                  const SizedBox(height: AppSpacing.lg),
+                                ],
+                                Text(
+                                  'Dati base',
+                                  style: Theme.of(context).textTheme.titleSmall
+                                      ?.copyWith(fontWeight: FontWeight.w800),
+                                ),
+                                const SizedBox(height: 12),
+                                TextField(
+                                  controller: nomeController,
+                                  decoration: _inputDecoration('Nome'),
+                                ),
+                                const SizedBox(height: 12),
+                                TextField(
+                                  controller: cognomeController,
+                                  decoration: _inputDecoration('Cognome'),
+                                ),
+                                const SizedBox(height: 12),
+                                TextField(
+                                  controller: accountEmailController,
+                                  keyboardType: TextInputType.emailAddress,
+                                  autocorrect: false,
+                                  enableSuggestions: false,
+                                  readOnly:
+                                      widget.draftOnly ||
+                                      widget.selfRegistration ||
+                                      !canEditAccountEmail,
+                                  decoration:
+                                      _inputDecoration(
+                                        'Email accesso',
+                                        errorText: accountEmailError,
+                                      ).copyWith(
+                                        helperText: widget.draftOnly
+                                            ? 'Email collegata all account con cui stai entrando.'
+                                            : widget.selfRegistration
+                                            ? 'Questa mail viene presa dall account con cui hai effettuato l accesso.'
+                                            : isEditing
+                                            ? 'La mail di accesso non e modificabile da questa schermata.'
+                                            : canEditAccountEmail
+                                            ? 'Campo opzionale. Se impostato, il login reale del giocatore verra collegato a questa mail.'
+                                            : 'La mail di accesso puo essere gestita solo da capitano o vice autorizzato.',
+                                      ),
+                                  onChanged: (_) {
+                                    if (accountEmailError == null) return;
+                                    setState(() {
+                                      accountEmailError = null;
+                                    });
+                                  },
+                                ),
+                                const SizedBox(height: 12),
+                                TextField(
+                                  controller: idConsoleController,
+                                  decoration:
+                                      _inputDecoration(
+                                        'ID console',
+                                        errorText: idConsoleError,
+                                      ).copyWith(
+                                        helperText: widget.draftOnly
+                                            ? 'Lo useremo per riconoscerti quando entrerai in una squadra.'
+                                            : widget.selfRegistration
+                                            ? 'Se questo ID console e gia presente in rosa ma non ha ancora una mail associata, il profilo verra collegato a questo account.'
+                                            : null,
+                                      ),
+                                  onChanged: (_) {
+                                    if (idConsoleError == null) return;
+                                    setState(() {
+                                      idConsoleError = null;
+                                    });
+                                  },
+                                ),
+                                const SizedBox(height: 18),
+                                Text(
+                                  'Dettagli sportivi',
+                                  style: Theme.of(context).textTheme.titleSmall
+                                      ?.copyWith(fontWeight: FontWeight.w800),
+                                ),
+                                const SizedBox(height: 12),
+                                DropdownButtonFormField<String>(
+                                  key: ValueKey(
+                                    'shirt-number-$selectedShirtNumber',
+                                  ),
+                                  initialValue: selectedShirtNumber,
+                                  hint: const Text('Seleziona un numero'),
+                                  decoration: _inputDecoration('Numero maglia'),
+                                  items: kShirtNumberOptions
+                                      .map(
+                                        (number) => DropdownMenuItem<String>(
+                                          value: number,
+                                          child: Text(number),
+                                        ),
+                                      )
+                                      .toList(),
+                                  onChanged: isSaving
+                                      ? null
+                                      : (value) {
+                                          setState(() {
+                                            selectedShirtNumber = value;
+                                          });
+                                        },
+                                ),
+                                const SizedBox(height: 12),
+                                DropdownButtonFormField<String>(
+                                  key: ValueKey(
+                                    'primary-role-$selectedPrimaryRole',
+                                  ),
+                                  initialValue: selectedPrimaryRole,
+                                  hint: const Text('Seleziona un ruolo'),
+                                  decoration: _inputDecoration(
+                                    'Ruolo principale',
+                                  ),
+                                  items: roleItems,
+                                  onChanged: isSaving
+                                      ? null
+                                      : (value) {
+                                          setState(() {
+                                            selectedPrimaryRole = value;
+                                            if (value != null) {
+                                              selectedSecondaryRoles =
+                                                  selectedSecondaryRoles
+                                                      .where(
+                                                        (role) => role != value,
+                                                      )
+                                                      .toList();
+                                            }
+                                          });
+                                        },
+                                ),
+                                const SizedBox(height: 12),
                                 Container(
                                   width: double.infinity,
                                   padding: const EdgeInsets.all(14),
@@ -642,342 +782,177 @@ class _PlayerFormPageState extends State<PlayerFormPage> {
                                       ).dividerColor.withValues(alpha: 0.35),
                                     ),
                                   ),
-                                  child: Text(
-                                    widget.draftOnly
-                                        ? 'Inserisci subito nome, cognome, ID console, maglia e ruolo principale. Quando sceglierai una squadra penseremo noi ad assegnare il ruolo club.'
-                                        : bootstrapAsCaptain
-                                        ? 'Questo account verra impostato come capitano quando completerai la creazione del club.'
-                                        : widget.selfRegistration
-                                        ? 'Il ruolo club verra impostato automaticamente come giocatore appena entrerai in una squadra.'
-                                        : 'Completa i dati mancanti del giocatore per sbloccare tutta la navigazione del club.',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodyMedium,
-                                  ),
-                                ),
-                                const SizedBox(height: 18),
-                              ],
-                              Text(
-                                'Dati base',
-                                style: Theme.of(context).textTheme.titleSmall
-                                    ?.copyWith(fontWeight: FontWeight.w800),
-                              ),
-                              const SizedBox(height: 12),
-                              TextField(
-                                controller: nomeController,
-                                decoration: _inputDecoration('Nome'),
-                              ),
-                              const SizedBox(height: 12),
-                              TextField(
-                                controller: cognomeController,
-                                decoration: _inputDecoration('Cognome'),
-                              ),
-                              const SizedBox(height: 12),
-                              TextField(
-                                controller: accountEmailController,
-                                keyboardType: TextInputType.emailAddress,
-                                autocorrect: false,
-                                enableSuggestions: false,
-                                readOnly:
-                                    widget.draftOnly ||
-                                    widget.selfRegistration ||
-                                    !canEditAccountEmail,
-                                decoration:
-                                    _inputDecoration(
-                                      'Email accesso',
-                                      errorText: accountEmailError,
-                                    ).copyWith(
-                                      helperText: widget.draftOnly
-                                          ? 'Email collegata all account con cui stai entrando.'
-                                          : widget.selfRegistration
-                                          ? 'Questa mail viene presa dall account con cui hai effettuato l accesso.'
-                                          : isEditing
-                                          ? 'La mail di accesso non e modificabile da questa schermata.'
-                                          : canEditAccountEmail
-                                          ? 'Campo opzionale. Se impostato, il login reale del giocatore verra collegato a questa mail.'
-                                          : 'La mail di accesso puo essere gestita solo da capitano o vice autorizzato.',
-                                    ),
-                                onChanged: (_) {
-                                  if (accountEmailError == null) return;
-                                  setState(() {
-                                    accountEmailError = null;
-                                  });
-                                },
-                              ),
-                              const SizedBox(height: 12),
-                              TextField(
-                                controller: idConsoleController,
-                                decoration:
-                                    _inputDecoration(
-                                      'ID console',
-                                      errorText: idConsoleError,
-                                    ).copyWith(
-                                      helperText: widget.draftOnly
-                                          ? 'Lo useremo per riconoscerti quando entrerai in una squadra.'
-                                          : widget.selfRegistration
-                                          ? 'Se questo ID console e gia presente in rosa ma non ha ancora una mail associata, il profilo verra collegato a questo account.'
-                                          : null,
-                                    ),
-                                onChanged: (_) {
-                                  if (idConsoleError == null) return;
-                                  setState(() {
-                                    idConsoleError = null;
-                                  });
-                                },
-                              ),
-                              const SizedBox(height: 18),
-                              Text(
-                                'Dettagli sportivi',
-                                style: Theme.of(context).textTheme.titleSmall
-                                    ?.copyWith(fontWeight: FontWeight.w800),
-                              ),
-                              const SizedBox(height: 12),
-                              DropdownButtonFormField<String>(
-                                key: ValueKey(
-                                  'shirt-number-$selectedShirtNumber',
-                                ),
-                                initialValue: selectedShirtNumber,
-                                hint: const Text('Seleziona un numero'),
-                                decoration: _inputDecoration('Numero maglia'),
-                                items: kShirtNumberOptions
-                                    .map(
-                                      (number) => DropdownMenuItem<String>(
-                                        value: number,
-                                        child: Text(number),
-                                      ),
-                                    )
-                                    .toList(),
-                                onChanged: isSaving
-                                    ? null
-                                    : (value) {
-                                        setState(() {
-                                          selectedShirtNumber = value;
-                                        });
-                                      },
-                              ),
-                              const SizedBox(height: 12),
-                              DropdownButtonFormField<String>(
-                                key: ValueKey(
-                                  'primary-role-$selectedPrimaryRole',
-                                ),
-                                initialValue: selectedPrimaryRole,
-                                hint: const Text('Seleziona un ruolo'),
-                                decoration: _inputDecoration(
-                                  'Ruolo principale',
-                                ),
-                                items: roleItems,
-                                onChanged: isSaving
-                                    ? null
-                                    : (value) {
-                                        setState(() {
-                                          selectedPrimaryRole = value;
-                                          if (value != null) {
-                                            selectedSecondaryRoles =
-                                                selectedSecondaryRoles
-                                                    .where(
-                                                      (role) => role != value,
-                                                    )
-                                                    .toList();
-                                          }
-                                        });
-                                      },
-                              ),
-                              const SizedBox(height: 12),
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(14),
-                                decoration: BoxDecoration(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.surface.withValues(alpha: 0.6),
-                                  borderRadius: BorderRadius.circular(18),
-                                  border: Border.all(
-                                    color: Theme.of(
-                                      context,
-                                    ).dividerColor.withValues(alpha: 0.35),
-                                  ),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            'Ruoli secondari',
-                                            style: Theme.of(
-                                              context,
-                                            ).textTheme.titleSmall,
-                                          ),
-                                        ),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 6,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Theme.of(context)
-                                                .colorScheme
-                                                .primary
-                                                .withValues(alpha: 0.16),
-                                            borderRadius: BorderRadius.circular(
-                                              999,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              'Ruoli secondari',
+                                              style: Theme.of(
+                                                context,
+                                              ).textTheme.titleSmall,
                                             ),
                                           ),
-                                          child: Text(
-                                            secondaryRoleCount == 0
-                                                ? 'Nessuno'
-                                                : '$secondaryRoleCount selezionati',
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .bodySmall
-                                                ?.copyWith(
-                                                  fontWeight: FontWeight.w700,
-                                                ),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 6,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .primary
+                                                  .withValues(alpha: 0.16),
+                                              borderRadius:
+                                                  BorderRadius.circular(999),
+                                            ),
+                                            child: Text(
+                                              secondaryRoleCount == 0
+                                                  ? 'Nessuno'
+                                                  : '$secondaryRoleCount selezionati',
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodySmall
+                                                  ?.copyWith(
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                            ),
                                           ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      'Facoltativi. Il ruolo principale viene escluso automaticamente.',
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.bodySmall,
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Wrap(
-                                      spacing: 8,
-                                      runSpacing: 8,
-                                      children: kPlayerRoles.map((role) {
-                                        final isPrimaryRole =
-                                            role == selectedPrimaryRole;
-                                        final isSelected =
-                                            selectedSecondaryRoles.contains(
-                                              role,
-                                            );
-                                        final category = kRoleCategories[role];
+                                        ],
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        'Facoltativi. Il ruolo principale viene escluso automaticamente.',
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall,
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Wrap(
+                                        spacing: 8,
+                                        runSpacing: 8,
+                                        children: kPlayerRoles.map((role) {
+                                          final isPrimaryRole =
+                                              role == selectedPrimaryRole;
+                                          final isSelected =
+                                              selectedSecondaryRoles.contains(
+                                                role,
+                                              );
+                                          final category =
+                                              kRoleCategories[role];
 
-                                        return FilterChip(
-                                          label: Text(
-                                            category == null
-                                                ? role
-                                                : '$role - $category',
-                                          ),
-                                          selected: isSelected,
-                                          onSelected:
-                                              (isSaving || isPrimaryRole)
-                                              ? null
-                                              : (selected) {
-                                                  setState(() {
-                                                    if (selected) {
-                                                      selectedSecondaryRoles = [
-                                                        ...selectedSecondaryRoles,
-                                                        role,
-                                                      ];
-                                                    } else {
+                                          return FilterChip(
+                                            label: Text(
+                                              category == null
+                                                  ? role
+                                                  : '$role - $category',
+                                            ),
+                                            selected: isSelected,
+                                            onSelected:
+                                                (isSaving || isPrimaryRole)
+                                                ? null
+                                                : (selected) {
+                                                    setState(() {
+                                                      if (selected) {
+                                                        selectedSecondaryRoles = [
+                                                          ...selectedSecondaryRoles,
+                                                          role,
+                                                        ];
+                                                      } else {
+                                                        selectedSecondaryRoles =
+                                                            selectedSecondaryRoles
+                                                                .where(
+                                                                  (item) =>
+                                                                      item !=
+                                                                      role,
+                                                                )
+                                                                .toList();
+                                                      }
                                                       selectedSecondaryRoles =
-                                                          selectedSecondaryRoles
-                                                              .where(
-                                                                (item) =>
-                                                                    item !=
-                                                                    role,
-                                                              )
-                                                              .toList();
-                                                    }
-                                                    selectedSecondaryRoles =
-                                                        normalizeRoleCodes(
-                                                          selectedSecondaryRoles,
-                                                        );
-                                                  });
-                                                },
-                                        );
-                                      }).toList(),
-                                    ),
-                                    const SizedBox(height: 10),
-                                    Text(
-                                      secondaryRoleCount == 0
-                                          ? 'Nessun ruolo secondario selezionato.'
-                                          : 'Selezionati: ${selectedSecondaryRoles.join(', ')}',
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.bodySmall,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              if (!widget.draftOnly && canEditTeamRole) ...[
-                                DropdownButtonFormField<String>(
-                                  key: ValueKey('team-role-$selectedTeamRole'),
-                                  initialValue: selectedTeamRole,
-                                  decoration: _inputDecoration('Ruolo club'),
-                                  items: teamRoleItems,
-                                  onChanged: isSaving
-                                      ? null
-                                      : (value) {
-                                          if (value == null) return;
-                                          setState(() {
-                                            selectedTeamRole = value;
-                                          });
-                                        },
-                                ),
-                                const SizedBox(height: 12),
-                              ] else if (!widget.draftOnly &&
-                                  currentUser?.isViceCaptain == true &&
-                                  !widget.selfRegistration) ...[
-                                Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.all(14),
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context).colorScheme.surface
-                                        .withValues(alpha: 0.55),
-                                    borderRadius: BorderRadius.circular(18),
-                                    border: Border.all(
-                                      color: Theme.of(
-                                        context,
-                                      ).dividerColor.withValues(alpha: 0.35),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    'Il ruolo club resta modificabile solo dal capitano.',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodyMedium,
+                                                          normalizeRoleCodes(
+                                                            selectedSecondaryRoles,
+                                                          );
+                                                    });
+                                                  },
+                                          );
+                                        }).toList(),
+                                      ),
+                                      const SizedBox(height: 10),
+                                      Text(
+                                        secondaryRoleCount == 0
+                                            ? 'Nessun ruolo secondario selezionato.'
+                                            : 'Selezionati: ${selectedSecondaryRoles.join(', ')}',
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall,
+                                      ),
+                                    ],
                                   ),
                                 ),
                                 const SizedBox(height: 12),
-                              ],
-                              if (errorMessage != null)
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 12),
-                                  child: Text(
-                                    errorMessage!,
-                                    style: const TextStyle(color: Colors.red),
+                                if (!widget.draftOnly && canEditTeamRole) ...[
+                                  DropdownButtonFormField<String>(
+                                    key: ValueKey(
+                                      'team-role-$selectedTeamRole',
+                                    ),
+                                    initialValue: selectedTeamRole,
+                                    decoration: _inputDecoration('Ruolo club'),
+                                    items: teamRoleItems,
+                                    onChanged: isSaving
+                                        ? null
+                                        : (value) {
+                                            if (value == null) return;
+                                            setState(() {
+                                              selectedTeamRole = value;
+                                            });
+                                          },
                                   ),
-                                ),
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton(
+                                  const SizedBox(height: 12),
+                                ] else if (!widget.draftOnly &&
+                                    currentUser?.isViceCaptain == true &&
+                                    !widget.selfRegistration) ...[
+                                  const AppBanner(
+                                    message:
+                                        'Il ruolo club resta modificabile solo dal capitano.',
+                                    tone: AppStatusTone.info,
+                                    icon: Icons.lock_outline,
+                                  ),
+                                  const SizedBox(height: 12),
+                                ],
+                                if (errorMessage != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: AppBanner(
+                                      message: errorMessage!,
+                                      tone: AppStatusTone.error,
+                                      icon: Icons.error_outline,
+                                    ),
+                                  ),
+                                AppActionButton(
+                                  label: isSaving
+                                      ? 'Salvataggio...'
+                                      : widget.draftOnly
+                                      ? 'Salva e continua'
+                                      : widget.selfRegistration
+                                      ? 'Crea profilo'
+                                      : isEditing
+                                      ? 'Salva modifiche'
+                                      : 'Salva giocatore',
+                                  icon: isEditing
+                                      ? Icons.save_outlined
+                                      : Icons.arrow_forward_outlined,
+                                  expand: true,
                                   onPressed: isSaving ? null : _savePlayer,
-                                  child: Text(
-                                    isSaving
-                                        ? 'Salvataggio...'
-                                        : widget.draftOnly
-                                        ? 'Salva e continua'
-                                        : widget.selfRegistration
-                                        ? 'Crea profilo'
-                                        : isEditing
-                                        ? 'Salva modifiche'
-                                        : 'Salva giocatore',
-                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),

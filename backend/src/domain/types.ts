@@ -20,7 +20,7 @@ export interface AuthSessionDto {
 
 export interface PlayerProfileRow {
   id: number | string;
-  club_id: number | string;
+  club_id: number | string | null;
   membership_id: number | string | null;
   nome: string;
   cognome: string;

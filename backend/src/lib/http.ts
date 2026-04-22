@@ -16,10 +16,20 @@ export function sendNoContent(res: Response): Response {
   return res.status(204).send();
 }
 
-export function sendError(res: Response, statusCode: number, message: string): Response {
+export function sendError(
+  res: Response,
+  statusCode: number,
+  message: string,
+  options?: {
+    code?: string;
+    details?: unknown;
+  },
+): Response {
   return res.status(statusCode).json({
     error: {
       message,
+      code: options?.code,
+      details: options?.details,
     },
   });
 }

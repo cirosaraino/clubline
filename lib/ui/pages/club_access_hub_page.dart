@@ -111,14 +111,13 @@ class _ClubAccessHubPageState extends State<ClubAccessHubPage> {
 
   @override
   Widget build(BuildContext context) {
-    final compact = AppResponsive.isCompact(context);
     final session = AppSessionScope.of(context);
     final pendingJoinRequest = session.pendingJoinRequest;
     final email = session.currentUserEmail;
     final playerIdentity = session.profileSetupDraft;
     final hasPlayerIdentity = playerIdentity != null;
 
-    return Scaffold(
+    return AppPageScaffold(
       appBar: AppBar(
         title: const Text('Clubline'),
         actions: [
@@ -161,89 +160,101 @@ class _ClubAccessHubPageState extends State<ClubAccessHubPage> {
           ),
         ],
       ),
-      body: Stack(
+      wide: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const AppPageBackground(child: SizedBox.expand()),
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: AppResponsive.pagePadding(context, top: 16, bottom: 28),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          AppAdaptiveColumns(
+            breakpoint: 980,
+            gap: AppResponsive.sectionGap(context),
+            flex: const [2, 3],
+            children: [
+              AppSurfaceCard(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppSpacing.sm,
+                    ),
+                    child: Column(
+                      children: [
+                        ClublineBrandLogo(
+                          width: AppResponsive.isCompact(context) ? 176 : 224,
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        AppPageHeader(
+                          eyebrow: 'Onboarding',
+                          title: hasPlayerIdentity
+                              ? 'Scegli il prossimo passo'
+                              : 'Prepara il tuo giocatore',
+                          subtitle: email == null || email.isEmpty
+                              ? 'Completa il profilo giocatore e poi scegli se creare una squadra o unirti a una già attiva.'
+                              : 'Account attivo: $email.',
+                          centered: true,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              AppResponsiveGrid(
+                minChildWidth: 280,
                 children: [
-                  Center(child: ClublineBrandLogo(width: compact ? 176 : 228)),
-                  const SizedBox(height: 18),
-                  Text(
-                    hasPlayerIdentity
-                        ? 'Scegli il prossimo passo'
-                        : 'Prepara il tuo giocatore',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    email == null || email.isEmpty
-                        ? 'Completa il profilo del giocatore e poi scegli se creare una squadra o unirti a una esistente.'
-                        : 'Account attivo: $email.',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 18),
-                  if (!hasPlayerIdentity) ...[
-                    AppStatusCard(
+                  if (!hasPlayerIdentity)
+                    AppFeatureCard(
                       icon: Icons.person_add_alt_1_outlined,
-                      title: 'Prima crea il tuo giocatore',
+                      title: 'Crea il tuo giocatore',
                       message:
-                          'Inserisci una volta sola i dati del giocatore. Dopo potrai scegliere liberamente il club.',
+                          'Compila una volta sola identità e dettagli sportivi. Dopo il profilo sarà riusato in tutto il flusso.',
                       actionLabel: 'Crea giocatore',
-                      actionIcon: Icons.arrow_forward_outlined,
                       onAction: _openPlayerSetupAction,
-                    ),
-                  ] else ...[
+                      emphasized: true,
+                    )
+                  else
                     _PlayerIdentityCard(
                       draft: playerIdentity,
                       onEdit: _openPlayerSetupAction,
                     ),
-                    const SizedBox(height: 14),
-                  ],
                   if (pendingJoinRequest != null &&
-                      pendingJoinRequest.isPending) ...[
-                    AppStatusCard(
+                      pendingJoinRequest.isPending)
+                    AppFeatureCard(
                       icon: Icons.hourglass_top_outlined,
                       title: 'Richiesta in attesa',
                       message: pendingJoinRequest.club == null
                           ? 'La tua richiesta di ingresso è in revisione.'
                           : 'Richiesta inviata a ${pendingJoinRequest.club!.name}.',
+                      badge: const AppStatusBadge(
+                        label: 'Pending',
+                        tone: AppStatusTone.warning,
+                      ),
                       actionLabel: isCancellingJoinRequest
                           ? 'Annullamento...'
                           : 'Annulla richiesta',
                       actionIcon: Icons.close_outlined,
-                      actionLoading: isCancellingJoinRequest,
                       onAction: isCancellingJoinRequest
                           ? null
                           : _cancelPendingJoinRequest,
-                    ),
-                  ] else if (hasPlayerIdentity) ...[
+                    )
+                  else if (hasPlayerIdentity) ...[
                     _HubActionCard(
                       icon: Icons.add_business_outlined,
                       title: 'Crea una squadra',
                       message:
-                          'Imposta nome e logo. Entrerai subito come capitano.',
+                          'Definisci nome e logo del club. Entrerai subito come capitano.',
                       actionLabel: 'Crea club',
                       onAction: _openCreateClub,
                     ),
-                    const SizedBox(height: 14),
                     _HubActionCard(
                       icon: Icons.group_add_outlined,
                       title: 'Unisciti a una squadra',
                       message:
-                          'Cerca il club e invia la richiesta con il profilo già pronto.',
+                          'Cerca il club e invia una richiesta con il giocatore già pronto.',
                       actionLabel: 'Cerca club',
                       onAction: _openJoinClub,
                     ),
                   ],
                 ],
               ),
-            ),
+            ],
           ),
         ],
       ),
@@ -268,13 +279,14 @@ class _HubActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppStatusCard(
+    return AppFeatureCard(
       icon: icon,
       title: title,
       message: message,
       actionLabel: actionLabel,
       actionIcon: Icons.arrow_forward_outlined,
       onAction: onAction,
+      emphasized: true,
     );
   }
 }
@@ -287,63 +299,58 @@ class _PlayerIdentityCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: EdgeInsets.all(AppResponsive.cardPadding(context)),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Giocatore pronto',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${draft.nome} ${draft.cognome}',
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                AppCountPill(
-                  label: 'ID',
-                  value: draft.idConsole,
-                  icon: Icons.sports_esports_outlined,
-                ),
-                AppCountPill(
-                  label: 'Maglia',
-                  value:
-                      '#${draft.shirtNumber?.toString().padLeft(2, '0') ?? '--'}',
-                  icon: Icons.tag_outlined,
-                ),
-                AppCountPill(
-                  label: 'Ruolo',
-                  value: draft.primaryRole,
-                  icon: Icons.sports_soccer_outlined,
-                ),
-              ],
-            ),
-            if (draft.secondaryRoles.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Text(
-                'Secondari: ${draft.secondaryRoles.join(', ')}',
-                style: Theme.of(context).textTheme.bodySmall,
+    return AppSurfaceCard(
+      icon: Icons.badge_outlined,
+      title: 'Giocatore pronto',
+      subtitle: 'Il tuo profilo è già completo e pronto da usare nei club.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${draft.nome} ${draft.cognome}',
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              AppCountPill(
+                label: 'ID',
+                value: draft.idConsole,
+                icon: Icons.sports_esports_outlined,
+              ),
+              AppCountPill(
+                label: 'Maglia',
+                value:
+                    '#${draft.shirtNumber?.toString().padLeft(2, '0') ?? '--'}',
+                icon: Icons.tag_outlined,
+              ),
+              AppCountPill(
+                label: 'Ruolo',
+                value: draft.primaryRole,
+                icon: Icons.sports_soccer_outlined,
               ),
             ],
-            const SizedBox(height: 14),
-            OutlinedButton.icon(
-              onPressed: onEdit,
-              icon: const Icon(Icons.edit_outlined),
-              label: const Text('Modifica giocatore'),
+          ),
+          if (draft.secondaryRoles.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'Secondari: ${draft.secondaryRoles.join(', ')}',
+              style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
-        ),
+          const SizedBox(height: AppSpacing.md),
+          AppActionButton(
+            label: 'Modifica giocatore',
+            icon: Icons.edit_outlined,
+            variant: AppButtonVariant.secondary,
+            expand: AppResponsive.isCompact(context),
+            onPressed: onEdit,
+          ),
+        ],
       ),
     );
   }

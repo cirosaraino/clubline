@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/app_session.dart';
 import '../../core/app_data_sync.dart';
+import '../../core/app_theme.dart';
 import '../../core/player_constants.dart';
 import '../../data/player_repository.dart';
 import '../../models/player_profile.dart';
@@ -258,6 +259,53 @@ class _PlayersPageState extends State<PlayersPage> {
     return playerTileKeys.putIfAbsent(playerId, () => GlobalKey());
   }
 
+  Widget _buildTopPanel({
+    required Map<String, int> totalsByCategory,
+    required int visiblePlayers,
+    required int totalPlayers,
+  }) {
+    return AppAdaptiveColumns(
+      breakpoint: 980,
+      gap: AppResponsive.sectionGap(context),
+      flex: const [2, 3],
+      children: [
+        _PlayersMacroRoleRecapCard(
+          totalPlayers: players.length,
+          totalsByCategory: totalsByCategory,
+        ),
+        _PlayersFilterCard(
+          isExpanded: isFiltersExpanded,
+          onToggle: () {
+            setState(() {
+              isFiltersExpanded = !isFiltersExpanded;
+            });
+          },
+          selectedMacroRoleFilter: selectedMacroRoleFilter,
+          selectedRoleFilter: selectedRoleFilter,
+          idController: idController,
+          nomeController: nomeController,
+          cognomeController: cognomeController,
+          totalPlayers: totalPlayers,
+          visiblePlayers: visiblePlayers,
+          onMacroRoleChanged: (value) {
+            setState(() {
+              selectedMacroRoleFilter = value;
+            });
+          },
+          onRoleChanged: (value) {
+            setState(() {
+              selectedRoleFilter = value;
+            });
+          },
+          onFiltersChanged: () {
+            setState(() {});
+          },
+          onClearFilters: _clearFilters,
+        ),
+      ],
+    );
+  }
+
   void _scrollToPendingPlayer() {
     final playerId = pendingScrollPlayerId;
     if (playerId == null) {
@@ -383,11 +431,14 @@ class _PlayersPageState extends State<PlayersPage> {
     return AppPageBackground(
       child: RefreshIndicator(
         onRefresh: _loadPlayers,
-        child: ListView(
-          controller: scrollController,
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: padding ?? AppResponsive.pagePadding(context),
-          children: children,
+        child: AppContentFrame(
+          wide: true,
+          child: ListView(
+            controller: scrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: padding ?? AppResponsive.pagePadding(context),
+            children: children,
+          ),
         ),
       ),
     );
@@ -397,22 +448,39 @@ class _PlayersPageState extends State<PlayersPage> {
     final currentUser = AppSessionScope.of(context).currentUser;
 
     if (isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppPageBackground(
+        child: AppLoadingState(label: 'Stiamo caricando la rosa...'),
+      );
     }
 
     if (errorMessage != null) {
       return _buildScrollableBody([
-        AppStatusCard(
-          icon: Icons.error_outline,
+        const AppPageHeader(
+          eyebrow: 'Rosa',
+          title: 'Gestisci giocatori e ruoli',
+          subtitle:
+              'Consulta la rosa, filtra per ruolo e aggiorna i profili dei giocatori del club.',
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        AppErrorState(
           title: 'Errore nel caricamento della rosa',
           message: errorMessage!,
+          actionLabel: 'Riprova',
+          onAction: _loadPlayers,
         ),
       ], padding: AppResponsive.pagePadding(context, top: 24));
     }
 
     if (players.isEmpty) {
       return _buildScrollableBody(const [
-        AppStatusCard(
+        AppPageHeader(
+          eyebrow: 'Rosa',
+          title: 'Gestisci giocatori e ruoli',
+          subtitle:
+              'Consulta la rosa, filtra per ruolo e aggiorna i profili dei giocatori del club.',
+        ),
+        SizedBox(height: AppSpacing.lg),
+        AppEmptyState(
           icon: Icons.groups_2_outlined,
           title: 'Nessun giocatore trovato',
           message:
@@ -427,42 +495,20 @@ class _PlayersPageState extends State<PlayersPage> {
 
     if (filteredPlayers.isEmpty) {
       return _buildScrollableBody([
-        _PlayersMacroRoleRecapCard(
-          totalPlayers: players.length,
+        const AppPageHeader(
+          eyebrow: 'Rosa',
+          title: 'Gestisci giocatori e ruoli',
+          subtitle:
+              'Consulta la rosa, filtra per ruolo e aggiorna i profili dei giocatori del club.',
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        _buildTopPanel(
           totalsByCategory: totalsByCategory,
-        ),
-        const SizedBox(height: 14),
-        _PlayersFilterCard(
-          isExpanded: isFiltersExpanded,
-          onToggle: () {
-            setState(() {
-              isFiltersExpanded = !isFiltersExpanded;
-            });
-          },
-          selectedMacroRoleFilter: selectedMacroRoleFilter,
-          selectedRoleFilter: selectedRoleFilter,
-          idController: idController,
-          nomeController: nomeController,
-          cognomeController: cognomeController,
-          totalPlayers: players.length,
           visiblePlayers: 0,
-          onMacroRoleChanged: (value) {
-            setState(() {
-              selectedMacroRoleFilter = value;
-            });
-          },
-          onRoleChanged: (value) {
-            setState(() {
-              selectedRoleFilter = value;
-            });
-          },
-          onFiltersChanged: () {
-            setState(() {});
-          },
-          onClearFilters: _clearFilters,
+          totalPlayers: players.length,
         ),
-        const SizedBox(height: 18),
-        const AppStatusCard(
+        const SizedBox(height: AppSpacing.lg),
+        const AppEmptyState(
           icon: Icons.filter_alt_off_outlined,
           title: 'Nessun giocatore trovato',
           message:
@@ -472,41 +518,19 @@ class _PlayersPageState extends State<PlayersPage> {
     }
 
     return _buildScrollableBody([
-      _PlayersMacroRoleRecapCard(
-        totalPlayers: players.length,
+      const AppPageHeader(
+        eyebrow: 'Rosa',
+        title: 'Gestisci giocatori e ruoli',
+        subtitle:
+            'Consulta la rosa, filtra per ruolo e aggiorna i profili dei giocatori del club.',
+      ),
+      const SizedBox(height: AppSpacing.lg),
+      _buildTopPanel(
         totalsByCategory: totalsByCategory,
-      ),
-      const SizedBox(height: 14),
-      _PlayersFilterCard(
-        isExpanded: isFiltersExpanded,
-        onToggle: () {
-          setState(() {
-            isFiltersExpanded = !isFiltersExpanded;
-          });
-        },
-        selectedMacroRoleFilter: selectedMacroRoleFilter,
-        selectedRoleFilter: selectedRoleFilter,
-        idController: idController,
-        nomeController: nomeController,
-        cognomeController: cognomeController,
-        totalPlayers: players.length,
         visiblePlayers: filteredPlayers.length,
-        onMacroRoleChanged: (value) {
-          setState(() {
-            selectedMacroRoleFilter = value;
-          });
-        },
-        onRoleChanged: (value) {
-          setState(() {
-            selectedRoleFilter = value;
-          });
-        },
-        onFiltersChanged: () {
-          setState(() {});
-        },
-        onClearFilters: _clearFilters,
+        totalPlayers: players.length,
       ),
-      const SizedBox(height: 18),
+      const SizedBox(height: AppSpacing.lg),
       for (final section in sections) ...[
         AppSectionHeader(
           title: section.title,
@@ -571,42 +595,22 @@ class _PlayersMacroRoleRecapCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: EdgeInsets.all(AppResponsive.cardPadding(context)),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const AppIconBadge(icon: Icons.groups_2_outlined),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Rosa totale: $totalPlayers giocatori',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ],
+    return AppSurfaceCard(
+      icon: Icons.groups_2_outlined,
+      title: 'Rosa totale',
+      subtitle: '$totalPlayers giocatori attivi nel club.',
+      child: Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        children: [
+          for (final category in kPrimaryRoleCategoryOrder)
+            AppCountPill(
+              label: category,
+              value: '${totalsByCategory[category] ?? 0}',
+              icon: _iconForCategory(category),
+              emphasized: true,
             ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                for (final category in kPrimaryRoleCategoryOrder)
-                  AppCountPill(
-                    label: category,
-                    value: '${totalsByCategory[category] ?? 0}',
-                    icon: _iconForCategory(category),
-                    emphasized: true,
-                  ),
-              ],
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -730,62 +734,49 @@ class _PlayersFilterCard extends StatelessWidget {
       ],
     );
 
-    return Card(
-      child: Padding(
-        padding: EdgeInsets.all(AppResponsive.cardPadding(context)),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            InkWell(
-              onTap: onToggle,
-              borderRadius: BorderRadius.circular(16),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Filtri rosa',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w800),
-                      ),
-                    ),
-                    AppCountPill(
-                      label: '$visiblePlayers / $totalPlayers',
-                      emphasized: true,
-                    ),
-                    const SizedBox(width: 8),
-                    AnimatedRotation(
-                      turns: isExpanded ? 0.5 : 0,
-                      duration: const Duration(milliseconds: 220),
-                      curve: Curves.easeOutCubic,
-                      child: const Icon(Icons.keyboard_arrow_down_rounded),
-                    ),
-                  ],
-                ),
+    return AppSurfaceCard(
+      icon: Icons.filter_list_outlined,
+      title: 'Filtri rosa',
+      trailing: InkWell(
+        onTap: onToggle,
+        borderRadius: BorderRadius.circular(999),
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AppCountPill(
+                label: '$visiblePlayers / $totalPlayers',
+                emphasized: true,
               ),
-            ),
-            AnimatedCrossFade(
-              duration: const Duration(milliseconds: 220),
-              crossFadeState: isExpanded
-                  ? CrossFadeState.showSecond
-                  : CrossFadeState.showFirst,
-              firstChild: hasActiveFilters
-                  ? Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        'Filtri attivi: apri per modificarli',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.primary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    )
-                  : const SizedBox.shrink(),
-              secondChild: filtersForm,
-            ),
-          ],
+              const SizedBox(width: 8),
+              AnimatedRotation(
+                turns: isExpanded ? 0.5 : 0,
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                child: const Icon(Icons.keyboard_arrow_down_rounded),
+              ),
+            ],
+          ),
         ),
+      ),
+      child: AnimatedCrossFade(
+        duration: const Duration(milliseconds: 220),
+        crossFadeState: isExpanded
+            ? CrossFadeState.showSecond
+            : CrossFadeState.showFirst,
+        firstChild: Text(
+          hasActiveFilters
+              ? 'Filtri attivi: apri il pannello per modificarli o ripulirli.'
+              : 'Apri i filtri per restringere la rosa per ruolo, nome o ID console.',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: hasActiveFilters
+                ? Theme.of(context).colorScheme.primary
+                : UltrasAppTheme.textMuted,
+            fontWeight: hasActiveFilters ? FontWeight.w700 : null,
+          ),
+        ),
+        secondChild: filtersForm,
       ),
     );
   }

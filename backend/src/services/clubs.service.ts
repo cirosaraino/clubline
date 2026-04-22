@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { inferNamesFromEmail } from '../domain/player-identity';
 import type {
   ClubRow,
   JoinRequestRow,
@@ -10,6 +11,9 @@ import type {
 } from '../domain/types';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../lib/errors';
 import { ensureSuccess, optionalData, requiredData } from '../lib/supabase-result';
+import { MembershipsRepository } from '../repositories/memberships.repository';
+import { PlayerProfilesRepository } from '../repositories/player-profiles.repository';
+import { PlayerIdentityService } from './player-identity.service';
 
 const CLUB_LOGO_BUCKET = 'club-assets';
 const allowedLogoMimeTypes = new Set([
@@ -96,45 +100,6 @@ function ensureCaptain(principal: RequestPrincipal): MembershipRow {
   return membership;
 }
 
-function inferNamesFromEmail(email: string | null | undefined): { nome: string; cognome: string } {
-  const normalizedEmail = normalizeEmail(email);
-  if (!normalizedEmail) {
-    return {
-      nome: 'Nuovo',
-      cognome: 'Membro',
-    };
-  }
-
-  const localPart = normalizedEmail.split('@')[0] ?? '';
-  const cleaned = localPart.replaceAll(/[^a-zA-Z0-9]+/g, ' ').trim();
-  const segments = cleaned
-    .split(/\s+/)
-    .map((segment) => segment.trim())
-    .filter((segment) => segment.length > 0);
-
-  if (segments.length === 0) {
-    return {
-      nome: 'Nuovo',
-      cognome: 'Membro',
-    };
-  }
-
-  return {
-    nome: capitalize(segments[0] ?? ''),
-    cognome: segments.length > 1
-      ? capitalize(segments.slice(1).join(' '))
-      : 'Membro',
-  };
-}
-
-function capitalize(value: string): string {
-  if (value.length === 0) {
-    return value;
-  }
-
-  return `${value[0]?.toUpperCase() ?? ''}${value.substring(1).toLowerCase()}`;
-}
-
 function parseLogoUpload(dataUrl: string): ClubLogoUpload {
   const normalized = dataUrl.trim();
   const match = /^data:([^;]+);base64,(.+)$/i.exec(normalized);
@@ -200,7 +165,15 @@ export interface UpdateClubLogoInput {
 }
 
 export class ClubsService {
-  constructor(private readonly db: SupabaseClient) {}
+  private readonly memberships: MembershipsRepository;
+  private readonly playerProfiles: PlayerProfilesRepository;
+  private readonly playerIdentity: PlayerIdentityService;
+
+  constructor(private readonly db: SupabaseClient) {
+    this.memberships = new MembershipsRepository(db);
+    this.playerProfiles = new PlayerProfilesRepository(db);
+    this.playerIdentity = new PlayerIdentityService(db);
+  }
 
   async listClubs(search?: string): Promise<ClubRow[]> {
     let query = this.db
@@ -253,71 +226,71 @@ export class ClubsService {
       .single();
 
     const club = requiredData(clubInsertResponse) as ClubRow;
+    try {
+      const settingsResponse = await this.db
+        .from('club_settings')
+        .upsert(
+          {
+            club_id: club.id,
+            additional_links: [],
+          },
+          { onConflict: 'club_id' },
+        );
+      ensureSuccess(settingsResponse);
 
-    await this.db
-      .from('club_settings')
-      .upsert(
-        {
-          club_id: club.id,
-          additional_links: [],
-        },
-        { onConflict: 'club_id' },
-      );
+      const permissionsResponse = await this.db
+        .from('club_permission_settings')
+        .upsert(
+          {
+            club_id: club.id,
+            vice_manage_players: false,
+            vice_manage_lineups: false,
+            vice_manage_streams: false,
+            vice_manage_attendance: false,
+            vice_manage_team_info: false,
+          },
+          { onConflict: 'club_id' },
+        );
+      ensureSuccess(permissionsResponse);
 
-    await this.db
-      .from('club_permission_settings')
-      .upsert(
-        {
-          club_id: club.id,
-          vice_manage_players: false,
-          vice_manage_lineups: false,
-          vice_manage_streams: false,
-          vice_manage_attendance: false,
-          vice_manage_team_info: false,
-        },
-        { onConflict: 'club_id' },
-      );
-
-    const membershipResponse = await this.db
-      .from('memberships')
-      .insert({
+      const membership = await this.memberships.create({
         club_id: club.id,
         auth_user_id: principal.authUser.id,
         role: 'captain',
         status: 'active',
-      })
-      .select('*')
-      .single();
+      });
+      await this.ensurePlayerProfileForMembership({
+        membership,
+        email: principal.authUser.email,
+        nome: ownerNome,
+        cognome: ownerCognome,
+        consoleId: ownerConsoleId,
+        shirtNumber: input.owner_shirt_number,
+        primaryRole: input.owner_primary_role,
+        teamRole: 'captain',
+      });
 
-    const membership = requiredData(membershipResponse) as MembershipRow;
-    await this.ensurePlayerProfileForMembership({
-      membership,
-      email: principal.authUser.email,
-      nome: ownerNome,
-      cognome: ownerCognome,
-      consoleId: ownerConsoleId,
-      shirtNumber: input.owner_shirt_number,
-      primaryRole: input.owner_primary_role,
-      teamRole: 'captain',
-    });
+      let currentClub = club;
+      if (normalizeOptionalText(input.logo_data_url) != null) {
+        currentClub = await this.updateClubLogoForClub(
+          club.id,
+          {
+            logo_data_url: normalizeOptionalText(input.logo_data_url)!,
+            primary_color: input.primary_color,
+            accent_color: input.accent_color,
+            surface_color: input.surface_color,
+          },
+        );
+      }
 
-    let currentClub = club;
-    if (normalizeOptionalText(input.logo_data_url) != null) {
-      currentClub = await this.updateClubLogoForClub(
-        club.id,
-        {
-          logo_data_url: normalizeOptionalText(input.logo_data_url)!,
-          primary_color: input.primary_color,
-          accent_color: input.accent_color,
-          surface_color: input.surface_color,
-        },
-      );
+      return {
+        club: currentClub,
+        membership,
+      };
+    } catch (error) {
+      await this.db.from('clubs').delete().eq('id', club.id);
+      throw error;
     }
-
-    return {
-      club: currentClub,
-      membership,
-    };
   }
 
   async getCurrentClub(principal: RequestPrincipal): Promise<ClubRow | null> {
@@ -431,40 +404,42 @@ export class ClubsService {
       throw new ConflictError('L utente appartiene gia a un club');
     }
 
-    const membershipResponse = await this.db
-      .from('memberships')
-      .insert({
-        club_id: joinRequest.club_id,
-        auth_user_id: joinRequest.requester_user_id,
-        role: 'player',
-        status: 'active',
-      })
-      .select('*')
-      .single();
-
-    const membership = requiredData(membershipResponse) as MembershipRow;
-    await this.ensurePlayerProfileForMembership({
-      membership,
-      email: joinRequest.requester_email,
-      nome: joinRequest.requested_nome,
-      cognome: joinRequest.requested_cognome,
-      shirtNumber: joinRequest.requested_shirt_number,
-      primaryRole: joinRequest.requested_primary_role,
-      teamRole: 'player',
+    const membership = await this.memberships.create({
+      club_id: joinRequest.club_id,
+      auth_user_id: joinRequest.requester_user_id,
+      role: 'player',
+      status: 'active',
     });
 
-    const updateResponse = await this.db
-      .from('join_requests')
-      .update({
-        status: 'approved',
-        decided_by_membership_id: captainMembership.id,
-        decided_at: new Date().toISOString(),
-      })
-      .eq('id', joinRequest.id)
-      .eq('status', 'pending');
-    ensureSuccess(updateResponse);
+    try {
+      await this.ensurePlayerProfileForMembership({
+        membership,
+        email: joinRequest.requester_email,
+        nome: joinRequest.requested_nome,
+        cognome: joinRequest.requested_cognome,
+        shirtNumber: joinRequest.requested_shirt_number,
+        primaryRole: joinRequest.requested_primary_role,
+        teamRole: 'player',
+      });
 
-    return membership;
+      const updateResponse = await this.db
+        .from('join_requests')
+        .update({
+          status: 'approved',
+          decided_by_membership_id: captainMembership.id,
+          decided_at: new Date().toISOString(),
+        })
+        .eq('id', joinRequest.id)
+        .eq('status', 'pending')
+        .select('*')
+        .single();
+      requiredData(updateResponse, 'Richiesta di ingresso non aggiornata');
+
+      return membership;
+    } catch (error) {
+      await this.memberships.deleteById(membership.id);
+      throw error;
+    }
   }
 
   async rejectJoinRequest(
@@ -630,17 +605,8 @@ export class ClubsService {
       throw new ForbiddenError('Il nuovo capitano deve essere un membro attivo dello stesso club');
     }
 
-    await this.db
-      .from('memberships')
-      .update({ role: 'player' })
-      .eq('id', captainMembership.id)
-      .eq('role', 'captain');
-
-    await this.db
-      .from('memberships')
-      .update({ role: 'captain' })
-      .eq('id', targetMembership.id)
-      .eq('status', 'active');
+    await this.memberships.updateRole(captainMembership.id, 'player');
+    await this.memberships.updateRole(targetMembership.id, 'captain');
 
     await this.syncPlayerRoleForMembership(captainMembership.id, 'player');
     await this.syncPlayerRoleForMembership(targetMembership.id, 'captain');
@@ -777,38 +743,28 @@ export class ClubsService {
     primaryRole?: string | null;
     teamRole: TeamRole;
   }): Promise<void> {
-    const fallbackNames = inferNamesFromEmail(options.email);
-    const response = await this.db
-      .from('player_profiles')
-      .insert({
-        club_id: options.membership.club_id,
-        membership_id: options.membership.id,
-        nome: normalizeOptionalText(options.nome) ?? fallbackNames.nome,
-        cognome: normalizeOptionalText(options.cognome) ?? fallbackNames.cognome,
-        auth_user_id: options.membership.auth_user_id,
-        account_email: normalizeEmail(options.email),
-        shirt_number: options.shirtNumber ?? null,
-        primary_role: normalizeOptionalText(options.primaryRole),
-        secondary_role: null,
-        secondary_roles: [],
-        id_console: normalizeOptionalText(options.consoleId),
-        team_role: options.teamRole,
-      });
-
-    ensureSuccess(response);
+    await this.playerIdentity.ensureProfileForMembership({
+      membership: options.membership,
+      email: options.email,
+      nome: options.nome,
+      cognome: options.cognome,
+      consoleId: options.consoleId,
+      shirtNumber: options.shirtNumber,
+      primaryRole: options.primaryRole,
+      teamRole: options.teamRole,
+    });
   }
 
   private async syncPlayerRoleForMembership(
     membershipId: string | number,
     role: TeamRole,
   ): Promise<void> {
-    const response = await this.db
-      .from('player_profiles')
-      .update({ team_role: role })
-      .eq('membership_id', membershipId)
-      .is('archived_at', null);
+    const profile = await this.playerProfiles.findActiveByMembershipId(membershipId);
+    if (!profile) {
+      return;
+    }
 
-    ensureSuccess(response);
+    await this.playerProfiles.updateById(profile.id, { team_role: role });
   }
 
   private async getClubById(clubId: string | number): Promise<ClubRow> {
@@ -822,15 +778,7 @@ export class ClubsService {
   }
 
   private async findActiveMembership(authUserId: string): Promise<MembershipRow | null> {
-    const response = await this.db
-      .from('memberships')
-      .select('*')
-      .eq('auth_user_id', authUserId)
-      .eq('status', 'active')
-      .order('created_at', { ascending: false });
-
-    const activeMemberships =
-      ((optionalData(response) as MembershipRow[] | null) ?? []);
+    const activeMemberships = await this.memberships.listActiveByAuthUserId(authUserId);
     if (activeMemberships.length === 0) {
       return null;
     }
@@ -883,37 +831,11 @@ export class ClubsService {
     membershipId: string | number,
     leftAt: string,
   ): Promise<void> {
-    const updateMembershipResponse = await this.db
-      .from('memberships')
-      .update({
-        status: 'left',
-        left_at: leftAt,
-      })
-      .eq('id', membershipId)
-      .eq('status', 'active');
-    ensureSuccess(updateMembershipResponse);
-
-    const archiveProfileResponse = await this.db
-      .from('player_profiles')
-      .update({
-        membership_id: null,
-        auth_user_id: null,
-        account_email: null,
-        archived_at: leftAt,
-      })
-      .eq('membership_id', membershipId)
-      .is('archived_at', null);
-    ensureSuccess(archiveProfileResponse);
+    await this.playerIdentity.detachMembershipProfile(membershipId, leftAt);
   }
 
   private async getMembershipById(membershipId: string | number): Promise<MembershipRow> {
-    const response = await this.db
-      .from('memberships')
-      .select('*')
-      .eq('id', membershipId)
-      .maybeSingle();
-
-    return requiredData(response, 'Membership non trovata') as MembershipRow;
+    return this.memberships.getById(membershipId);
   }
 
   private async getJoinRequest(joinRequestId: string | number): Promise<JoinRequestRow> {
@@ -937,14 +859,7 @@ export class ClubsService {
   }
 
   private async countActiveMembers(clubId: string | number): Promise<number> {
-    const response = await this.db
-      .from('memberships')
-      .select('*')
-      .eq('club_id', clubId)
-      .eq('status', 'active')
-      .order('created_at', { ascending: false });
-
-    const activeMemberships = ((optionalData(response) as MembershipRow[] | null) ?? []);
+    const activeMemberships = await this.memberships.listActiveByClubId(clubId);
     if (activeMemberships.length === 0) {
       return 0;
     }

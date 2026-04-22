@@ -411,8 +411,11 @@ export class AttendanceService {
   }
 
   private requireClubId(principal: RequestPrincipal): string | number {
-    const clubId = principal.membership?.club_id;
-    if (!clubId) {
+    const clubId =
+      principal.membership?.club_id ??
+      principal.player?.club_id ??
+      principal.club?.id;
+    if (clubId == null || `${clubId}`.trim().length === 0) {
       throw new ForbiddenError('Devi appartenere a un club per usare le presenze');
     }
 

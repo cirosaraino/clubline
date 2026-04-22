@@ -20,24 +20,6 @@ class _ThemePaletteSheetState extends State<ThemePaletteSheet> {
     Color(0xFF141414),
   ];
 
-  static const _backgroundTopChoices = [
-    Color(0xFF171107),
-    Color(0xFF1A1C20),
-    Color(0xFF13202B),
-    Color(0xFF122016),
-    Color(0xFF221010),
-    Color(0xFF18130C),
-  ];
-
-  static const _backgroundBottomChoices = [
-    Color(0xFF090603),
-    Color(0xFF101114),
-    Color(0xFF091017),
-    Color(0xFF09120B),
-    Color(0xFF100707),
-    Color(0xFF0D0D0D),
-  ];
-
   static const _surfaceChoices = [
     Color(0xFF151008),
     Color(0xFF181A1F),
@@ -153,7 +135,7 @@ class _ThemePaletteSheetState extends State<ThemePaletteSheet> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Di default restano i colori del logo club. Qui puoi scegliere una palette gia pronta oppure combinare i colori con una selezione visuale, senza usare codici.',
+              'Lo sfondo generale di Clubline resta quello del brand. Qui puoi personalizzare card, pannelli, accenti e dettagli del tuo club senza usare codici.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: UltrasAppTheme.textMuted,
                 height: 1.35,
@@ -209,30 +191,11 @@ class _ThemePaletteSheetState extends State<ThemePaletteSheet> {
             const SizedBox(height: 12),
             _ColorChoiceSection(
               title: 'Base scura',
-              subtitle: 'Il nero principale dell app.',
+              subtitle: 'Profondita, ombre e supporti scuri dei pannelli.',
               selectedColor: draftPalette.black,
               choices: _blackChoices,
               onSelected: (color) =>
                   _updatePalette(draftPalette.copyWith(black: color)),
-            ),
-            const SizedBox(height: 16),
-            _ColorChoiceSection(
-              title: 'Sfondo alto',
-              subtitle: 'La parte superiore dello sfondo pagina.',
-              selectedColor: draftPalette.backgroundTop,
-              choices: _backgroundTopChoices,
-              onSelected: (color) =>
-                  _updatePalette(draftPalette.copyWith(backgroundTop: color)),
-            ),
-            const SizedBox(height: 16),
-            _ColorChoiceSection(
-              title: 'Sfondo basso',
-              subtitle: 'La chiusura dello sfondo pagina.',
-              selectedColor: draftPalette.backgroundBottom,
-              choices: _backgroundBottomChoices,
-              onSelected: (color) => _updatePalette(
-                draftPalette.copyWith(backgroundBottom: color),
-              ),
             ),
             const SizedBox(height: 16),
             _ColorChoiceSection(
@@ -295,7 +258,7 @@ class _PalettePreviewCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        gradient: palette.pageGradient,
+        gradient: UltrasAppTheme.pageGradient,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: palette.outlineStrong),
         boxShadow: [
@@ -325,7 +288,7 @@ class _PalettePreviewCard extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'Vedi subito come appariranno card, sfondo e colore principale dell app.',
+              'Vedi subito come appariranno card, accenti e superfici del club sullo sfondo Clubline.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: palette.textMuted,
                 height: 1.35,
@@ -433,11 +396,11 @@ class _ThemePresetCard extends StatelessWidget {
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    _MiniSwatch(color: palette.black),
-                    const SizedBox(width: 6),
-                    _MiniSwatch(color: palette.backgroundTop),
+                    _MiniSwatch(color: palette.surface),
                     const SizedBox(width: 6),
                     _MiniSwatch(color: palette.surfaceAlt),
+                    const SizedBox(width: 6),
+                    _MiniSwatch(color: palette.goldSoft),
                     const SizedBox(width: 6),
                     _MiniSwatch(color: palette.accent),
                   ],

@@ -273,62 +273,74 @@ class HomePage extends StatelessWidget {
             ),
           ),
           SafeArea(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(
-                AppResponsive.horizontalPadding(context),
-                12,
-                AppResponsive.horizontalPadding(context),
-                28,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _HomeWelcomeCard(
-                    teamInfo: teamInfo,
-                    currentUser: currentUser,
-                    isAuthenticated: isAuthenticated,
-                    isPersonalizedExperience: isPersonalizedExperience,
-                    currentUserEmail: currentUserEmail,
-                    needsProfileSetup: needsProfileSetup,
-                    onOpenThemeSettings:
-                        isPersonalizedExperience && !needsProfileSetup
-                        ? onOpenThemeSettings
-                        : null,
-                    onOpenTeamInfoSettings:
-                        currentUser?.canManageTeamInfo == true &&
-                            !needsProfileSetup
-                        ? onOpenTeamInfoSettings
-                        : null,
-                    onOpenLink: (url) => _openExternalLink(context, url),
-                  ),
-                  if (currentUser != null &&
-                      !needsProfileSetup &&
-                      (currentUser.isCaptain ||
-                          session.hasPendingLeaveRequest ||
-                          session.captainPendingJoinRequests.isNotEmpty ||
-                          session.captainPendingLeaveRequests.isNotEmpty)) ...[
-                    const SizedBox(height: 18),
-                    _ClubPulseCard(
+            child: AppContentFrame(
+              wide: true,
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(
+                  AppResponsive.horizontalPadding(context),
+                  12,
+                  AppResponsive.horizontalPadding(context),
+                  28,
+                ),
+                child: AppAdaptiveColumns(
+                  breakpoint: 1080,
+                  gap: AppResponsive.sectionGap(context),
+                  flex: const [3, 2],
+                  children: [
+                    _HomeWelcomeCard(
+                      teamInfo: teamInfo,
                       currentUser: currentUser,
-                      session: session,
-                      onOpenClubManagement: onOpenClubManagement,
+                      isAuthenticated: isAuthenticated,
+                      isPersonalizedExperience: isPersonalizedExperience,
+                      currentUserEmail: currentUserEmail,
+                      needsProfileSetup: needsProfileSetup,
+                      onOpenThemeSettings:
+                          isPersonalizedExperience && !needsProfileSetup
+                          ? onOpenThemeSettings
+                          : null,
+                      onOpenTeamInfoSettings:
+                          currentUser?.canManageTeamInfo == true &&
+                              !needsProfileSetup
+                          ? onOpenTeamInfoSettings
+                          : null,
+                      onOpenLink: (url) => _openExternalLink(context, url),
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (currentUser != null &&
+                            !needsProfileSetup &&
+                            (currentUser.isCaptain ||
+                                session.hasPendingLeaveRequest ||
+                                session.captainPendingJoinRequests.isNotEmpty ||
+                                session
+                                    .captainPendingLeaveRequests
+                                    .isNotEmpty)) ...[
+                          _ClubPulseCard(
+                            currentUser: currentUser,
+                            session: session,
+                            onOpenClubManagement: onOpenClubManagement,
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                        ],
+                        _AccessCard(
+                          isAuthenticated: isAuthenticated,
+                          currentUser: currentUser,
+                          currentUserEmail: currentUserEmail,
+                          needsProfileSetup: needsProfileSetup,
+                          requiresPasswordRecovery:
+                              session.requiresPasswordRecovery,
+                          isCaptainRegistrationOpen:
+                              session.isCaptainRegistrationOpen,
+                          errorMessage: session.errorMessage,
+                          onCreateProfile: onOpenCreateProfile,
+                          onOpenSignIn: onOpenSignIn,
+                          onOpenSignUp: onOpenSignUp,
+                        ),
+                      ],
                     ),
                   ],
-                  const SizedBox(height: 18),
-                  _AccessCard(
-                    isAuthenticated: isAuthenticated,
-                    currentUser: currentUser,
-                    currentUserEmail: currentUserEmail,
-                    needsProfileSetup: needsProfileSetup,
-                    requiresPasswordRecovery: session.requiresPasswordRecovery,
-                    isCaptainRegistrationOpen:
-                        session.isCaptainRegistrationOpen,
-                    errorMessage: session.errorMessage,
-                    onCreateProfile: onOpenCreateProfile,
-                    onOpenSignIn: onOpenSignIn,
-                    onOpenSignUp: onOpenSignUp,
-                  ),
-                ],
+                ),
               ),
             ),
           ),

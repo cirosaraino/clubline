@@ -1,43 +1,15 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import {
+  normalizeOptionalText,
+  normalizePlayerIdentityInput,
+  normalizeTeamRole,
+} from '../domain/player-identity';
 import type { PlayerProfileRow, RequestPrincipal, TeamRole } from '../domain/types';
-import { ConflictError, ForbiddenError } from '../lib/errors';
-import { ensureSuccess, optionalData, requiredData } from '../lib/supabase-result';
-
-function normalize(value: string | null | undefined): string {
-  return value?.trim() ?? '';
-}
-
-function normalizeOptional(value: string | null | undefined): string | null {
-  const normalized = normalize(value);
-  return normalized.length > 0 ? normalized : null;
-}
-
-function escapeIlike(value: string): string {
-  return value
-    .replaceAll('\\', '\\\\')
-    .replaceAll('%', '\\%')
-    .replaceAll('_', '\\_');
-}
-
-function normalizeEmail(value: string | null | undefined): string | null {
-  const normalized = normalize(value).toLowerCase();
-  return normalized.length > 0 ? normalized : null;
-}
-
-function normalizeRoles(value: unknown): string[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value
-    .map((item) => (typeof item === 'string' ? item.trim() : ''))
-    .filter(Boolean);
-}
-
-function normalizeTeamRole(value: unknown, fallback: TeamRole = 'player'): TeamRole {
-  return value === 'captain' || value === 'vice_captain' || value === 'player' ? value : fallback;
-}
+import { ConflictError, ForbiddenError, NotFoundError } from '../lib/errors';
+import { MembershipsRepository } from '../repositories/memberships.repository';
+import { PlayerProfilesRepository } from '../repositories/player-profiles.repository';
+import { PlayerIdentityService } from './player-identity.service';
 
 export interface PlayerInput {
   nome: string;
@@ -52,7 +24,15 @@ export interface PlayerInput {
 }
 
 export class PlayerService {
-  constructor(private readonly db: SupabaseClient) {}
+  private readonly playerProfiles: PlayerProfilesRepository;
+  private readonly memberships: MembershipsRepository;
+  private readonly playerIdentity: PlayerIdentityService;
+
+  constructor(db: SupabaseClient) {
+    this.playerProfiles = new PlayerProfilesRepository(db);
+    this.memberships = new MembershipsRepository(db);
+    this.playerIdentity = new PlayerIdentityService(db);
+  }
 
   async listPlayers(
     filters: {
@@ -70,79 +50,66 @@ export class PlayerService {
       throw new ForbiddenError('Devi appartenere a un club per vedere la rosa');
     }
 
-    let query = this.db
-      .from('player_profiles')
-      .select('*')
-      .eq('club_id', clubId)
-      .is('archived_at', null)
-      .order('created_at', { ascending: true });
+    let players = await this.playerProfiles.listActiveByClubId(clubId);
 
     if (filters.id_console) {
-      const needle = escapeIlike(filters.id_console.trim());
-      if (needle.length > 0) {
-        query = query.ilike('id_console', `%${needle}%`);
-      }
+      const needle = filters.id_console.trim().toLowerCase();
+      players = players.filter((player) =>
+        `${player.id_console ?? ''}`.toLowerCase().includes(needle),
+      );
     }
 
     if (filters.nome) {
-      const needle = escapeIlike(filters.nome.trim());
-      if (needle.length > 0) {
-        query = query.ilike('nome', `%${needle}%`);
-      }
+      const needle = filters.nome.trim().toLowerCase();
+      players = players.filter((player) =>
+        player.nome.toLowerCase().includes(needle),
+      );
     }
 
     if (filters.cognome) {
-      const needle = escapeIlike(filters.cognome.trim());
-      if (needle.length > 0) {
-        query = query.ilike('cognome', `%${needle}%`);
-      }
-    }
-
-    if (filters.q) {
-      const needle = escapeIlike(filters.q.trim()).replaceAll(',', ' ');
-      if (needle.length > 0) {
-        query = query.or(
-          [
-            `nome.ilike.%${needle}%`,
-            `cognome.ilike.%${needle}%`,
-            `id_console.ilike.%${needle}%`,
-            `primary_role.ilike.%${needle}%`,
-          ].join(','),
-        );
-      }
-    }
-
-    const response = await query;
-    let players = (optionalData(response) as PlayerProfileRow[] | null) ?? [];
-
-    if (filters.q) {
-      const needle = filters.q.trim().toLowerCase();
+      const needle = filters.cognome.trim().toLowerCase();
       players = players.filter((player) =>
-        [player.nome, player.cognome, player.id_console, player.primary_role, ...player.secondary_roles]
+        player.cognome.toLowerCase().includes(needle),
+      );
+    }
+
+    if (filters.q) {
+      const needle = filters.q.trim().replaceAll(',', ' ').toLowerCase();
+      players = players.filter((player) =>
+        [
+          player.nome,
+          player.cognome,
+          player.id_console,
+          player.primary_role,
+          ...player.secondary_roles,
+        ]
           .filter(Boolean)
           .some((value) => value!.toLowerCase().includes(needle)),
       );
     }
 
     if (filters.role) {
-      const needle = filters.role.trim().toLowerCase();
-      players = players.filter((player) => {
-        const roleValues = [player.primary_role, ...(player.secondary_roles ?? [])].filter(Boolean);
-        return roleValues.some((value) => value!.toLowerCase() === needle);
-      });
+      const role = filters.role.trim().toLowerCase();
+      players = players.filter((player) =>
+        [player.primary_role, ...(player.secondary_roles ?? [])]
+          .filter(Boolean)
+          .some((value) => value!.toLowerCase() === role),
+      );
     }
 
     if (filters.macro_role) {
-      const needle = filters.macro_role.trim().toLowerCase();
-      players = players.filter((player) => this.roleCategory(player.primary_role) === needle);
+      const macroRole = filters.macro_role.trim().toLowerCase();
+      players = players.filter(
+        (player) => this.roleCategory(player.primary_role) === macroRole,
+      );
     }
 
     return players;
   }
 
   async createPlayer(input: PlayerInput, principal: RequestPrincipal): Promise<PlayerProfileRow> {
-    const clubId = principal.membership?.club_id;
-    if (!clubId) {
+    const membership = principal.membership;
+    if (!membership) {
       throw new ForbiddenError('Devi appartenere a un club per aggiungere giocatori');
     }
 
@@ -152,21 +119,35 @@ export class PlayerService {
 
     const requestedRole = normalizeTeamRole(input.team_role ?? 'player');
     if (requestedRole !== 'player') {
-      throw new ConflictError('Vice e capitano devono essere membri attivi del club');
+      throw new ConflictError(
+        'Vice e capitano devono essere membri attivi del club',
+        'player_management_role_requires_membership',
+      );
     }
 
-    await this.ensureConsoleIdAvailable(normalizeOptional(input.id_console), clubId);
-    const payload = this.buildPayload(input, requestedRole);
-    const response = await this.db
-      .from('player_profiles')
-      .insert({
-        ...payload,
-        club_id: clubId,
-      })
-      .select('*')
-      .single();
+    const normalized = normalizePlayerIdentityInput(input);
+    await this.playerIdentity.ensureStandaloneAnchor({
+      consoleId: normalized.idConsole,
+      accountEmail: normalized.accountEmail,
+    });
+    await this.playerIdentity.ensureConsoleIdAvailable(normalized.idConsole);
+    await this.playerIdentity.ensureAccountEmailAvailable(normalized.accountEmail);
 
-    return requiredData(response) as PlayerProfileRow;
+    return this.playerProfiles.insert({
+      club_id: membership.club_id,
+      membership_id: null,
+      nome: normalized.nome,
+      cognome: normalized.cognome,
+      auth_user_id: null,
+      account_email: normalized.accountEmail,
+      shirt_number: normalized.shirtNumber,
+      primary_role: normalized.primaryRole,
+      secondary_role: normalized.secondaryRoles[0] ?? null,
+      secondary_roles: normalized.secondaryRoles,
+      id_console: normalized.idConsole,
+      team_role: 'player',
+      archived_at: null,
+    });
   }
 
   async updatePlayer(
@@ -187,51 +168,69 @@ export class PlayerService {
       throw new ForbiddenError('Non puoi modificare questo profilo');
     }
 
-    await this.ensureConsoleIdAvailable(normalizeOptional(input.id_console), clubId, player.id);
+    const normalized = normalizePlayerIdentityInput(input);
+    if (player.membership_id == null) {
+      await this.playerIdentity.ensureStandaloneAnchor({
+        consoleId: normalized.idConsole,
+        accountEmail: normalized.accountEmail,
+      });
+    }
+    await this.playerIdentity.ensureConsoleIdAvailable(
+      normalized.idConsole,
+      player.id,
+    );
+    await this.playerIdentity.ensureAccountEmailAvailable(
+      normalized.accountEmail,
+      player.id,
+    );
 
     const requestedRole = canManage
       ? normalizeTeamRole(input.team_role ?? player.team_role)
       : player.team_role;
 
     if (player.membership_id == null && requestedRole !== 'player') {
-      throw new ConflictError('Solo i membri attivi possono ricevere ruoli gestionali');
+      throw new ConflictError(
+        'Solo i membri attivi possono ricevere ruoli gestionali',
+        'player_management_role_requires_membership',
+      );
     }
 
     if (player.team_role === 'captain' && requestedRole !== 'captain') {
-      throw new ConflictError('Trasferisci prima il ruolo di capitano dal pannello club');
+      throw new ConflictError(
+        'Trasferisci prima il ruolo di capitano dal pannello club',
+        'captain_transfer_required',
+      );
     }
 
     if (requestedRole === 'captain' && player.team_role !== 'captain') {
       if (!canManage || !principal.isCaptain || !player.membership_id) {
-        throw new ConflictError('Solo il capitano puo trasferire il ruolo a un altro membro attivo');
+        throw new ConflictError(
+          'Solo il capitano puo trasferire il ruolo a un altro membro attivo',
+          'captain_transfer_forbidden',
+        );
       }
 
-      await this.transferCaptainRole(
-        principal.membership!.id,
-        player.membership_id,
-      );
+      await this.transferCaptainRole(principal.membership!.id, player.membership_id);
     } else if (player.membership_id && requestedRole !== player.team_role) {
-      await this.syncMembershipRole(player.membership_id, requestedRole);
+      await this.memberships.updateRole(player.membership_id, requestedRole);
     }
 
-    const payload = this.buildPayload(input, requestedRole, {
-      authUserId: canEditOwn ? principal.authUser.id : player.auth_user_id,
-      membershipId: player.membership_id,
-      accountEmail: canEditOwn
-        ? normalizeEmail(input.account_email) ?? principal.authUser.email
-        : player.account_email,
+    return this.playerProfiles.updateByIdAndClubId(player.id, clubId, {
+      membership_id: player.membership_id,
+      nome: normalized.nome,
+      cognome: normalized.cognome,
+      shirt_number: normalized.shirtNumber,
+      primary_role: normalized.primaryRole,
+      secondary_role: normalized.secondaryRoles[0] ?? null,
+      secondary_roles: normalized.secondaryRoles,
+      id_console: normalized.idConsole,
+      team_role: requestedRole,
+      auth_user_id: canEditOwn ? principal.authUser.id : player.auth_user_id,
+      account_email: canEditOwn
+        ? normalized.accountEmail ?? principal.authUser.email
+        : normalized.accountEmail ?? player.account_email,
+      archived_at: null,
     });
-
-    const response = await this.db
-      .from('player_profiles')
-      .update(payload)
-      .eq('id', player.id)
-      .eq('club_id', clubId)
-      .is('archived_at', null)
-      .select('*')
-      .single();
-
-    return requiredData(response) as PlayerProfileRow;
   }
 
   async releasePlayerFromClub(
@@ -248,56 +247,24 @@ export class PlayerService {
     if (principal.player && `${principal.player.id}` === `${player.id}`) {
       throw new ConflictError(
         'Usa i flussi club per uscire dalla squadra con il tuo account.',
+        'self_release_forbidden',
       );
     }
 
     if (player.team_role === 'captain') {
       throw new ConflictError(
         'Trasferisci prima il ruolo di capitano dal pannello club.',
+        'captain_transfer_required',
       );
     }
 
     const releasedAt = new Date().toISOString();
     if (player.membership_id != null) {
-      const membershipResponse = await this.db
-        .from('memberships')
-        .update({
-          status: 'left',
-          left_at: releasedAt,
-        })
-        .eq('id', player.membership_id)
-        .eq('status', 'active');
-      ensureSuccess(membershipResponse);
+      await this.playerIdentity.detachMembershipProfile(player.membership_id, releasedAt);
+      return;
     }
 
-    const keepStandaloneIdentity =
-      normalize(player.auth_user_id) != '' || normalize(player.account_email) != '';
-    const payload = keepStandaloneIdentity
-      ? {
-          club_id: null,
-          membership_id: null,
-          auth_user_id: player.auth_user_id,
-          account_email: normalizeEmail(player.account_email),
-          shirt_number: player.shirt_number,
-          primary_role: normalizeOptional(player.primary_role),
-          secondary_role: normalizeOptional(player.secondary_role),
-          secondary_roles: normalizeRoles(player.secondary_roles),
-          id_console: normalizeOptional(player.id_console),
-          team_role: 'player' as TeamRole,
-          archived_at: null,
-        }
-      : {
-          membership_id: null,
-          team_role: 'player' as TeamRole,
-          archived_at: releasedAt,
-        };
-
-    const response = await this.db
-      .from('player_profiles')
-      .update(payload)
-      .eq('id', player.id)
-      .is('archived_at', null);
-    ensureSuccess(response);
+    await this.playerIdentity.releaseProfileFromClub(player, releasedAt);
   }
 
   async deletePlayer(playerId: string | number, principal: RequestPrincipal): Promise<void> {
@@ -305,161 +272,78 @@ export class PlayerService {
   }
 
   async claimProfile(input: PlayerInput, principal: RequestPrincipal): Promise<PlayerProfileRow> {
-    if (!principal.membership) {
+    const membership = principal.membership;
+    if (!membership) {
       throw new ForbiddenError('Devi prima entrare in un club');
     }
 
-    const existingActiveProfile = principal.player;
-    if (existingActiveProfile) {
-      return this.updatePlayer(existingActiveProfile.id, input, principal);
+    if (principal.player) {
+      return this.updatePlayer(principal.player.id, input, principal);
     }
 
-    const clubId = principal.membership.club_id;
-    const normalizedConsoleId = normalizeOptional(input.id_console);
-    if (normalizedConsoleId) {
-      const consoleProfile = await this.findByConsoleId(normalizedConsoleId, clubId);
-      if (consoleProfile && consoleProfile.membership_id && `${consoleProfile.membership_id}` !== `${principal.membership.id}`) {
-        throw new ConflictError('Esiste gia un profilo collegato a questo ID console');
-      }
-    }
-
-    const payload = this.buildPayload(input, principal.membership.role, {
-      authUserId: principal.authUser.id,
-      membershipId: principal.membership.id,
-      accountEmail: normalizeEmail(input.account_email) ?? principal.authUser.email,
+    return this.playerIdentity.ensureProfileForMembership({
+      membership,
+      email: input.account_email ?? principal.authUser.email,
+      nome: input.nome,
+      cognome: input.cognome,
+      shirtNumber: input.shirt_number,
+      primaryRole: input.primary_role,
+      secondaryRole: input.secondary_role,
+      secondaryRoles: input.secondary_roles,
+      consoleId: input.id_console,
+      teamRole: membership.role,
     });
-
-    const response = await this.db
-      .from('player_profiles')
-      .insert({
-        ...payload,
-        club_id: clubId,
-      })
-      .select('*')
-      .single();
-
-    return requiredData(response) as PlayerProfileRow;
   }
 
   async findByConsoleId(
     consoleId: string,
     clubId: string | number,
   ): Promise<PlayerProfileRow | null> {
-    const response = await this.db
-      .from('player_profiles')
-      .select('*')
-      .eq('club_id', clubId)
-      .eq('id_console', consoleId.trim())
-      .is('archived_at', null)
-      .maybeSingle();
+    const normalizedConsoleId = normalizeOptionalText(consoleId);
+    if (!normalizedConsoleId) {
+      return null;
+    }
 
-    return optionalData(response) as PlayerProfileRow | null;
+    return this.playerProfiles.findActiveByConsoleIdInClub(normalizedConsoleId, clubId);
   }
 
   async getPlayer(playerId: string | number, clubId: string | number): Promise<PlayerProfileRow> {
-    const response = await this.db
-      .from('player_profiles')
-      .select('*')
-      .eq('id', playerId)
-      .eq('club_id', clubId)
-      .is('archived_at', null)
-      .maybeSingle();
+    const player = await this.playerProfiles.findActiveByIdAndClubId(playerId, clubId);
+    if (!player) {
+      throw new NotFoundError('Giocatore non trovato', 'player_not_found');
+    }
 
-    return requiredData(response, 'Giocatore non trovato') as PlayerProfileRow;
+    return player;
   }
 
   private ensureCanManagePlayers(principal: RequestPrincipal): void {
     if (!principal.canManagePlayers) {
-      throw new ForbiddenError('Non hai i permessi per gestire la rosa');
+      throw new ForbiddenError('Non hai i permessi per gestire la rosa', 'player_management_forbidden');
     }
-  }
-
-  private async ensureConsoleIdAvailable(
-    consoleId: string | null,
-    clubId: string | number,
-    excludingPlayerId?: string | number,
-  ): Promise<void> {
-    if (!consoleId) {
-      return;
-    }
-
-    const existing = await this.findByConsoleId(consoleId, clubId);
-    if (existing && `${existing.id}` !== `${excludingPlayerId ?? ''}`) {
-      throw new ConflictError('Esiste gia un profilo con questo ID console nel club');
-    }
-  }
-
-  private async syncMembershipRole(
-    membershipId: string | number,
-    role: TeamRole,
-  ): Promise<void> {
-    const response = await this.db
-      .from('memberships')
-      .update({ role })
-      .eq('id', membershipId)
-      .eq('status', 'active');
-    ensureSuccess(response);
   }
 
   private async transferCaptainRole(
     currentCaptainMembershipId: string | number,
     nextCaptainMembershipId: string | number,
   ): Promise<void> {
-    const demoteResponse = await this.db
-      .from('memberships')
-      .update({ role: 'player' })
-      .eq('id', currentCaptainMembershipId)
-      .eq('role', 'captain');
-    ensureSuccess(demoteResponse);
+    await this.memberships.updateRole(currentCaptainMembershipId, 'player');
+    await this.memberships.updateRole(nextCaptainMembershipId, 'captain');
 
-    const promoteResponse = await this.db
-      .from('memberships')
-      .update({ role: 'captain' })
-      .eq('id', nextCaptainMembershipId)
-      .eq('status', 'active');
-    ensureSuccess(promoteResponse);
+    const currentCaptainProfile =
+      await this.playerProfiles.findActiveByMembershipId(currentCaptainMembershipId);
+    if (currentCaptainProfile) {
+      await this.playerProfiles.updateById(currentCaptainProfile.id, {
+        team_role: 'player',
+      });
+    }
 
-    await this.db
-      .from('player_profiles')
-      .update({ team_role: 'player' })
-      .eq('membership_id', currentCaptainMembershipId)
-      .is('archived_at', null);
-
-    await this.db
-      .from('player_profiles')
-      .update({ team_role: 'captain' })
-      .eq('membership_id', nextCaptainMembershipId)
-      .is('archived_at', null);
-  }
-
-  private buildPayload(
-    input: PlayerInput,
-    teamRole: TeamRole,
-    overrides?: {
-      authUserId?: string | null;
-      membershipId?: string | number | null;
-      accountEmail?: string | null;
-    },
-  ) {
-    const primaryRole = normalizeOptional(input.primary_role);
-    const secondaryRoles = normalizeRoles([
-      ...(input.secondary_roles ?? []),
-      ...(input.secondary_role ? [input.secondary_role] : []),
-    ]).filter((role) => role !== primaryRole);
-
-    return {
-      membership_id: overrides?.membershipId ?? null,
-      nome: normalize(input.nome),
-      cognome: normalize(input.cognome),
-      shirt_number: input.shirt_number ?? null,
-      primary_role: primaryRole,
-      secondary_role: secondaryRoles[0] ?? null,
-      secondary_roles: secondaryRoles,
-      id_console: normalizeOptional(input.id_console),
-      team_role: teamRole,
-      auth_user_id: overrides?.authUserId ?? null,
-      account_email: normalizeEmail(overrides?.accountEmail ?? input.account_email),
-    };
+    const nextCaptainProfile =
+      await this.playerProfiles.findActiveByMembershipId(nextCaptainMembershipId);
+    if (nextCaptainProfile) {
+      await this.playerProfiles.updateById(nextCaptainProfile.id, {
+        team_role: 'captain',
+      });
+    }
   }
 
   private roleCategory(role: string | null): string | null {

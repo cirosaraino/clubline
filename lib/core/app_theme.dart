@@ -119,6 +119,10 @@ class UltrasThemePalette {
 
   Color get warningSoft => const Color(0xFFFFEDAE);
 
+  Color get info => _mix(accent, Colors.white, 0.12);
+
+  Color get infoSoft => _mix(accent, Colors.white, 0.5);
+
   LinearGradient get pageGradient => LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
@@ -236,6 +240,7 @@ class UltrasAppTheme {
   static UltrasThemePalette _activePalette = defaultPalette;
 
   static UltrasThemePalette get activePalette => _activePalette;
+  static UltrasThemePalette get brandPalette => defaultPalette;
 
   static void applyPalette(UltrasThemePalette palette) {
     _activePalette = palette;
@@ -321,8 +326,11 @@ class UltrasAppTheme {
   static Color get dangerSoft => activePalette.dangerSoft;
   static Color get warning => activePalette.warning;
   static Color get warningSoft => activePalette.warningSoft;
+  static Color get info => activePalette.info;
+  static Color get infoSoft => activePalette.infoSoft;
+  static Color get onAccent => activePalette.onAccent;
 
-  static LinearGradient get pageGradient => activePalette.pageGradient;
+  static LinearGradient get pageGradient => brandPalette.pageGradient;
   static LinearGradient get heroGradient => activePalette.heroGradient;
 
   static List<BoxShadow> get softShadow => [
@@ -340,11 +348,85 @@ class UltrasAppTheme {
 
   static ThemeData buildTheme([UltrasThemePalette? palette]) {
     final colors = palette ?? activePalette;
+    final textTheme = TextTheme(
+      headlineLarge: TextStyle(
+        color: colors.textPrimary,
+        fontSize: 38,
+        fontWeight: FontWeight.w900,
+        height: 1.02,
+        letterSpacing: -1.2,
+      ),
+      headlineMedium: TextStyle(
+        color: colors.textPrimary,
+        fontSize: 30,
+        fontWeight: FontWeight.w800,
+        height: 1.08,
+        letterSpacing: -0.8,
+      ),
+      headlineSmall: TextStyle(
+        color: colors.textPrimary,
+        fontSize: 24,
+        fontWeight: FontWeight.w800,
+        height: 1.12,
+        letterSpacing: -0.4,
+      ),
+      titleLarge: TextStyle(
+        color: colors.textPrimary,
+        fontSize: 20,
+        fontWeight: FontWeight.w800,
+        height: 1.18,
+      ),
+      titleMedium: TextStyle(
+        color: colors.textPrimary,
+        fontSize: 17,
+        fontWeight: FontWeight.w700,
+        height: 1.24,
+      ),
+      titleSmall: TextStyle(
+        color: colors.textPrimary,
+        fontSize: 14,
+        fontWeight: FontWeight.w700,
+        height: 1.26,
+      ),
+      bodyLarge: TextStyle(
+        color: colors.textPrimary,
+        fontSize: 16,
+        height: 1.45,
+      ),
+      bodyMedium: TextStyle(
+        color: colors.textPrimary,
+        fontSize: 15,
+        height: 1.45,
+      ),
+      bodySmall: TextStyle(color: colors.textMuted, fontSize: 13, height: 1.4),
+      labelLarge: TextStyle(
+        color: colors.textPrimary,
+        fontSize: 14,
+        fontWeight: FontWeight.w700,
+        height: 1.15,
+      ),
+      labelMedium: TextStyle(
+        color: colors.textMuted,
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.4,
+        height: 1.15,
+      ),
+      labelSmall: TextStyle(
+        color: colors.onAccent,
+        fontSize: 11,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 0.5,
+        height: 1.1,
+      ),
+    );
     final colorScheme = ColorScheme.dark(
       primary: colors.gold,
       onPrimary: colors.onAccent,
       secondary: colors.goldSoft,
       onSecondary: colors.black,
+      tertiary: colors.info,
+      onTertiary: colors.black,
       error: colors.danger,
       onError: Colors.white,
       surface: colors.surface,
@@ -354,21 +436,23 @@ class UltrasAppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: colors.black,
-      canvasColor: colors.black,
+      scaffoldBackgroundColor: brandPalette.black,
+      canvasColor: brandPalette.black,
       cardTheme: CardThemeData(
         color: colors.surface,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(28),
           side: BorderSide(color: colors.outline),
         ),
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: colors.black,
+        backgroundColor: brandPalette.black,
         foregroundColor: colors.textPrimary,
         elevation: 0,
         centerTitle: false,
+        scrolledUnderElevation: 0,
+        titleTextStyle: textTheme.titleLarge,
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: colors.surface,
@@ -393,6 +477,21 @@ class UltrasAppTheme {
           ),
         ),
       ),
+      navigationRailTheme: NavigationRailThemeData(
+        backgroundColor: colors.surface,
+        elevation: 0,
+        indicatorColor: colors.gold.withValues(alpha: 0.18),
+        selectedIconTheme: IconThemeData(color: colors.gold),
+        unselectedIconTheme: IconThemeData(color: colors.textMuted),
+        selectedLabelTextStyle: textTheme.labelMedium?.copyWith(
+          color: colors.gold,
+          fontWeight: FontWeight.w800,
+        ),
+        unselectedLabelTextStyle: textTheme.labelMedium?.copyWith(
+          color: colors.textMuted,
+        ),
+        groupAlignment: -0.8,
+      ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: colors.gold,
         foregroundColor: colors.onAccent,
@@ -403,8 +502,11 @@ class UltrasAppTheme {
           backgroundColor: colors.gold,
           foregroundColor: colors.onAccent,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-          textStyle: const TextStyle(fontWeight: FontWeight.w800),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+          textStyle: textTheme.labelLarge?.copyWith(
+            color: colors.onAccent,
+            fontWeight: FontWeight.w800,
+          ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -415,8 +517,11 @@ class UltrasAppTheme {
           backgroundColor: colors.gold,
           foregroundColor: colors.onAccent,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-          textStyle: const TextStyle(fontWeight: FontWeight.w800),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+          textStyle: textTheme.labelLarge?.copyWith(
+            color: colors.onAccent,
+            fontWeight: FontWeight.w800,
+          ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -426,7 +531,11 @@ class UltrasAppTheme {
         style: OutlinedButton.styleFrom(
           foregroundColor: colors.goldSoft,
           side: BorderSide(color: colors.outlineStrong),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+          textStyle: textTheme.labelLarge?.copyWith(
+            color: colors.goldSoft,
+            fontWeight: FontWeight.w700,
+          ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -435,14 +544,52 @@ class UltrasAppTheme {
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: colors.goldSoft,
-          textStyle: const TextStyle(fontWeight: FontWeight.w700),
+          textStyle: textTheme.labelLarge?.copyWith(
+            color: colors.goldSoft,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          backgroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return colors.gold.withValues(alpha: 0.14);
+            }
+            return colors.surface;
+          }),
+          foregroundColor: WidgetStateProperty.resolveWith((states) {
+            return states.contains(WidgetState.selected)
+                ? colors.goldSoft
+                : colors.textMuted;
+          }),
+          side: WidgetStateProperty.resolveWith(
+            (_) => BorderSide(color: colors.outlineStrong),
+          ),
+          textStyle: WidgetStateProperty.all(
+            textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          shape: WidgetStateProperty.all(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          ),
+          padding: WidgetStateProperty.all(
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          ),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: colors.surfaceAlt,
-        labelStyle: TextStyle(color: colors.textMuted),
-        floatingLabelStyle: TextStyle(color: colors.goldSoft),
+        labelStyle: textTheme.bodyMedium?.copyWith(color: colors.textMuted),
+        helperStyle: textTheme.bodySmall?.copyWith(color: colors.textMuted),
+        errorStyle: textTheme.bodySmall?.copyWith(
+          color: colors.dangerSoft,
+          fontWeight: FontWeight.w700,
+        ),
+        floatingLabelStyle: textTheme.bodyMedium?.copyWith(
+          color: colors.goldSoft,
+          fontWeight: FontWeight.w700,
+        ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 16,
@@ -467,7 +614,7 @@ class UltrasAppTheme {
       ),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: colors.surfaceSoft,
-        contentTextStyle: TextStyle(
+        contentTextStyle: textTheme.bodyMedium?.copyWith(
           color: colors.textPrimary,
           fontWeight: FontWeight.w600,
         ),
@@ -490,11 +637,11 @@ class UltrasAppTheme {
         backgroundColor: colors.surfaceAlt,
         selectedColor: colors.gold.withValues(alpha: 0.18),
         disabledColor: colors.surfaceAlt,
-        labelStyle: TextStyle(
+        labelStyle: textTheme.bodySmall?.copyWith(
           color: colors.textPrimary,
           fontWeight: FontWeight.w700,
         ),
-        secondaryLabelStyle: TextStyle(
+        secondaryLabelStyle: textTheme.bodySmall?.copyWith(
           color: colors.textPrimary,
           fontWeight: FontWeight.w700,
         ),
@@ -504,37 +651,33 @@ class UltrasAppTheme {
           side: BorderSide(color: colors.outlineSoft),
         ),
       ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: colors.surface,
+        surfaceTintColor: colors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: colors.outline),
+        ),
+        textStyle: textTheme.bodyMedium,
+      ),
       listTileTheme: ListTileThemeData(
         contentPadding: EdgeInsets.zero,
         iconColor: colors.textMuted,
         textColor: colors.textPrimary,
+        titleTextStyle: textTheme.bodyMedium?.copyWith(
+          color: colors.textPrimary,
+          fontWeight: FontWeight.w600,
+        ),
+        subtitleTextStyle: textTheme.bodySmall?.copyWith(
+          color: colors.textMuted,
+        ),
       ),
       textSelectionTheme: TextSelectionThemeData(
         cursorColor: colors.gold,
         selectionColor: colors.gold.withValues(alpha: 0.28),
         selectionHandleColor: colors.gold,
       ),
-      textTheme: TextTheme(
-        headlineMedium: TextStyle(
-          color: colors.textPrimary,
-          fontWeight: FontWeight.w800,
-          height: 1.1,
-        ),
-        titleMedium: TextStyle(
-          color: colors.textPrimary,
-          fontWeight: FontWeight.w700,
-        ),
-        titleSmall: TextStyle(
-          color: colors.textPrimary,
-          fontWeight: FontWeight.w700,
-        ),
-        bodyMedium: TextStyle(color: colors.textPrimary),
-        bodySmall: TextStyle(color: colors.textMuted),
-        labelSmall: TextStyle(
-          color: colors.onAccent,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
+      textTheme: textTheme,
     );
   }
 }

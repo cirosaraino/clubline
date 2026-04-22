@@ -44,5 +44,7 @@ fi
 echo "Applicazione schema Clubline su target ${TARGET}..."
 psql "${SUPABASE_DB_URL}" -v ON_ERROR_STOP=1 -f "${ROOT_DIR}/sql/production_schema.sql"
 psql "${SUPABASE_DB_URL}" -v ON_ERROR_STOP=1 -f "${ROOT_DIR}/sql/clubline_multi_club_refactor.sql"
+psql "${SUPABASE_DB_URL}" -v ON_ERROR_STOP=1 -f "${ROOT_DIR}/sql/clubline_player_identity_refactor.sql"
+psql "${SUPABASE_DB_URL}" -v ON_ERROR_STOP=1 -f "${ROOT_DIR}/sql/clubline_player_membership_guardrails.sql"
 psql "${SUPABASE_DB_URL}" -v ON_ERROR_STOP=1 -f "${ROOT_DIR}/sql/clubline_post_refactor_grants.sql"
 echo "Schema Clubline applicato correttamente su ${TARGET}."

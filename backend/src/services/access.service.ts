@@ -10,8 +10,10 @@ import type {
   TeamInfoRow,
   VicePermissionsRow,
 } from '../domain/types';
-import { NotFoundError } from '../lib/errors';
+import { ConflictError, NotFoundError } from '../lib/errors';
 import { optionalData, requiredData } from '../lib/supabase-result';
+import { MembershipsRepository } from '../repositories/memberships.repository';
+import { PlayerProfilesRepository } from '../repositories/player-profiles.repository';
 
 function normalizeEmail(email: string | null | undefined): string | null {
   const normalized = email?.trim().toLowerCase() ?? '';
@@ -30,7 +32,13 @@ function defaultPermissions(clubId: string | number): VicePermissionsRow {
 }
 
 export class AccessService {
-  constructor(private readonly db: SupabaseClient) {}
+  private readonly memberships: MembershipsRepository;
+  private readonly playerProfiles: PlayerProfilesRepository;
+
+  constructor(private readonly db: SupabaseClient) {
+    this.memberships = new MembershipsRepository(db);
+    this.playerProfiles = new PlayerProfilesRepository(db);
+  }
 
   async resolvePrincipal(authUser: AuthUserDto): Promise<RequestPrincipal> {
     const membership = await this.findActiveMembershipByUserId(authUser.id);
@@ -122,17 +130,16 @@ export class AccessService {
     playerId: string | number,
     clubId?: string | number,
   ): Promise<PlayerProfileRow> {
-    let query = this.db
+    if (clubId != null) {
+      return this.playerProfiles.getActiveByIdAndClubId(playerId, clubId);
+    }
+
+    const response = await this.db
       .from('player_profiles')
       .select('*')
       .eq('id', playerId)
-      .is('archived_at', null);
-
-    if (clubId != null) {
-      query = query.eq('club_id', clubId);
-    }
-
-    const response = await query.maybeSingle();
+      .is('archived_at', null)
+      .maybeSingle();
     return requiredData(response, 'Giocatore non trovato') as PlayerProfileRow;
   }
 
@@ -145,15 +152,7 @@ export class AccessService {
       return null;
     }
 
-    const response = await this.db
-      .from('player_profiles')
-      .select('*')
-      .eq('club_id', clubId)
-      .eq('id_console', normalized)
-      .is('archived_at', null)
-      .maybeSingle();
-
-    return optionalData(response) as PlayerProfileRow | null;
+    return this.playerProfiles.findActiveByConsoleIdInClub(normalized, clubId);
   }
 
   async getCurrentPlayerOrNull(authUserId: string): Promise<PlayerProfileRow | null> {
@@ -267,37 +266,28 @@ export class AccessService {
   }
 
   private async findActiveMembershipByUserId(authUserId: string): Promise<MembershipRow | null> {
-    const response = await this.db
-      .from('memberships')
-      .select('*')
-      .eq('auth_user_id', authUserId)
-      .eq('status', 'active')
-      .maybeSingle();
+    const activeMemberships = await this.memberships.listActiveByAuthUserId(authUserId);
+    if (activeMemberships.length === 0) {
+      return null;
+    }
 
-    return optionalData(response) as MembershipRow | null;
+    if (activeMemberships.length > 1) {
+      throw new ConflictError(
+        'Sono presenti piu membership attive per questo utente',
+        'multiple_active_memberships',
+      );
+    }
+
+    return activeMemberships[0] ?? null;
   }
 
   private async findActivePlayerForMembership(
     membershipId: string | number,
   ): Promise<PlayerProfileRow | null> {
-    const response = await this.db
-      .from('player_profiles')
-      .select('*')
-      .eq('membership_id', membershipId)
-      .is('archived_at', null)
-      .maybeSingle();
-
-    return optionalData(response) as PlayerProfileRow | null;
+    return this.playerProfiles.findActiveByMembershipId(membershipId);
   }
 
   private async findLegacyPlayerByAuthUserId(authUserId: string): Promise<PlayerProfileRow | null> {
-    const response = await this.db
-      .from('player_profiles')
-      .select('*')
-      .eq('auth_user_id', authUserId)
-      .is('archived_at', null)
-      .maybeSingle();
-
-    return optionalData(response) as PlayerProfileRow | null;
+    return this.playerProfiles.findActiveByAuthUserId(authUserId);
   }
 }

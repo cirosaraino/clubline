@@ -367,12 +367,19 @@ test('join approval self-heals a stale active membership if an approved leave al
   const newMembership = memberships.find(
     (candidate) => `${candidate.id}` === `${membership.id}`,
   );
+  const profilesForReturningUser = db
+    .rows<PlayerProfileRow>('player_profiles')
+    .filter((candidate) => candidate.auth_user_id === staleMembership.auth_user_id);
+  const reattachedProfile = profilesForReturningUser[0] ?? null;
 
   assert.equal(repairedMembership?.status, 'left');
   assert.notEqual(repairedMembership?.left_at, null);
   assert.equal(newMembership?.club_id, clubTwo.club.id);
   assert.equal(newMembership?.status, 'active');
   assert.equal(newMembership?.auth_user_id, staleMembership.auth_user_id);
+  assert.equal(profilesForReturningUser.length, 1);
+  assert.equal(reattachedProfile?.club_id, clubTwo.club.id);
+  assert.equal(reattachedProfile?.membership_id, membership.id);
 });
 
 test('join request approvals are captain-only and captains can reject pending requests', async () => {
@@ -476,7 +483,7 @@ test('requestJoinClub enforces the one-active-club-per-user rule', async () => {
   );
 });
 
-test('members can request leave and captain approval archives their club-scoped profile', async () => {
+test('members can request leave and captain approval detach the profile but keep the player identity', async () => {
   const seed = createClubSeed({ clubId: 1 });
   const memberMembership = createMembership({
     id: 12,
@@ -528,9 +535,11 @@ test('members can request leave and captain approval archives their club-scoped 
   assert.equal(db.rows<any>('leave_requests')[0]?.status, 'approved');
   assert.equal(updatedMembership?.status, 'left');
   assert.notEqual(updatedMembership?.left_at, null);
-  assert.notEqual(updatedProfile?.archived_at, null);
+  assert.equal(updatedProfile?.club_id, null);
   assert.equal(updatedProfile?.membership_id, null);
-  assert.equal(updatedProfile?.auth_user_id, null);
+  assert.equal(updatedProfile?.auth_user_id, memberMembership.auth_user_id);
+  assert.equal(updatedProfile?.account_email, 'leaving-member@example.com');
+  assert.equal(updatedProfile?.archived_at, null);
 });
 
 test('captains can reject leave requests and cannot leave until the role is transferred', async () => {
@@ -684,6 +693,217 @@ test('captains can release a player from the club without deleting the identity'
   assert.equal(updatedProfile?.id_console, 'released-8');
   assert.equal(updatedProfile?.team_role, 'player');
   assert.equal(updatedProfile?.archived_at, null);
+});
+
+test('releasing a player with lineup or attendance history archives the old club row and creates a standalone copy', async () => {
+  const seed = createClubSeed({ clubId: 1 });
+  const memberMembership = createMembership({
+    id: 17,
+    club_id: seed.club.id,
+    auth_user_id: 'historic-member',
+    role: 'player',
+  });
+  const memberProfile = createPlayerProfile({
+    id: 117,
+    club_id: seed.club.id,
+    membership_id: memberMembership.id,
+    auth_user_id: memberMembership.auth_user_id,
+    account_email: 'historic-member@example.com',
+    shirt_number: 21,
+    primary_role: 'ATT',
+    id_console: 'historic-21',
+  });
+
+  const db = new FakeSupabaseClient({
+    clubs: [seed.club],
+    memberships: [seed.captainMembership, memberMembership],
+    player_profiles: [seed.captainPlayer, memberProfile],
+    attendance_entries: [
+      {
+        id: 1,
+        club_id: seed.club.id,
+        week_id: 100,
+        player_id: memberProfile.id,
+        attendance_date: '2026-04-22',
+        availability: 'yes',
+        updated_by_player_id: null,
+      },
+    ],
+  });
+  const service = new PlayerService(db as any);
+
+  await service.releasePlayerFromClub(
+    memberProfile.id,
+    buildPrincipal({
+      userId: seed.captainMembership.auth_user_id,
+      club: seed.club,
+      membership: seed.captainMembership,
+      player: seed.captainPlayer,
+    }),
+  );
+
+  const relatedProfiles = db
+    .rows<PlayerProfileRow>('player_profiles')
+    .filter((player) => player.account_email === 'historic-member@example.com');
+  const archivedHistoryProfile = relatedProfiles.find((player) => player.archived_at != null);
+  const standaloneProfile = relatedProfiles.find((player) => player.archived_at == null);
+
+  assert.equal(relatedProfiles.length, 2);
+  assert.equal(archivedHistoryProfile?.club_id, seed.club.id);
+  assert.equal(archivedHistoryProfile?.membership_id, null);
+  assert.notEqual(archivedHistoryProfile?.archived_at, null);
+  assert.equal(standaloneProfile?.club_id, null);
+  assert.equal(standaloneProfile?.membership_id, null);
+  assert.equal(standaloneProfile?.auth_user_id, memberMembership.auth_user_id);
+  assert.equal(standaloneProfile?.id_console, 'historic-21');
+});
+
+test('captain-created standalone players require at least an email or an ID console anchor', async () => {
+  const seed = createClubSeed({ clubId: 1 });
+  const db = new FakeSupabaseClient({
+    clubs: [seed.club],
+    memberships: [seed.captainMembership],
+    player_profiles: [seed.captainPlayer],
+  });
+  const service = new PlayerService(db as any);
+
+  await assert.rejects(
+    () =>
+      service.createPlayer(
+        {
+          nome: 'Senza',
+          cognome: 'Anchor',
+        },
+        buildPrincipal({
+          userId: seed.captainMembership.auth_user_id,
+          club: seed.club,
+          membership: seed.captainMembership,
+          player: seed.captainPlayer,
+        }),
+      ),
+    ConflictError,
+  );
+});
+
+test('claimProfile reattaches an existing standalone player identity instead of creating a duplicate', async () => {
+  const seed = createClubSeed({ clubId: 1 });
+  const memberMembership = createMembership({
+    id: 18,
+    club_id: seed.club.id,
+    auth_user_id: 'standalone-member',
+    role: 'player',
+  });
+  const standaloneProfile = createPlayerProfile({
+    id: 118,
+    club_id: null,
+    membership_id: null,
+    auth_user_id: memberMembership.auth_user_id,
+    account_email: 'standalone-member@example.com',
+    nome: 'Marco',
+    cognome: 'Standalone',
+    shirt_number: 77,
+    primary_role: 'CC',
+    secondary_role: 'CDC',
+    secondary_roles: ['CDC'],
+    id_console: 'standalone-77',
+    team_role: 'player',
+  });
+  const db = new FakeSupabaseClient({
+    clubs: [seed.club],
+    memberships: [seed.captainMembership, memberMembership],
+    player_profiles: [seed.captainPlayer, standaloneProfile],
+  });
+  const service = new PlayerService(db as any);
+
+  const claimedProfile = await service.claimProfile(
+    {
+      nome: 'Marco',
+      cognome: 'Standalone',
+      shirt_number: 11,
+      primary_role: 'ATT',
+      id_console: 'standalone-77',
+    },
+    buildPrincipal({
+      userId: memberMembership.auth_user_id,
+      club: seed.club,
+      membership: memberMembership,
+      player: null,
+    }),
+  );
+
+  const profilesForUser = db
+    .rows<PlayerProfileRow>('player_profiles')
+    .filter((candidate) => candidate.auth_user_id === memberMembership.auth_user_id);
+
+  assert.equal(profilesForUser.length, 1);
+  assert.equal(claimedProfile.id, standaloneProfile.id);
+  assert.equal(claimedProfile.club_id, seed.club.id);
+  assert.equal(claimedProfile.membership_id, memberMembership.id);
+  assert.equal(claimedProfile.shirt_number, 11);
+  assert.equal(claimedProfile.primary_role, 'ATT');
+});
+
+test('join approval rolls back the membership if player association fails', async () => {
+  const seed = createClubSeed({ clubId: 1 });
+  const conflictingAuthProfile = createPlayerProfile({
+    id: 201,
+    club_id: null,
+    membership_id: null,
+    auth_user_id: 'candidate-conflict',
+    account_email: 'other-mail@example.com',
+    id_console: 'candidate-1',
+  });
+  const conflictingEmailProfile = createPlayerProfile({
+    id: 202,
+    club_id: null,
+    membership_id: null,
+    auth_user_id: null,
+    account_email: 'candidate@example.com',
+    id_console: 'candidate-2',
+  });
+  const joinRequest = {
+    id: 12,
+    club_id: seed.club.id,
+    requester_user_id: 'candidate-conflict',
+    requester_email: 'candidate@example.com',
+    requested_nome: 'Paolo',
+    requested_cognome: 'Conflitto',
+    requested_shirt_number: null,
+    requested_primary_role: null,
+    status: 'pending',
+    decided_by_membership_id: null,
+    decided_at: null,
+    cancelled_at: null,
+    expires_at: null,
+  };
+  const db = new FakeSupabaseClient({
+    clubs: [seed.club],
+    memberships: [seed.captainMembership],
+    player_profiles: [seed.captainPlayer, conflictingAuthProfile, conflictingEmailProfile],
+    join_requests: [joinRequest],
+  });
+  const service = new ClubsService(db as any);
+
+  await assert.rejects(
+    () =>
+      service.approveJoinRequest(
+        joinRequest.id,
+        buildPrincipal({
+          userId: seed.captainMembership.auth_user_id,
+          club: seed.club,
+          membership: seed.captainMembership,
+          player: seed.captainPlayer,
+        }),
+      ),
+    ConflictError,
+  );
+
+  const requesterMemberships = db
+    .rows<MembershipRow>('memberships')
+    .filter((membership) => membership.auth_user_id === 'candidate-conflict');
+
+  assert.equal(requesterMemberships.length, 0);
+  assert.equal(db.rows<any>('join_requests')[0]?.status, 'pending');
 });
 
 test('captains cannot release the captain profile from the roster', async () => {

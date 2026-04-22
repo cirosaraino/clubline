@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import { z } from 'zod';
 
 import { supabaseAuth, supabaseDb } from '../lib/supabase';
 import { asyncHandler } from '../middleware/async-handler';
@@ -7,10 +6,14 @@ import { createRateLimitMiddleware } from '../middleware/rate-limit';
 import { requireAuth } from '../middleware/auth';
 import { sendCreated, sendNoContent, sendOk } from '../lib/http';
 import { AuthService } from '../services/auth.service';
-import { AccessService } from '../services/access.service';
+import {
+  credentialsSchema,
+  passwordResetRequestSchema,
+  passwordUpdateSchema,
+  refreshSchema,
+} from '../validation/auth.validation';
 
 const authService = new AuthService(supabaseAuth, supabaseDb);
-const accessService = new AccessService(supabaseDb);
 
 function extractNormalizedEmail(body: unknown): string {
   if (typeof body !== 'object' || body == null || Array.isArray(body)) {
@@ -45,25 +48,6 @@ const passwordResetRateLimit = createRateLimitMiddleware({
   windowMs: 60 * 60 * 1000,
   maxRequests: 5,
   keyGenerator: ({ ip, body }) => `${ip}:${extractNormalizedEmail(body)}`,
-});
-
-const credentialsSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6),
-  redirectTo: z.string().url().optional(),
-});
-
-const refreshSchema = z.object({
-  refreshToken: z.string().min(1),
-});
-
-const passwordResetRequestSchema = z.object({
-  email: z.string().email(),
-  redirectTo: z.string().url().optional(),
-});
-
-const passwordUpdateSchema = z.object({
-  password: z.string().min(6),
 });
 
 export const authRouter = Router();

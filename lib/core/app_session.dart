@@ -55,6 +55,7 @@ class AppSessionController extends ChangeNotifier {
   String? _errorMessage;
   int _lastHandledSyncRevision = 0;
   bool _disposed = false;
+  bool _hasResolvedCurrentUserProfile = false;
 
   List<PlayerProfile> get players => _players;
   ProfileSetupDraft? get profileSetupDraft => _profileSetupDraft;
@@ -85,8 +86,11 @@ class AppSessionController extends ChangeNotifier {
       !hasPlayerIdentityDraft;
   bool get needsClubSelection =>
       isAuthenticated && !hasClubMembership && !hasPendingJoinRequest;
+  bool get isResolvingCurrentUserProfile =>
+      hasClubMembership && !_hasResolvedCurrentUserProfile;
   bool get needsProfileSetup =>
       hasClubMembership &&
+      _hasResolvedCurrentUserProfile &&
       (currentUser == null || currentUser!.needsProfileCompletion);
   bool get requiresPasswordRecovery =>
       _authRepository.currentSession?.isRecoverySession == true;
@@ -185,6 +189,7 @@ class AppSessionController extends ChangeNotifier {
         return;
       }
 
+      _hasResolvedCurrentUserProfile = false;
       _profileSetupDraft = await ProfileSetupDraftStore.instance.loadForAccount(
         _authUser?.email,
       );
@@ -209,6 +214,7 @@ class AppSessionController extends ChangeNotifier {
         _players = const [];
         _vicePermissions = VicePermissions.defaults;
         _teamInfo = TeamInfo.defaults;
+        _hasResolvedCurrentUserProfile = true;
         _isLoading = false;
         onTeamInfoChanged?.call(_teamInfo);
         _notifyIfMounted();
@@ -265,11 +271,13 @@ class AppSessionController extends ChangeNotifier {
           )
           .toList();
       await _syncDraftIntoCurrentUserIfNeeded();
+      _hasResolvedCurrentUserProfile = true;
       _isLoading = false;
       _errorMessage = null;
       onTeamInfoChanged?.call(_teamInfo);
       _notifyIfMounted();
     } catch (e) {
+      _hasResolvedCurrentUserProfile = false;
       _isLoading = false;
       _errorMessage = e.toString();
       _notifyIfMounted();
@@ -376,6 +384,7 @@ class AppSessionController extends ChangeNotifier {
     _profileSetupDraft = null;
     _teamInfo = TeamInfo.defaults;
     _vicePermissions = VicePermissions.defaults;
+    _hasResolvedCurrentUserProfile = false;
     _isLoading = false;
     _errorMessage = null;
     onTeamInfoChanged?.call(_teamInfo);

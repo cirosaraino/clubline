@@ -158,196 +158,158 @@ class _ClubCreatePageState extends State<ClubCreatePage> {
     final session = AppSessionScope.of(context);
     final playerIdentity = session.profileSetupDraft;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Crea club')),
-      body: Stack(
+    return AppPageScaffold(
+      title: 'Crea club',
+      wide: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const AppPageBackground(child: SizedBox.expand()),
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: AppResponsive.pagePadding(context, top: 16, bottom: 28),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Crea la tua squadra',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Scegli nome e logo. Il giocatore che hai appena creato entrerà come capitano.',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 20),
-                  Card(
-                    child: Padding(
-                      padding: EdgeInsets.all(
-                        AppResponsive.cardPadding(context),
+          const AppPageHeader(
+            eyebrow: 'Club Setup',
+            title: 'Crea la tua squadra',
+            subtitle:
+                'Scegli nome e logo. Il giocatore che hai appena creato entrerà subito come capitano.',
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          AppAdaptiveColumns(
+            breakpoint: 980,
+            gap: AppResponsive.sectionGap(context),
+            flex: const [3, 2],
+            children: [
+              AppSurfaceCard(
+                icon: Icons.shield_outlined,
+                title: 'Dettagli club',
+                subtitle:
+                    'Le informazioni essenziali per pubblicare subito la squadra.',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: clubNameController,
+                      enabled: !isSubmitting,
+                      decoration: _inputDecoration(
+                        'Nome club',
+                        icon: Icons.shield_outlined,
                       ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    AppActionButton(
+                      label: pickedLogo == null
+                          ? 'Carica logo club'
+                          : 'Sostituisci logo',
+                      icon: isPickingLogo
+                          ? Icons.hourglass_top_outlined
+                          : Icons.upload_file_outlined,
+                      variant: AppButtonVariant.secondary,
+                      onPressed: isSubmitting || isPickingLogo
+                          ? null
+                          : _pickLogo,
+                    ),
+                    if (pickedLogo != null) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      _LogoPreviewCard(logo: pickedLogo!),
+                    ],
+                    if (extractedPalette != null) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          _ColorPreviewChip(
+                            label: 'Primario',
+                            color: extractedPalette!.primaryColor,
+                          ),
+                          _ColorPreviewChip(
+                            label: 'Accento',
+                            color: extractedPalette!.accentColor,
+                          ),
+                          _ColorPreviewChip(
+                            label: 'Superficie',
+                            color: extractedPalette!.surfaceColor,
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (errorMessage != null) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      AppBanner(
+                        message: errorMessage!,
+                        tone: AppStatusTone.error,
+                        icon: Icons.error_outline,
+                      ),
+                    ],
+                    const SizedBox(height: AppSpacing.lg),
+                    AppActionButton(
+                      label: isSubmitting
+                          ? 'Creazione in corso...'
+                          : 'Crea club',
+                      icon: Icons.arrow_forward_outlined,
+                      expand: true,
+                      onPressed: isSubmitting ? null : _submit,
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (playerIdentity == null)
+                    const AppErrorState(
+                      title: 'Giocatore mancante',
+                      message:
+                          'Prima di creare un club devi completare il tuo giocatore dalla schermata precedente.',
+                    )
+                  else
+                    AppSurfaceCard(
+                      icon: Icons.workspace_premium_outlined,
+                      title: 'Capitano iniziale',
+                      subtitle:
+                          'Questo profilo entrerà immediatamente nel club con il ruolo di capitano.',
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          TextField(
-                            controller: clubNameController,
-                            enabled: !isSubmitting,
-                            decoration: _inputDecoration(
-                              'Nome club',
-                              icon: Icons.shield_outlined,
-                            ),
+                          Text(
+                            '${playerIdentity.nome} ${playerIdentity.cognome}',
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(fontWeight: FontWeight.w900),
                           ),
-                          const SizedBox(height: 14),
-                          if (playerIdentity == null)
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.error.withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(18),
-                                border: Border.all(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.error.withValues(alpha: 0.22),
-                                ),
+                          const SizedBox(height: AppSpacing.sm),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              AppCountPill(
+                                label: 'ID',
+                                value: playerIdentity.idConsole,
+                                icon: Icons.sports_esports_outlined,
                               ),
-                              child: Text(
-                                'Prima completa il tuo giocatore dalla schermata precedente.',
-                                style: Theme.of(context).textTheme.bodyMedium,
+                              AppCountPill(
+                                label: 'Maglia',
+                                value:
+                                    '#${playerIdentity.shirtNumber?.toString().padLeft(2, '0') ?? '--'}',
+                                icon: Icons.tag_outlined,
                               ),
-                            )
-                          else
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.surface.withValues(alpha: 0.6),
-                                borderRadius: BorderRadius.circular(18),
-                                border: Border.all(
-                                  color: Theme.of(
-                                    context,
-                                  ).dividerColor.withValues(alpha: 0.35),
-                                ),
+                              AppCountPill(
+                                label: 'Ruolo',
+                                value: playerIdentity.primaryRole,
+                                icon: Icons.sports_soccer_outlined,
                               ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Capitano iniziale',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleSmall
-                                        ?.copyWith(fontWeight: FontWeight.w800),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    '${playerIdentity.nome} ${playerIdentity.cognome}',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium
-                                        ?.copyWith(fontWeight: FontWeight.w900),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    children: [
-                                      AppCountPill(
-                                        label: 'ID',
-                                        value: playerIdentity.idConsole,
-                                        icon: Icons.sports_esports_outlined,
-                                      ),
-                                      AppCountPill(
-                                        label: 'Maglia',
-                                        value:
-                                            '#${playerIdentity.shirtNumber?.toString().padLeft(2, '0') ?? '--'}',
-                                        icon: Icons.tag_outlined,
-                                      ),
-                                      AppCountPill(
-                                        label: 'Ruolo',
-                                        value: playerIdentity.primaryRole,
-                                        icon: Icons.sports_soccer_outlined,
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          const SizedBox(height: 18),
-                          OutlinedButton.icon(
-                            onPressed: isSubmitting || isPickingLogo
-                                ? null
-                                : _pickLogo,
-                            icon: Icon(
-                              isPickingLogo
-                                  ? Icons.hourglass_top_outlined
-                                  : Icons.upload_file_outlined,
-                            ),
-                            label: Text(
-                              pickedLogo == null
-                                  ? 'Carica logo club'
-                                  : 'Sostituisci logo',
-                            ),
-                          ),
-                          if (pickedLogo != null) ...[
-                            const SizedBox(height: 14),
-                            _LogoPreviewCard(logo: pickedLogo!),
-                          ],
-                          if (extractedPalette != null) ...[
-                            const SizedBox(height: 14),
-                            Wrap(
-                              spacing: 10,
-                              runSpacing: 10,
-                              children: [
-                                _ColorPreviewChip(
-                                  label: 'Primario',
-                                  color: extractedPalette!.primaryColor,
-                                ),
-                                _ColorPreviewChip(
-                                  label: 'Accento',
-                                  color: extractedPalette!.accentColor,
-                                ),
-                                _ColorPreviewChip(
-                                  label: 'Superficie',
-                                  color: extractedPalette!.surfaceColor,
-                                ),
-                              ],
-                            ),
-                          ],
-                          if (errorMessage != null) ...[
-                            const SizedBox(height: 16),
-                            Text(
-                              errorMessage!,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    color: Theme.of(context).colorScheme.error,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                            ),
-                          ],
-                          const SizedBox(height: 18),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: isSubmitting ? null : _submit,
-                              child: Text(
-                                isSubmitting
-                                    ? 'Creazione in corso...'
-                                    : 'Crea club',
-                              ),
-                            ),
+                            ],
                           ),
                         ],
                       ),
                     ),
+                  const SizedBox(height: AppSpacing.md),
+                  const AppSurfaceCard(
+                    icon: Icons.auto_awesome_outlined,
+                    title: 'Tema automatico',
+                    subtitle:
+                        'Dopo il salvataggio useremo il logo per impostare subito la palette iniziale del club.',
+                    child: SizedBox.shrink(),
                   ),
                 ],
               ),
-            ),
+            ],
           ),
         ],
       ),

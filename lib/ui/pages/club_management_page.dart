@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/app_session.dart';
+import '../../core/app_theme.dart';
 import '../../data/api_client.dart';
 import '../../data/club_repository.dart';
 import '../../data/profile_setup_draft_store.dart';
@@ -171,21 +172,53 @@ class _ClubManagementPageState extends State<ClubManagementPage> {
         )
         .toList();
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Dashboard capitano')),
-      body: Stack(
+    return AppPageScaffold(
+      title: 'Dashboard capitano',
+      wide: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const AppPageBackground(child: SizedBox.expand()),
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: AppResponsive.pagePadding(context, top: 16, bottom: 28),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          AppPageHeader(
+            eyebrow: 'Captain Tools',
+            title: 'Gestisci richieste e ruoli del club',
+            subtitle:
+                'Approva ingressi, gestisci le uscite, trasferisci la fascia e controlla le azioni sensibili del club.',
+            trailing: AppResponsiveGrid(
+              minChildWidth: 180,
+              children: [
+                AppCountPill(
+                  label: 'Ingressi',
+                  value: '${session.captainPendingJoinRequests.length}',
+                  icon: Icons.group_add_outlined,
+                  emphasized: true,
+                ),
+                AppCountPill(
+                  label: 'Uscite',
+                  value: '${session.captainPendingLeaveRequests.length}',
+                  icon: Icons.exit_to_app_outlined,
+                  emphasized: true,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          AppAdaptiveColumns(
+            breakpoint: 1080,
+            gap: AppResponsive.sectionGap(context),
+            flex: const [3, 2],
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _SectionCard(
                     title: 'Richieste di ingresso',
                     child: session.captainPendingJoinRequests.isEmpty
-                        ? const Text('Nessuna richiesta pendente.')
+                        ? const AppEmptyState(
+                            icon: Icons.group_add_outlined,
+                            title: 'Nessuna richiesta pendente',
+                            message:
+                                'Quando un giocatore chiederà l ingresso al club la richiesta apparirà qui.',
+                          )
                         : Column(
                             children: [
                               for (final request
@@ -204,16 +237,21 @@ class _ClubManagementPageState extends State<ClubManagementPage> {
                                   onSecondary: () =>
                                       _rejectJoinRequest(request),
                                 ),
-                                const SizedBox(height: 10),
+                                const SizedBox(height: AppSpacing.sm),
                               ],
                             ],
                           ),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: AppSpacing.md),
                   _SectionCard(
                     title: 'Richieste di uscita',
                     child: session.captainPendingLeaveRequests.isEmpty
-                        ? const Text('Nessuna richiesta pendente.')
+                        ? const AppEmptyState(
+                            icon: Icons.exit_to_app_outlined,
+                            title: 'Nessuna richiesta pendente',
+                            message:
+                                'Le richieste di uscita approvate o rifiutate spariscono automaticamente da questa lista.',
+                          )
                         : Column(
                             children: [
                               for (final request
@@ -232,21 +270,28 @@ class _ClubManagementPageState extends State<ClubManagementPage> {
                                   onSecondary: () =>
                                       _rejectLeaveRequest(request),
                                 ),
-                                const SizedBox(height: 10),
+                                const SizedBox(height: AppSpacing.sm),
                               ],
                             ],
                           ),
                   ),
-                  const SizedBox(height: 14),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
                   _SectionCard(
                     title: 'Trasferisci la fascia',
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Prima di uscire dal club devi nominare un nuovo capitano.',
+                        const AppBanner(
+                          message:
+                              'Prima di uscire dal club devi nominare un nuovo capitano.',
+                          tone: AppStatusTone.info,
+                          icon: Icons.info_outline,
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: AppSpacing.md),
                         DropdownButtonFormField<dynamic>(
                           initialValue: selectedCaptainMembershipId,
                           items: [
@@ -265,48 +310,48 @@ class _ClubManagementPageState extends State<ClubManagementPage> {
                                 },
                           decoration: const InputDecoration(
                             labelText: 'Nuovo capitano',
-                            border: OutlineInputBorder(),
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed:
-                                isBusy || selectedCaptainMembershipId == null
-                                ? null
-                                : _transferCaptain,
-                            icon: const Icon(Icons.flag_outlined),
-                            label: const Text('Trasferisci ruolo'),
-                          ),
+                        const SizedBox(height: AppSpacing.md),
+                        AppActionButton(
+                          label: 'Trasferisci ruolo',
+                          icon: Icons.flag_outlined,
+                          variant: AppButtonVariant.secondary,
+                          expand: true,
+                          onPressed:
+                              isBusy || selectedCaptainMembershipId == null
+                              ? null
+                              : _transferCaptain,
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: AppSpacing.md),
                   _SectionCard(
                     title: 'Zona sensibile',
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Puoi eliminare il club solo se sei l unico membro attivo rimasto.',
+                        const AppBanner(
+                          message:
+                              'Puoi eliminare il club solo se sei l unico membro attivo rimasto.',
+                          tone: AppStatusTone.warning,
+                          icon: Icons.warning_amber_outlined,
                         ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: isBusy ? null : _deleteCurrentClub,
-                            icon: const Icon(Icons.delete_outline),
-                            label: const Text('Elimina club'),
-                          ),
+                        const SizedBox(height: AppSpacing.md),
+                        AppActionButton(
+                          label: 'Elimina club',
+                          icon: Icons.delete_outline,
+                          variant: AppButtonVariant.danger,
+                          expand: true,
+                          onPressed: isBusy ? null : _deleteCurrentClub,
                         ),
                       ],
                     ),
                   ),
                 ],
               ),
-            ),
+            ],
           ),
         ],
       ),
@@ -334,24 +379,7 @@ class _SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: EdgeInsets.all(AppResponsive.cardPadding(context)),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 12),
-            child,
-          ],
-        ),
-      ),
-    );
+    return AppSurfaceCard(title: title, child: child);
   }
 }
 
@@ -381,33 +409,51 @@ class _RequestTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: UltrasAppTheme.outlineSoft),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: Theme.of(
-              context,
-            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 6),
-          Text(subtitle),
-          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
-                child: ElevatedButton(
-                  onPressed: busy ? null : onPrimary,
-                  child: Text(primaryLabel),
+                child: Text(
+                  title,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
                 ),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: busy ? null : onSecondary,
-                  child: Text(secondaryLabel),
-                ),
+              const AppStatusBadge(
+                label: 'Pending',
+                tone: AppStatusTone.warning,
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            subtitle,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: UltrasAppTheme.textMuted),
+          ),
+          const SizedBox(height: 12),
+          AppAdaptiveColumns(
+            breakpoint: 620,
+            gap: 10,
+            children: [
+              AppActionButton(
+                label: primaryLabel,
+                icon: Icons.check_outlined,
+                expand: true,
+                onPressed: busy ? null : onPrimary,
+              ),
+              AppActionButton(
+                label: secondaryLabel,
+                icon: Icons.close_outlined,
+                variant: AppButtonVariant.secondary,
+                expand: true,
+                onPressed: busy ? null : onSecondary,
               ),
             ],
           ),

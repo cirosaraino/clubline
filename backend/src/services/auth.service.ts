@@ -6,7 +6,8 @@ import {
   TooManyRequestsError,
   UnauthorizedError,
 } from '../lib/errors';
-import { ensureSuccess, optionalData } from '../lib/supabase-result';
+import { optionalData } from '../lib/supabase-result';
+import { PlayerProfilesRepository } from '../repositories/player-profiles.repository';
 
 function toSessionDto(session: {
   access_token: string;
@@ -36,10 +37,14 @@ function toSessionDto(session: {
 }
 
 export class AuthService {
+  private readonly playerProfiles: PlayerProfilesRepository;
+
   constructor(
     private readonly authClient: SupabaseClient,
     private readonly adminClient: SupabaseClient,
-  ) {}
+  ) {
+    this.playerProfiles = new PlayerProfilesRepository(adminClient);
+  }
 
   async register(
     email: string,
@@ -192,16 +197,10 @@ export class AuthService {
       );
     }
 
-    const archiveProfilesResponse = await this.adminClient
-      .from('player_profiles')
-      .update({
-        auth_user_id: null,
-        account_email: null,
-        archived_at: new Date().toISOString(),
-      })
-      .eq('auth_user_id', userId)
-      .is('archived_at', null);
-    ensureSuccess(archiveProfilesResponse);
+    await this.playerProfiles.clearAuthLinksForUser(
+      userId,
+      new Date().toISOString(),
+    );
 
     const deleteResponse = await this.adminClient.auth.admin.deleteUser(userId);
     if (deleteResponse.error) {

@@ -7,9 +7,12 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(3001),
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
+  SUPABASE_PROJECT_NAME: z.string().min(1).optional(),
+  SUPABASE_PROJECT_REF: z.string().min(1).optional(),
   SUPABASE_URL: z.string().url(),
   SUPABASE_ANON_KEY: z.string().min(1),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+  SUPABASE_DB_URL: z.string().min(1).optional(),
 });
 
 export const env = envSchema.parse(process.env);

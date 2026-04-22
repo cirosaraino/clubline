@@ -117,132 +117,119 @@ class _ClubJoinPageState extends State<ClubJoinPage> {
   Widget build(BuildContext context) {
     final playerIdentity = AppSessionScope.of(context).profileSetupDraft;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Unisciti a un club')),
-      body: Stack(
+    return AppPageScaffold(
+      title: 'Unisciti a un club',
+      wide: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const AppPageBackground(child: SizedBox.expand()),
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: AppResponsive.pagePadding(context, top: 16, bottom: 28),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          const AppPageHeader(
+            eyebrow: 'Join Flow',
+            title: 'Scegli una squadra',
+            subtitle:
+                'Invieremo la tua richiesta al capitano del club selezionato con il profilo che hai già preparato.',
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          AppAdaptiveColumns(
+            breakpoint: 980,
+            gap: AppResponsive.sectionGap(context),
+            flex: const [2, 3],
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    'Scegli una squadra',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Invieremo la tua richiesta al capitano del club selezionato con il profilo che hai già preparato.',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 18),
                   if (playerIdentity == null)
-                    const AppStatusCard(
-                      icon: Icons.person_add_alt_1_outlined,
+                    const AppErrorState(
                       title: 'Giocatore mancante',
                       message:
                           'Prima di inviare una richiesta devi completare il tuo giocatore.',
                     )
                   else
-                    Card(
-                      child: Padding(
-                        padding: EdgeInsets.all(
-                          AppResponsive.cardPadding(context),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Profilo inviato',
-                              style: Theme.of(context).textTheme.titleSmall
-                                  ?.copyWith(fontWeight: FontWeight.w800),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '${playerIdentity.nome} ${playerIdentity.cognome}',
-                              style: Theme.of(context).textTheme.titleLarge
-                                  ?.copyWith(fontWeight: FontWeight.w900),
-                            ),
-                            const SizedBox(height: 10),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                AppCountPill(
-                                  label: 'ID',
-                                  value: playerIdentity.idConsole,
-                                  icon: Icons.sports_esports_outlined,
-                                ),
-                                AppCountPill(
-                                  label: 'Maglia',
-                                  value:
-                                      '#${playerIdentity.shirtNumber?.toString().padLeft(2, '0') ?? '--'}',
-                                  icon: Icons.tag_outlined,
-                                ),
-                                AppCountPill(
-                                  label: 'Ruolo',
-                                  value: playerIdentity.primaryRole,
-                                  icon: Icons.sports_soccer_outlined,
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  const SizedBox(height: 14),
-                  Card(
-                    child: Padding(
-                      padding: EdgeInsets.all(
-                        AppResponsive.cardPadding(context),
-                      ),
+                    AppSurfaceCard(
+                      icon: Icons.badge_outlined,
+                      title: 'Profilo inviato',
+                      subtitle:
+                          'Questo è il profilo che accompagnerà la tua richiesta di ingresso.',
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          TextField(
-                            controller: searchController,
-                            enabled: !isSubmitting,
-                            decoration: _inputDecoration(
-                              'Cerca per nome o slug',
-                              icon: Icons.search_outlined,
-                            ),
-                            onSubmitted: (value) => _loadClubs(query: value),
+                          Text(
+                            '${playerIdentity.nome} ${playerIdentity.cognome}',
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(fontWeight: FontWeight.w900),
                           ),
-                          const SizedBox(height: 14),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: OutlinedButton.icon(
-                              onPressed: isLoading || isSubmitting
-                                  ? null
-                                  : () => _loadClubs(
-                                      query: searchController.text,
-                                    ),
-                              icon: const Icon(Icons.refresh_outlined),
-                              label: const Text('Aggiorna risultati'),
-                            ),
+                          const SizedBox(height: AppSpacing.sm),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              AppCountPill(
+                                label: 'ID',
+                                value: playerIdentity.idConsole,
+                                icon: Icons.sports_esports_outlined,
+                              ),
+                              AppCountPill(
+                                label: 'Maglia',
+                                value:
+                                    '#${playerIdentity.shirtNumber?.toString().padLeft(2, '0') ?? '--'}',
+                                icon: Icons.tag_outlined,
+                              ),
+                              AppCountPill(
+                                label: 'Ruolo',
+                                value: playerIdentity.primaryRole,
+                                icon: Icons.sports_soccer_outlined,
+                              ),
+                            ],
                           ),
                         ],
                       ),
                     ),
-                  ),
-                  if (errorMessage != null) ...[
-                    const SizedBox(height: 14),
-                    Text(
-                      errorMessage!,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.error,
-                        fontWeight: FontWeight.w700,
-                      ),
+                  const SizedBox(height: AppSpacing.md),
+                  AppSurfaceCard(
+                    icon: Icons.search_outlined,
+                    title: 'Ricerca club',
+                    subtitle: 'Puoi cercare per nome o slug.',
+                    child: Column(
+                      children: [
+                        TextField(
+                          controller: searchController,
+                          enabled: !isSubmitting,
+                          decoration: _inputDecoration(
+                            'Cerca per nome o slug',
+                            icon: Icons.search_outlined,
+                          ),
+                          onSubmitted: (value) => _loadClubs(query: value),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        AppActionButton(
+                          label: 'Aggiorna risultati',
+                          icon: Icons.refresh_outlined,
+                          variant: AppButtonVariant.secondary,
+                          expand: true,
+                          onPressed: isLoading || isSubmitting
+                              ? null
+                              : () => _loadClubs(query: searchController.text),
+                        ),
+                      ],
                     ),
+                  ),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (errorMessage != null) ...[
+                    AppBanner(
+                      message: errorMessage!,
+                      tone: AppStatusTone.error,
+                      icon: Icons.error_outline,
+                    ),
+                    const SizedBox(height: AppSpacing.md),
                   ],
-                  const SizedBox(height: 18),
                   if (isLoading)
-                    const Center(child: CircularProgressIndicator())
+                    const AppLoadingState(label: 'Stiamo cercando i club...')
                   else if (clubs.isEmpty)
-                    const AppStatusCard(
+                    const AppEmptyState(
                       icon: Icons.shield_outlined,
                       title: 'Nessun club trovato',
                       message:
@@ -253,36 +240,77 @@ class _ClubJoinPageState extends State<ClubJoinPage> {
                       children: [
                         for (final club in clubs) ...[
                           Card(
-                            child: ListTile(
-                              contentPadding: EdgeInsets.all(
+                            child: Padding(
+                              padding: EdgeInsets.all(
                                 AppResponsive.cardPadding(context),
                               ),
-                              leading: ClubLogoAvatar(
-                                logoUrl: club.logoUrl,
-                                size: 40,
-                                fallbackIcon: Icons.shield_outlined,
-                                borderWidth: 1.5,
-                              ),
-                              title: Text(club.name),
-                              subtitle: Text('/${club.slug}'),
-                              trailing: ElevatedButton(
-                                onPressed:
-                                    isSubmitting || playerIdentity == null
-                                    ? null
-                                    : () => _requestJoin(club),
-                                child: Text(
-                                  isSubmitting ? 'Invio...' : 'Invia richiesta',
-                                ),
+                              child: AppAdaptiveColumns(
+                                breakpoint: 760,
+                                gap: AppSpacing.md,
+                                flex: const [3, 2],
+                                children: [
+                                  Row(
+                                    children: [
+                                      ClubLogoAvatar(
+                                        logoUrl: club.logoUrl,
+                                        size: 48,
+                                        fallbackIcon: Icons.shield_outlined,
+                                        borderWidth: 1.5,
+                                      ),
+                                      const SizedBox(width: AppSpacing.md),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              club.name,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .titleMedium
+                                                  ?.copyWith(
+                                                    fontWeight: FontWeight.w800,
+                                                  ),
+                                            ),
+                                            const SizedBox(
+                                              height: AppSpacing.xs,
+                                            ),
+                                            Text(
+                                              '/${club.slug}',
+                                              style: Theme.of(
+                                                context,
+                                              ).textTheme.bodySmall,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: AppActionButton(
+                                      label: isSubmitting
+                                          ? 'Invio...'
+                                          : 'Invia richiesta',
+                                      icon: Icons.arrow_forward_outlined,
+                                      expand: AppResponsive.isCompact(context),
+                                      onPressed:
+                                          isSubmitting || playerIdentity == null
+                                          ? null
+                                          : () => _requestJoin(club),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: AppSpacing.sm),
                         ],
                       ],
                     ),
                 ],
               ),
-            ),
+            ],
           ),
         ],
       ),

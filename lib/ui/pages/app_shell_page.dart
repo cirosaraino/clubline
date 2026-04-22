@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/app_session.dart';
+import '../../core/app_theme.dart';
 import '../widgets/app_chrome.dart';
 import 'attendance_page.dart';
 import 'club_access_hub_page.dart';
@@ -14,6 +15,7 @@ import 'players_page.dart';
 import 'streams_page.dart';
 import '../widgets/auth_sheet.dart';
 import '../widgets/auth_password_sheet.dart';
+import '../widgets/clubline_brand_logo.dart';
 import '../widgets/theme_palette_sheet.dart';
 import '../widgets/team_info_sheet.dart';
 import '../widgets/vice_permissions_sheet.dart';
@@ -432,6 +434,66 @@ class _AppShellPageState extends State<AppShellPage> {
     }
   }
 
+  List<NavigationDestination> _bottomDestinations() {
+    return const [
+      NavigationDestination(
+        icon: Icon(Icons.home_outlined),
+        selectedIcon: Icon(Icons.home),
+        label: 'Home',
+      ),
+      NavigationDestination(
+        icon: Icon(Icons.groups_2_outlined),
+        selectedIcon: Icon(Icons.groups_2),
+        label: 'Rosa',
+      ),
+      NavigationDestination(
+        icon: Icon(Icons.assignment_outlined),
+        selectedIcon: Icon(Icons.assignment),
+        label: 'Formazioni',
+      ),
+      NavigationDestination(
+        icon: Icon(Icons.smart_display_outlined),
+        selectedIcon: Icon(Icons.smart_display),
+        label: 'Live',
+      ),
+      NavigationDestination(
+        icon: Icon(Icons.event_available_outlined),
+        selectedIcon: Icon(Icons.event_available),
+        label: 'Presenze',
+      ),
+    ];
+  }
+
+  List<NavigationRailDestination> _railDestinations() {
+    return const [
+      NavigationRailDestination(
+        icon: Icon(Icons.home_outlined),
+        selectedIcon: Icon(Icons.home),
+        label: Text('Home'),
+      ),
+      NavigationRailDestination(
+        icon: Icon(Icons.groups_2_outlined),
+        selectedIcon: Icon(Icons.groups_2),
+        label: Text('Rosa'),
+      ),
+      NavigationRailDestination(
+        icon: Icon(Icons.assignment_outlined),
+        selectedIcon: Icon(Icons.assignment),
+        label: Text('Formazioni'),
+      ),
+      NavigationRailDestination(
+        icon: Icon(Icons.smart_display_outlined),
+        selectedIcon: Icon(Icons.smart_display),
+        label: Text('Live'),
+      ),
+      NavigationRailDestination(
+        icon: Icon(Icons.event_available_outlined),
+        selectedIcon: Icon(Icons.event_available),
+        label: Text('Presenze'),
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = AppSessionScope.of(context);
@@ -471,39 +533,91 @@ class _AppShellPageState extends State<AppShellPage> {
       );
     }
 
+    final useRail = AppResponsive.useNavigationRail(context);
+
+    if (!useRail) {
+      return Scaffold(
+        body: IndexedStack(index: selectedIndex, children: pages),
+        bottomNavigationBar: NavigationBar(
+          height: AppResponsive.isCompact(context) ? 74 : null,
+          selectedIndex: selectedIndex,
+          onDestinationSelected: (index) {
+            unawaited(_handleDestinationSelected(index));
+          },
+          destinations: _bottomDestinations(),
+        ),
+      );
+    }
+
     return Scaffold(
-      body: IndexedStack(index: selectedIndex, children: pages),
-      bottomNavigationBar: NavigationBar(
-        height: AppResponsive.isCompact(context) ? 74 : null,
-        selectedIndex: selectedIndex,
-        onDestinationSelected: (index) {
-          unawaited(_handleDestinationSelected(index));
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
+      body: Row(
+        children: [
+          Container(
+            width: AppResponsive.isDesktop(context) ? 108 : 96,
+            color: Theme.of(context).colorScheme.surface,
+            child: SafeArea(
+              child: Column(
+                children: [
+                  const SizedBox(height: AppSpacing.md),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                    child: ClublineBrandLogo(width: 88),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                    ),
+                    child: Text(
+                      session.teamInfo.displayTeamName,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: UltrasAppTheme.textMuted,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Expanded(
+                    child: NavigationRail(
+                      selectedIndex: selectedIndex,
+                      labelType: NavigationRailLabelType.all,
+                      onDestinationSelected: (index) {
+                        unawaited(_handleDestinationSelected(index));
+                      },
+                      destinations: _railDestinations(),
+                    ),
+                  ),
+                  if (session.needsProfileSetup)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.sm,
+                        0,
+                        AppSpacing.sm,
+                        AppSpacing.sm,
+                      ),
+                      child: AppActionButton(
+                        label: 'Profilo',
+                        icon: Icons.person_outline,
+                        variant: AppButtonVariant.secondary,
+                        expand: true,
+                        onPressed: () {
+                          unawaited(_openCreateProfile());
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.groups_2_outlined),
-            selectedIcon: Icon(Icons.groups_2),
-            label: 'Rosa',
+          VerticalDivider(
+            width: 1,
+            thickness: 1,
+            color: Theme.of(context).dividerColor,
           ),
-          NavigationDestination(
-            icon: Icon(Icons.assignment_outlined),
-            selectedIcon: Icon(Icons.assignment),
-            label: 'Formazioni',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.smart_display_outlined),
-            selectedIcon: Icon(Icons.smart_display),
-            label: 'Live',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.event_available_outlined),
-            selectedIcon: Icon(Icons.event_available),
-            label: 'Presenze',
+          Expanded(
+            child: IndexedStack(index: selectedIndex, children: pages),
           ),
         ],
       ),

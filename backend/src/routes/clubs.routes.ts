@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import { z } from 'zod';
 
 import { sendCreated, sendNoContent, sendOk } from '../lib/http';
 import { realtimeEventsBus } from '../lib/realtime-events';
@@ -7,40 +6,14 @@ import { supabaseDb } from '../lib/supabase';
 import { asyncHandler } from '../middleware/async-handler';
 import { requireAuth } from '../middleware/auth';
 import { ClubsService } from '../services/clubs.service';
+import {
+  createClubSchema,
+  joinClubSchema,
+  transferCaptainSchema,
+  updateLogoSchema,
+} from '../validation/clubs.validation';
 
 const clubsService = new ClubsService(supabaseDb);
-
-const createClubSchema = z.object({
-  name: z.string().min(1),
-  logo_data_url: z.string().min(1).nullable().optional(),
-  owner_nome: z.string().min(1),
-  owner_cognome: z.string().min(1),
-  owner_id_console: z.string().min(1),
-  owner_shirt_number: z.number().int().nullable().optional(),
-  owner_primary_role: z.string().min(1).nullable().optional(),
-  primary_color: z.string().min(1).nullable().optional(),
-  accent_color: z.string().min(1).nullable().optional(),
-  surface_color: z.string().min(1).nullable().optional(),
-});
-
-const joinClubSchema = z.object({
-  club_id: z.union([z.string().min(1), z.number()]),
-  requested_nome: z.string().min(1).nullable().optional(),
-  requested_cognome: z.string().min(1).nullable().optional(),
-  requested_shirt_number: z.number().int().nullable().optional(),
-  requested_primary_role: z.string().min(1).nullable().optional(),
-});
-
-const updateLogoSchema = z.object({
-  logo_data_url: z.string().min(1),
-  primary_color: z.string().min(1).nullable().optional(),
-  accent_color: z.string().min(1).nullable().optional(),
-  surface_color: z.string().min(1).nullable().optional(),
-});
-
-const transferCaptainSchema = z.object({
-  target_membership_id: z.union([z.string().min(1), z.number()]),
-});
 
 export const clubsRouter = Router();
 

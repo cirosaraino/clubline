@@ -47,13 +47,31 @@ psql "${SUPABASE_DB_URL}" -v ON_ERROR_STOP=1 <<'SQL'
 
 select 'clubs=' || coalesce(to_regclass('public.clubs')::text, 'missing');
 select 'memberships=' || coalesce(to_regclass('public.memberships')::text, 'missing');
+select 'player_profiles=' || coalesce(to_regclass('public.player_profiles')::text, 'missing');
 select 'join_requests=' || coalesce(to_regclass('public.join_requests')::text, 'missing');
 select 'leave_requests=' || coalesce(to_regclass('public.leave_requests')::text, 'missing');
 select 'club_settings=' || coalesce(to_regclass('public.club_settings')::text, 'missing');
 select 'club_permission_settings=' || coalesce(to_regclass('public.club_permission_settings')::text, 'missing');
+select 'player_profiles_active_console_unique=' || exists(
+  select 1
+  from pg_indexes
+  where schemaname = 'public'
+    and indexname = 'player_profiles_active_console_unique'
+)::text;
+select 'player_profiles_membership_requires_club_check=' || exists(
+  select 1
+  from pg_constraint
+  where conname = 'player_profiles_membership_requires_club_check'
+)::text;
+select 'player_profiles_standalone_team_role_check=' || exists(
+  select 1
+  from pg_constraint
+  where conname = 'player_profiles_standalone_team_role_check'
+)::text;
 select 'club_assets_bucket=' || exists(select 1 from storage.buckets where id = 'club-assets')::text;
 select 'service_role_clubs_rw=' || has_table_privilege('service_role', 'public.clubs', 'select,insert,update,delete')::text;
 select 'service_role_memberships_rw=' || has_table_privilege('service_role', 'public.memberships', 'select,insert,update,delete')::text;
+select 'service_role_player_profiles_rw=' || has_table_privilege('service_role', 'public.player_profiles', 'select,insert,update,delete')::text;
 select 'service_role_join_requests_rw=' || has_table_privilege('service_role', 'public.join_requests', 'select,insert,update,delete')::text;
 select 'service_role_leave_requests_rw=' || has_table_privilege('service_role', 'public.leave_requests', 'select,insert,update,delete')::text;
 SQL
