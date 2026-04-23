@@ -18,6 +18,16 @@ export function mapDatabaseError(error: unknown): Error {
     return new ConflictError('Record gia presente');
   }
 
+  if (
+    supabaseError.code === 'P0001' ||
+    supabaseError.code === '23514' ||
+    message.includes('gia stata gestita') ||
+    message.includes('appartieni gia') ||
+    message.includes('esiste gia')
+  ) {
+    return new ConflictError(supabaseError.message ?? 'Operazione in conflitto');
+  }
+
   if (supabaseError.code === '23503') {
     return new ConflictError('Record collegato ad altre entita');
   }
@@ -28,6 +38,10 @@ export function mapDatabaseError(error: unknown): Error {
 
   if (supabaseError.code === '22P02' || message.includes('invalid input syntax')) {
     return new ValidationError('Parametri non validi');
+  }
+
+  if (supabaseError.code === '22023') {
+    return new ValidationError(supabaseError.message ?? 'Parametri non validi');
   }
 
   return error instanceof Error ? error : new Error('Errore imprevisto');

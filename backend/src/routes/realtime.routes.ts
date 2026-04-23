@@ -1,9 +1,10 @@
 import type { Response } from 'express';
 import { Router } from 'express';
 
+import { env } from '../config/env';
 import { sendError } from '../lib/http';
+import { getLatestRealtimeChange, subscribeRealtimeChanges } from '../lib/realtime-publisher';
 import { realtimeTicketStore } from '../lib/realtime-ticket-store';
-import { realtimeEventsBus } from '../lib/realtime-events';
 import { requireAuth } from '../middleware/auth';
 
 export const realtimeRouter = Router();
@@ -12,7 +13,25 @@ function sendSsePayload(res: Response, payload: unknown) {
   res.write(`data: ${JSON.stringify(payload)}\n\n`);
 }
 
+function ensureLocalRealtimeEnabled(res: Response): boolean {
+  if (env.ENABLE_LOCAL_REALTIME_FALLBACK) {
+    return true;
+  }
+
+  sendError(res, 410, 'Il canale realtime locale e disabilitato', {
+    code: 'local_realtime_disabled',
+    details: {
+      preferred_mode: 'supabase_realtime',
+    },
+  });
+  return false;
+}
+
 realtimeRouter.post('/session', requireAuth, async (req, res) => {
+  if (!ensureLocalRealtimeEnabled(res)) {
+    return;
+  }
+
   const principal = req.principal;
   if (!principal) {
     sendError(res, 401, 'Sessione non valida');
@@ -27,6 +46,10 @@ realtimeRouter.post('/session', requireAuth, async (req, res) => {
 });
 
 realtimeRouter.get('/events', async (req, res) => {
+  if (!ensureLocalRealtimeEnabled(res)) {
+    return;
+  }
+
   const queryTicket =
     typeof req.query.ticket === 'string' ? req.query.ticket.trim() : '';
   if (!queryTicket) {
@@ -50,7 +73,7 @@ realtimeRouter.get('/events', async (req, res) => {
     typeof req.query.since === 'string' ? Number.parseInt(req.query.since, 10) : NaN;
   const sinceRevision = Number.isFinite(requestedSince) ? requestedSince : 0;
 
-  const latestChange = realtimeEventsBus.getLatestChange();
+  const latestChange = getLatestRealtimeChange();
   if (latestChange && latestChange.revision > sinceRevision) {
     sendSsePayload(res, latestChange);
   } else {
@@ -62,7 +85,7 @@ realtimeRouter.get('/events', async (req, res) => {
     });
   }
 
-  const unsubscribe = realtimeEventsBus.subscribe((change) => {
+  const unsubscribe = subscribeRealtimeChanges((change) => {
     sendSsePayload(res, change);
   });
 

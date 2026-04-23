@@ -162,7 +162,7 @@ class _AuthPasswordSheetState extends State<AuthPasswordSheet> {
                   width: 42,
                   height: 5,
                   decoration: BoxDecoration(
-                    color: UltrasAppTheme.outlineStrong,
+                    color: ClublineAppTheme.outlineStrong,
                     borderRadius: BorderRadius.circular(999),
                   ),
                 ),
@@ -198,7 +198,7 @@ class _AuthPasswordSheetState extends State<AuthPasswordSheet> {
                         ? 'Sei entrato dal link di recupero. Scegli subito una nuova password per completare l accesso.'
                         : 'Aggiorna la password del tuo account con una nuova password sicura.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: UltrasAppTheme.textMuted,
+                      color: ClublineAppTheme.textMuted,
                       height: 1.35,
                     ),
               ),

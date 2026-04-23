@@ -663,9 +663,9 @@ class _StreamsFilterCard extends StatelessWidget {
                       child: OutlinedButton.icon(
                         onPressed: isDeletingAll ? null : onDeleteAll,
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: UltrasAppTheme.dangerSoft,
+                          foregroundColor: ClublineAppTheme.dangerSoft,
                           side: BorderSide(
-                            color: UltrasAppTheme.danger.withValues(alpha: 0.35),
+                            color: ClublineAppTheme.danger.withValues(alpha: 0.35),
                           ),
                         ),
                         icon: Icon(
@@ -730,9 +730,9 @@ class _StreamsFilterCard extends StatelessWidget {
                               OutlinedButton.icon(
                                 onPressed: isDeletingAll ? null : onDeleteAll,
                                 style: OutlinedButton.styleFrom(
-                                  foregroundColor: UltrasAppTheme.dangerSoft,
+                                  foregroundColor: ClublineAppTheme.dangerSoft,
                                   side: BorderSide(
-                                    color: UltrasAppTheme.danger.withValues(alpha: 0.35),
+                                    color: ClublineAppTheme.danger.withValues(alpha: 0.35),
                                   ),
                                 ),
                                 icon: Icon(
@@ -795,10 +795,10 @@ class _StreamsDaySectionCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: UltrasAppTheme.surface.withValues(alpha: 0.34),
+        color: ClublineAppTheme.surface.withValues(alpha: 0.34),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: UltrasAppTheme.outlineSoft),
-        boxShadow: UltrasAppTheme.softShadow,
+        border: Border.all(color: ClublineAppTheme.outlineSoft),
+        boxShadow: ClublineAppTheme.softShadow,
       ),
       child: Column(
         children: [
@@ -839,7 +839,7 @@ class _StreamsDaySectionCard extends StatelessWidget {
                               Text(
                                 formatPlayedOnDate(date),
                                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: UltrasAppTheme.textMuted,
+                                      color: ClublineAppTheme.textMuted,
                                     ),
                               ),
                             ],
@@ -875,7 +875,7 @@ class _StreamsDaySectionCard extends StatelessWidget {
                               Text(
                                 formatPlayedOnDate(date),
                                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: UltrasAppTheme.textMuted,
+                                      color: ClublineAppTheme.textMuted,
                                     ),
                               ),
                             ],
@@ -891,9 +891,9 @@ class _StreamsDaySectionCard extends StatelessWidget {
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
-                      color: UltrasAppTheme.surfaceAlt.withValues(alpha: 0.58),
+                      color: ClublineAppTheme.surfaceAlt.withValues(alpha: 0.58),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: UltrasAppTheme.outlineSoft),
+                      border: Border.all(color: ClublineAppTheme.outlineSoft),
                     ),
                     child: Row(
                       children: [
@@ -909,7 +909,7 @@ class _StreamsDaySectionCard extends StatelessWidget {
                           isExpanded
                               ? Icons.keyboard_arrow_up_rounded
                               : Icons.keyboard_arrow_down_rounded,
-                          color: UltrasAppTheme.textMuted,
+                          color: ClublineAppTheme.textMuted,
                         ),
                       ],
                     ),
@@ -923,9 +923,9 @@ class _StreamsDaySectionCard extends StatelessWidget {
                         child: OutlinedButton.icon(
                           onPressed: isDeletingDay ? null : onDeleteDay,
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: UltrasAppTheme.dangerSoft,
+                            foregroundColor: ClublineAppTheme.dangerSoft,
                             side: BorderSide(
-                              color: UltrasAppTheme.danger.withValues(alpha: 0.35),
+                              color: ClublineAppTheme.danger.withValues(alpha: 0.35),
                             ),
                           ),
                           icon: Icon(
@@ -954,7 +954,7 @@ class _StreamsDaySectionCard extends StatelessWidget {
                   Container(
                     margin: const EdgeInsets.only(bottom: 10),
                     height: 1,
-                    color: UltrasAppTheme.outlineSoft,
+                    color: ClublineAppTheme.outlineSoft,
                   ),
                   ...children,
                 ],

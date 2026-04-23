@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 
-export type RealtimeScope =
+export type LocalRealtimeScope =
   | 'clubs'
   | 'players'
   | 'streams'
@@ -9,29 +9,32 @@ export type RealtimeScope =
   | 'teamInfo'
   | 'vicePermissions';
 
-export type RealtimeChange = {
+export type LocalRealtimeChange = {
   revision: number;
-  scopes: RealtimeScope[];
+  scopes: LocalRealtimeScope[];
   reason: string;
   timestamp: string;
 };
 
-type ChangeListener = (change: RealtimeChange) => void;
+type ChangeListener = (change: LocalRealtimeChange) => void;
 
-class RealtimeEventsBus {
+class LocalRealtimeEventsBus {
   private readonly emitter = new EventEmitter();
   private revision = 0;
-  private latestChange: RealtimeChange | null = null;
+  private latestChange: LocalRealtimeChange | null = null;
 
   constructor() {
     this.emitter.setMaxListeners(0);
   }
 
-  publishChange(scopes: RealtimeScope[], reason = 'updated'): RealtimeChange {
+  publishChange(
+    scopes: LocalRealtimeScope[],
+    reason = 'updated',
+  ): LocalRealtimeChange {
     const uniqueScopes = Array.from(new Set(scopes));
     this.revision += 1;
 
-    const change: RealtimeChange = {
+    const change: LocalRealtimeChange = {
       revision: this.revision,
       scopes: uniqueScopes,
       reason,
@@ -44,7 +47,7 @@ class RealtimeEventsBus {
     return change;
   }
 
-  getLatestChange(): RealtimeChange | null {
+  getLatestChange(): LocalRealtimeChange | null {
     return this.latestChange;
   }
 
@@ -57,4 +60,13 @@ class RealtimeEventsBus {
   }
 }
 
-export const realtimeEventsBus = new RealtimeEventsBus();
+export const localRealtimeEventsBus = new LocalRealtimeEventsBus();
+
+export type RealtimeScope = LocalRealtimeScope;
+export type RealtimeChange = LocalRealtimeChange;
+
+/**
+ * @deprecated Use localRealtimeEventsBus through realtime-publisher.ts.
+ * This alias exists only to keep transitional compatibility while routes are consolidated.
+ */
+export const realtimeEventsBus = localRealtimeEventsBus;

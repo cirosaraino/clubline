@@ -4,5 +4,5 @@ import { createApp } from './app';
 const app = createApp();
 
 app.listen(env.PORT, () => {
-  console.log(`Squadra backend listening on port ${env.PORT}`);
+  console.log(`Clubline backend listening on port ${env.PORT}`);
 });

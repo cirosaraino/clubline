@@ -214,7 +214,7 @@ class PlayerProfile {
   }
 
   bool canEditPlayer(dynamic targetPlayerId) {
-    return canManagePlayers || id == targetPlayerId;
+    return canManagePlayers || _sameEntityId(id, targetPlayerId);
   }
 
   bool isLinkedToAuthUser(String userId) {
@@ -257,5 +257,13 @@ class PlayerProfile {
 
     final index = kPrimaryRoleSortOrder.indexOf(role);
     return index == -1 ? kPrimaryRoleSortOrder.length : index;
+  }
+
+  static bool _sameEntityId(dynamic left, dynamic right) {
+    if (left == null || right == null) {
+      return false;
+    }
+
+    return '$left' == '$right';
   }
 }

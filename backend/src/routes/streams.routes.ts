@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import { supabaseDb } from '../lib/supabase';
 import { sendCreated, sendNoContent, sendOk } from '../lib/http';
-import { realtimeEventsBus } from '../lib/realtime-events';
+import { publishRealtimeChange } from '../lib/realtime-publisher';
 import { asyncHandler } from '../middleware/async-handler';
 import { requireAuth } from '../middleware/auth';
 import { StreamMetadataService } from '../services/stream-metadata.service';
@@ -45,7 +45,7 @@ streamsRouter.post(
       streamInputSchema.parse(req.body),
       req.principal!,
     );
-    realtimeEventsBus.publishChange(['streams'], 'stream_created');
+    publishRealtimeChange(['streams'], 'stream_created');
     sendCreated(res, { stream });
   }),
 );
@@ -65,7 +65,7 @@ streamsRouter.delete(
   requireAuth,
   asyncHandler(async (req, res) => {
     await streamsService.deleteAllStreams(req.principal!);
-    realtimeEventsBus.publishChange(['streams'], 'stream_deleted_all');
+    publishRealtimeChange(['streams'], 'stream_deleted_all');
     sendNoContent(res);
   }),
 );
@@ -75,7 +75,7 @@ streamsRouter.delete(
   requireAuth,
   asyncHandler(async (req, res) => {
     await streamsService.deleteStreamsForDay(req.params.playedOn, req.principal!);
-    realtimeEventsBus.publishChange(['streams'], 'stream_deleted_day');
+    publishRealtimeChange(['streams'], 'stream_deleted_day');
     sendNoContent(res);
   }),
 );
@@ -89,7 +89,7 @@ streamsRouter.put(
       streamInputSchema.parse(req.body),
       req.principal!,
     );
-    realtimeEventsBus.publishChange(['streams'], 'stream_updated');
+    publishRealtimeChange(['streams'], 'stream_updated');
     sendOk(res, { stream });
   }),
 );
@@ -99,7 +99,7 @@ streamsRouter.delete(
   requireAuth,
   asyncHandler(async (req, res) => {
     await streamsService.deleteStream(req.params.id, req.principal!);
-    realtimeEventsBus.publishChange(['streams'], 'stream_deleted');
+    publishRealtimeChange(['streams'], 'stream_deleted');
     sendNoContent(res);
   }),
 );

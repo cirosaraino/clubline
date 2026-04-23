@@ -306,7 +306,7 @@ class _MobileWebInstallSheet extends StatelessWidget {
                       ? 'Safari non mostra un popup automatico, ma in pochi tocchi puoi salvare l app nella schermata Home del telefono.'
                       : 'Il browser puo installare l app dal proprio menu. In questo modo avrai l icona sul telefono e un apertura molto piu immediata.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: UltrasAppTheme.textMuted,
+                    color: ClublineAppTheme.textMuted,
                     height: 1.4,
                   ),
             ),
@@ -411,9 +411,9 @@ class _MobileWebInstallBanner extends StatelessWidget {
       color: Colors.transparent,
       child: Container(
         decoration: BoxDecoration(
-          color: UltrasAppTheme.surfaceRaised.withValues(alpha: 0.96),
+          color: ClublineAppTheme.surfaceRaised.withValues(alpha: 0.96),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: UltrasAppTheme.outlineSoft),
+          border: Border.all(color: ClublineAppTheme.outlineSoft),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.22),
@@ -448,7 +448,7 @@ class _MobileWebInstallBanner extends StatelessWidget {
                         ? 'Puoi aggiungerla alla schermata Home e aprirla come una vera app.'
                         : 'Salva l icona sul telefono per aprire l app piu velocemente.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: UltrasAppTheme.textMuted,
+                          color: ClublineAppTheme.textMuted,
                           height: 1.3,
                         ),
                   ),
@@ -490,9 +490,9 @@ class _InlineInstallInstructionsCard extends StatelessWidget {
       color: Colors.transparent,
       child: Container(
         decoration: BoxDecoration(
-          color: UltrasAppTheme.surfaceAlt.withValues(alpha: 0.96),
+          color: ClublineAppTheme.surfaceAlt.withValues(alpha: 0.96),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: UltrasAppTheme.outlineSoft),
+          border: Border.all(color: ClublineAppTheme.outlineSoft),
         ),
         padding: const EdgeInsets.all(14),
         child: Column(
@@ -560,9 +560,9 @@ class _InstructionStep extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: UltrasAppTheme.surfaceAlt.withValues(alpha: 0.82),
+        color: ClublineAppTheme.surfaceAlt.withValues(alpha: 0.82),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: UltrasAppTheme.outlineSoft),
+        border: Border.all(color: ClublineAppTheme.outlineSoft),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -571,14 +571,14 @@ class _InstructionStep extends StatelessWidget {
             width: 24,
             height: 24,
             decoration: BoxDecoration(
-              color: UltrasAppTheme.gold.withValues(alpha: 0.16),
+              color: ClublineAppTheme.gold.withValues(alpha: 0.16),
               shape: BoxShape.circle,
             ),
             alignment: Alignment.center,
             child: Text(
               '$index',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: UltrasAppTheme.goldSoft,
+                    color: ClublineAppTheme.goldSoft,
                     fontWeight: FontWeight.w900,
                   ),
             ),

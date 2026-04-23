@@ -44,7 +44,7 @@ export class AccessService {
     const membership = await this.findActiveMembershipByUserId(authUser.id);
     const club = membership ? await this.getClubById(membership.club_id) : null;
     const player = membership
-      ? await this.findActivePlayerForMembership(membership.id)
+      ? await this.resolveActivePlayerForMembership(authUser, membership)
       : await this.findLegacyPlayerByAuthUserId(authUser.id);
     const permissions = membership
       ? await this.loadVicePermissions(membership.club_id)
@@ -289,5 +289,58 @@ export class AccessService {
 
   private async findLegacyPlayerByAuthUserId(authUserId: string): Promise<PlayerProfileRow | null> {
     return this.playerProfiles.findActiveByAuthUserId(authUserId);
+  }
+
+  private async resolveActivePlayerForMembership(
+    authUser: AuthUserDto,
+    membership: MembershipRow,
+  ): Promise<PlayerProfileRow | null> {
+    const linkedPlayer = await this.findActivePlayerForMembership(membership.id);
+    if (linkedPlayer) {
+      return linkedPlayer;
+    }
+
+    const playerByAuthUser = await this.playerProfiles.findActiveByAuthUserIdInClub(
+      authUser.id,
+      membership.club_id,
+    );
+    if (playerByAuthUser) {
+      return this.relinkPlayerToMembership(playerByAuthUser, membership, authUser.email);
+    }
+
+    const normalizedEmail = normalizeEmail(authUser.email);
+    if (!normalizedEmail) {
+      return null;
+    }
+
+    const playerByEmail = await this.playerProfiles.findActiveByAccountEmailInClub(
+      normalizedEmail,
+      membership.club_id,
+    );
+    if (!playerByEmail) {
+      return null;
+    }
+
+    return this.relinkPlayerToMembership(playerByEmail, membership, normalizedEmail);
+  }
+
+  private async relinkPlayerToMembership(
+    player: PlayerProfileRow,
+    membership: MembershipRow,
+    email: string | null,
+  ): Promise<PlayerProfileRow> {
+    const shouldUpdateMembership = `${player.membership_id ?? ''}` !== `${membership.id}`;
+    const shouldUpdateAuth = player.auth_user_id !== membership.auth_user_id;
+    const shouldUpdateEmail = email != null && normalizeEmail(player.account_email) !== email;
+
+    if (!shouldUpdateMembership && !shouldUpdateAuth && !shouldUpdateEmail) {
+      return player;
+    }
+
+    return this.playerProfiles.updateById(player.id, {
+      membership_id: membership.id,
+      auth_user_id: membership.auth_user_id,
+      account_email: email ?? player.account_email,
+    });
   }
 }

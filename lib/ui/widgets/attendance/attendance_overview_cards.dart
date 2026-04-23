@@ -156,9 +156,9 @@ class AttendanceDaySummaryCard extends StatelessWidget {
       width: compact ? 164 : 180,
       padding: EdgeInsets.all(compact ? 12 : 14),
       decoration: BoxDecoration(
-        color: UltrasAppTheme.surfaceAlt.withValues(alpha: 0.58),
+        color: ClublineAppTheme.surfaceAlt.withValues(alpha: 0.58),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: UltrasAppTheme.outlineSoft),
+        border: Border.all(color: ClublineAppTheme.outlineSoft),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -173,7 +173,7 @@ class AttendanceDaySummaryCard extends StatelessWidget {
           Text(
             formatAttendanceDayLabel(summary.date),
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: UltrasAppTheme.textMuted,
+                  color: ClublineAppTheme.textMuted,
                 ),
           ),
           const SizedBox(height: 12),
@@ -184,23 +184,23 @@ class AttendanceDaySummaryCard extends StatelessWidget {
               AppCountPill(
                 label: 'Risposte',
                 value: '${summary.answeredCount}/${summary.totalPlayers}',
-                color: isComplete ? UltrasAppTheme.success : UltrasAppTheme.warning,
+                color: isComplete ? ClublineAppTheme.success : ClublineAppTheme.warning,
                 emphasized: true,
               ),
               AppCountPill(
                 label: 'Si',
                 value: '${summary.presentCount}',
-                color: UltrasAppTheme.success,
+                color: ClublineAppTheme.success,
               ),
               AppCountPill(
                 label: 'No',
                 value: '${summary.absentCount}',
-                color: UltrasAppTheme.danger,
+                color: ClublineAppTheme.danger,
               ),
               AppCountPill(
                 label: 'Attesa',
                 value: '${summary.pendingCount}',
-                color: UltrasAppTheme.warning,
+                color: ClublineAppTheme.warning,
               ),
             ],
           ),
@@ -303,9 +303,9 @@ class AttendancePendingDayCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: UltrasAppTheme.surfaceAlt.withValues(alpha: 0.6),
+        color: ClublineAppTheme.surfaceAlt.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: UltrasAppTheme.outlineSoft),
+        border: Border.all(color: ClublineAppTheme.outlineSoft),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -327,7 +327,7 @@ class AttendancePendingDayCard extends StatelessWidget {
                     Text(
                       'Risposte ${summary.answeredCount}/${summary.totalPlayers}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: UltrasAppTheme.textMuted,
+                            color: ClublineAppTheme.textMuted,
                             fontWeight: FontWeight.w700,
                           ),
                     ),
@@ -338,8 +338,8 @@ class AttendancePendingDayCard extends StatelessWidget {
                 label: 'Attesa',
                 value: '${summary.pendingCount}',
                 color: summary.pendingCount == 0
-                    ? UltrasAppTheme.success
-                    : UltrasAppTheme.warning,
+                    ? ClublineAppTheme.success
+                    : ClublineAppTheme.warning,
               ),
             ],
           ),
@@ -348,7 +348,7 @@ class AttendancePendingDayCard extends StatelessWidget {
             Text(
               'Tutti hanno gia votato per questo giorno.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: UltrasAppTheme.successSoft,
+                    color: ClublineAppTheme.successSoft,
                     fontWeight: FontWeight.w700,
                   ),
             )
@@ -360,7 +360,7 @@ class AttendancePendingDayCard extends StatelessWidget {
                 for (final player in summary.pendingPlayers)
                   AppCountPill(
                     label: player.fullName,
-                    color: UltrasAppTheme.warning,
+                    color: ClublineAppTheme.warning,
                   ),
               ],
             ),
@@ -415,7 +415,7 @@ class AttendancePermissionsCard extends StatelessWidget {
                   Text(
                     message,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: UltrasAppTheme.textMuted,
+                          color: ClublineAppTheme.textMuted,
                           height: 1.35,
                         ),
                   ),
@@ -465,7 +465,7 @@ class AttendanceWeekInfoCard extends StatelessWidget {
                   Text(
                     '${week.subtitle}. Giorni attivi: ${week.selectedDatesSummary}.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: UltrasAppTheme.textMuted,
+                          color: ClublineAppTheme.textMuted,
                           height: 1.35,
                         ),
                   ),

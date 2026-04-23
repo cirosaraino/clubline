@@ -5,7 +5,7 @@ import { supabaseDb } from '../lib/supabase';
 import { asyncHandler } from '../middleware/async-handler';
 import { requireAuth } from '../middleware/auth';
 import { sendOk } from '../lib/http';
-import { realtimeEventsBus } from '../lib/realtime-events';
+import { publishRealtimeChange } from '../lib/realtime-publisher';
 import { TeamInfoService } from '../services/team-info.service';
 
 const teamInfoSchema = z.object({
@@ -71,7 +71,7 @@ teamInfoRouter.put(
       },
       principal!,
     );
-    realtimeEventsBus.publishChange(['teamInfo'], 'team_info_updated');
+    publishRealtimeChange(['teamInfo'], 'team_info_updated');
     sendOk(res, { teamInfo });
   }),
 );

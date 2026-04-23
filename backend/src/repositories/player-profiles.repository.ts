@@ -89,6 +89,21 @@ export class PlayerProfilesRepository {
     return optionalData(response) as PlayerProfileRow | null;
   }
 
+  async findActiveByAuthUserIdInClub(
+    authUserId: string,
+    clubId: string | number,
+  ): Promise<PlayerProfileRow | null> {
+    const response = await this.db
+      .from('player_profiles')
+      .select('*')
+      .eq('auth_user_id', authUserId)
+      .eq('club_id', clubId)
+      .is('archived_at', null)
+      .maybeSingle();
+
+    return optionalData(response) as PlayerProfileRow | null;
+  }
+
   async listByAuthUserId(authUserId: string): Promise<PlayerProfileRow[]> {
     const response = await this.db
       .from('player_profiles')
@@ -105,6 +120,21 @@ export class PlayerProfilesRepository {
       .from('player_profiles')
       .select('*')
       .eq('account_email', email)
+      .is('archived_at', null)
+      .maybeSingle();
+
+    return optionalData(response) as PlayerProfileRow | null;
+  }
+
+  async findActiveByAccountEmailInClub(
+    email: string,
+    clubId: string | number,
+  ): Promise<PlayerProfileRow | null> {
+    const response = await this.db
+      .from('player_profiles')
+      .select('*')
+      .eq('account_email', email)
+      .eq('club_id', clubId)
       .is('archived_at', null)
       .maybeSingle();
 

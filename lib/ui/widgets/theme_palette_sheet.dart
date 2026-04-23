@@ -51,13 +51,13 @@ class _ThemePaletteSheetState extends State<ThemePaletteSheet> {
     Color(0xFFAED581),
   ];
 
-  late UltrasThemePalette draftPalette;
+  late ClublineThemePalette draftPalette;
   bool isSaving = false;
 
   @override
   void initState() {
     super.initState();
-    draftPalette = UltrasAppTheme.activePalette;
+    draftPalette = ClublineAppTheme.activePalette;
   }
 
   Future<void> _applyPalette() async {
@@ -100,13 +100,13 @@ class _ThemePaletteSheetState extends State<ThemePaletteSheet> {
     Navigator.pop(context);
   }
 
-  void _applyPreset(UltrasThemePreset preset) {
+  void _applyPreset(ClublineThemePreset preset) {
     setState(() {
       draftPalette = preset.palette;
     });
   }
 
-  void _updatePalette(UltrasThemePalette palette) {
+  void _updatePalette(ClublineThemePalette palette) {
     setState(() {
       draftPalette = palette;
     });
@@ -137,7 +137,7 @@ class _ThemePaletteSheetState extends State<ThemePaletteSheet> {
             Text(
               'Lo sfondo generale di Clubline resta quello del brand. Qui puoi personalizzare card, pannelli, accenti e dettagli del tuo club senza usare codici.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: UltrasAppTheme.textMuted,
+                color: ClublineAppTheme.textMuted,
                 height: 1.35,
               ),
             ),
@@ -175,7 +175,7 @@ class _ThemePaletteSheetState extends State<ThemePaletteSheet> {
             Text(
               'Tocca un colore per aggiornare subito l anteprima qui sopra.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: UltrasAppTheme.textMuted,
+                color: ClublineAppTheme.textMuted,
                 height: 1.35,
               ),
             ),
@@ -250,7 +250,7 @@ class _ThemePaletteSheetState extends State<ThemePaletteSheet> {
 class _PalettePreviewCard extends StatelessWidget {
   const _PalettePreviewCard({required this.palette});
 
-  final UltrasThemePalette palette;
+  final ClublineThemePalette palette;
 
   @override
   Widget build(BuildContext context) {
@@ -258,7 +258,7 @@ class _PalettePreviewCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        gradient: UltrasAppTheme.pageGradient,
+        gradient: ClublineAppTheme.pageGradient,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: palette.outlineStrong),
         boxShadow: [
@@ -332,7 +332,7 @@ class _ThemePresetCard extends StatelessWidget {
     required this.onTap,
   });
 
-  final UltrasThemePreset preset;
+  final ClublineThemePreset preset;
   final bool isSelected;
   final VoidCallback? onTap;
 
@@ -444,7 +444,7 @@ class _ColorChoiceSection extends StatelessWidget {
         Text(
           subtitle,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: UltrasAppTheme.textMuted,
+            color: ClublineAppTheme.textMuted,
             height: 1.35,
           ),
         ),

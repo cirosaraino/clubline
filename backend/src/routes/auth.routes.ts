@@ -1,5 +1,6 @@
 import { Router } from 'express';
 
+import { env } from '../config/env';
 import { supabaseAuth, supabaseDb } from '../lib/supabase';
 import { asyncHandler } from '../middleware/async-handler';
 import { createRateLimitMiddleware } from '../middleware/rate-limit';
@@ -140,6 +141,22 @@ authRouter.delete(
 
     await authService.deleteAccount(principal.authUser.id);
     sendNoContent(res);
+  }),
+);
+
+authRouter.get(
+  '/public-config',
+  asyncHandler(async (_req, res) => {
+    sendOk(res, {
+      supabase: {
+        url: env.SUPABASE_URL,
+        anonKey: env.SUPABASE_ANON_KEY,
+      },
+      realtime: {
+        provider: 'supabase',
+        localFallbackEnabled: env.ENABLE_LOCAL_REALTIME_FALLBACK,
+      },
+    });
   }),
 );
 

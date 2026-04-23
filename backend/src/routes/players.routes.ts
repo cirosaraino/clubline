@@ -5,7 +5,7 @@ import { supabaseDb } from '../lib/supabase';
 import { asyncHandler } from '../middleware/async-handler';
 import { requireAuth } from '../middleware/auth';
 import { sendCreated, sendNoContent, sendOk } from '../lib/http';
-import { realtimeEventsBus } from '../lib/realtime-events';
+import { publishRealtimeChange } from '../lib/realtime-publisher';
 import { PlayerService } from '../services/player.service';
 import { playerInputSchema } from '../validation/players.validation';
 
@@ -56,7 +56,7 @@ playersRouter.post(
   asyncHandler(async (req, res) => {
     const principal = req.principal;
     const player = await playerService.createPlayer(playerInputSchema.parse(req.body), principal!);
-    realtimeEventsBus.publishChange(['players', 'attendance', 'lineups'], 'player_created');
+    publishRealtimeChange(['players', 'attendance', 'lineups'], 'player_created');
     sendCreated(res, { player });
   }),
 );
@@ -67,7 +67,7 @@ playersRouter.post(
   asyncHandler(async (req, res) => {
     const principal = req.principal;
     const player = await playerService.claimProfile(playerInputSchema.parse(req.body), principal!);
-    realtimeEventsBus.publishChange(['players', 'attendance', 'lineups'], 'player_claimed');
+    publishRealtimeChange(['players', 'attendance', 'lineups'], 'player_claimed');
     sendCreated(res, { player });
   }),
 );
@@ -75,7 +75,7 @@ playersRouter.post(
 const updatePlayerHandler = asyncHandler(async (req, res) => {
   const principal = req.principal;
   const player = await playerService.updatePlayer(req.params.id, playerInputSchema.parse(req.body), principal!);
-  realtimeEventsBus.publishChange(['players', 'attendance', 'lineups'], 'player_updated');
+  publishRealtimeChange(['players', 'attendance', 'lineups'], 'player_updated');
   sendOk(res, { player });
 });
 
@@ -97,7 +97,7 @@ playersRouter.delete(
   asyncHandler(async (req, res) => {
     const principal = req.principal;
     await playerService.releasePlayerFromClub(req.params.id, principal!);
-    realtimeEventsBus.publishChange(['players', 'attendance', 'lineups'], 'player_released');
+    publishRealtimeChange(['players', 'attendance', 'lineups'], 'player_released');
     sendNoContent(res);
   }),
 );
@@ -108,7 +108,7 @@ playersRouter.post(
   asyncHandler(async (req, res) => {
     const principal = req.principal;
     await playerService.releasePlayerFromClub(req.params.id, principal!);
-    realtimeEventsBus.publishChange(['players', 'attendance', 'lineups'], 'player_released');
+    publishRealtimeChange(['players', 'attendance', 'lineups'], 'player_released');
     sendNoContent(res);
   }),
 );

@@ -75,3 +75,14 @@ export class TooManyRequestsError extends HttpError {
     this.name = 'TooManyRequestsError';
   }
 }
+
+export class ServiceUnavailableError extends HttpError {
+  constructor(
+    message = 'Service unavailable',
+    code = 'service_unavailable',
+    details?: unknown,
+  ) {
+    super(503, message, code, details);
+    this.name = 'ServiceUnavailableError';
+  }
+}

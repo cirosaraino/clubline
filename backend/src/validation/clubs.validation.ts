@@ -1,5 +1,11 @@
 import { z } from 'zod';
 
+export const listClubsQuerySchema = z.object({
+  q: z.string().trim().max(80).optional(),
+  page: z.coerce.number().int().min(1).max(500).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+});
+
 export const createClubSchema = z.object({
   name: z.string().min(1),
   logo_data_url: z.string().min(1).nullable().optional(),

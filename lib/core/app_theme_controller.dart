@@ -6,7 +6,7 @@ import 'club_theme_palette_extractor.dart';
 
 class AppThemeController extends ChangeNotifier {
   AppThemeController() {
-    UltrasAppTheme.applyPalette(_palette);
+    ClublineAppTheme.applyPalette(_palette);
     _loadPalette();
   }
 
@@ -22,17 +22,17 @@ class AppThemeController extends ChangeNotifier {
   static const _themeModeClub = 'club';
   static const _themeModeCustom = 'custom';
 
-  UltrasThemePalette _palette = UltrasAppTheme.defaultPalette;
-  UltrasThemePalette _clubPalette = UltrasAppTheme.defaultPalette;
+  ClublineThemePalette _palette = ClublineAppTheme.defaultPalette;
+  ClublineThemePalette _clubPalette = ClublineAppTheme.defaultPalette;
   bool _isLoading = true;
   bool _hasLocalOverride = false;
   int _themeSyncRevision = 0;
 
-  UltrasThemePalette get palette => _palette;
-  UltrasThemePalette get clubPalette => _clubPalette;
+  ClublineThemePalette get palette => _palette;
+  ClublineThemePalette get clubPalette => _clubPalette;
   bool get isLoading => _isLoading;
-  List<UltrasThemePreset> get availablePresets =>
-      UltrasAppTheme.presetsForClub(_clubPalette);
+  List<ClublineThemePreset> get availablePresets =>
+      ClublineAppTheme.presetsForClub(_clubPalette);
 
   Future<void> _loadPalette() async {
     final preferences = await SharedPreferences.getInstance();
@@ -51,20 +51,20 @@ class AppThemeController extends ChangeNotifier {
         storedValues.length == _prefKeys.length;
 
     if (_hasLocalOverride) {
-      _palette = UltrasThemePalette.fromPrefsMap(storedValues);
+      _palette = ClublineThemePalette.fromPrefsMap(storedValues);
     } else {
       _palette = _clubPalette;
     }
 
-    UltrasAppTheme.applyPalette(_palette);
+    ClublineAppTheme.applyPalette(_palette);
     _isLoading = false;
     notifyListeners();
   }
 
-  Future<void> updatePalette(UltrasThemePalette palette) async {
+  Future<void> updatePalette(ClublineThemePalette palette) async {
     _hasLocalOverride = true;
     _palette = palette;
-    UltrasAppTheme.applyPalette(palette);
+    ClublineAppTheme.applyPalette(palette);
     notifyListeners();
 
     final preferences = await SharedPreferences.getInstance();
@@ -99,7 +99,7 @@ class AppThemeController extends ChangeNotifier {
 
     if (!_hasLocalOverride) {
       _palette = _clubPalette;
-      UltrasAppTheme.applyPalette(_palette);
+      ClublineAppTheme.applyPalette(_palette);
     }
 
     notifyListeners();
@@ -108,7 +108,7 @@ class AppThemeController extends ChangeNotifier {
   Future<void> resetToDefault() async {
     _hasLocalOverride = false;
     _palette = _clubPalette;
-    UltrasAppTheme.applyPalette(_palette);
+    ClublineAppTheme.applyPalette(_palette);
     notifyListeners();
 
     final preferences = await SharedPreferences.getInstance();
@@ -118,7 +118,7 @@ class AppThemeController extends ChangeNotifier {
     }
   }
 
-  Future<UltrasThemePalette> _resolveClubPalette({
+  Future<ClublineThemePalette> _resolveClubPalette({
     required String? primaryColor,
     required String? accentColor,
     required String? surfaceColor,
@@ -131,7 +131,7 @@ class AppThemeController extends ChangeNotifier {
     ].any((value) => (value ?? '').trim().isNotEmpty);
 
     if (hasExplicitClubColors) {
-      return UltrasAppTheme.paletteFromClubTheme(
+      return ClublineAppTheme.paletteFromClubTheme(
         primaryColor: primaryColor,
         accentColor: accentColor,
         surfaceColor: surfaceColor,
@@ -144,17 +144,17 @@ class AppThemeController extends ChangeNotifier {
         final extracted = await extractClubThemePaletteFromUrl(
           normalizedLogoUrl,
         );
-        return UltrasAppTheme.paletteFromClubTheme(
+        return ClublineAppTheme.paletteFromClubTheme(
           primaryColor: extracted.primaryHex,
           accentColor: extracted.accentHex,
           surfaceColor: extracted.surfaceHex,
         );
       } catch (_) {
-        return UltrasAppTheme.defaultPalette;
+        return ClublineAppTheme.defaultPalette;
       }
     }
 
-    return UltrasAppTheme.defaultPalette;
+    return ClublineAppTheme.defaultPalette;
   }
 }
 

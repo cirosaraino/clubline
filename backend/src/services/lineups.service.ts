@@ -126,7 +126,8 @@ export class LineupsService {
 
     const response = await this.db
       .from('lineup_players')
-      .select('id, lineup_id, player_id, position_code, player_profiles(*)')
+      .select('id, lineup_id, club_id, player_id, position_code, player_profiles(*)')
+      .eq('club_id', clubId)
       .eq('lineup_id', lineupId);
 
     return ((optionalData(response) as LineupPlayerRow[] | null) ?? []);
@@ -141,22 +142,11 @@ export class LineupsService {
       return [];
     }
 
-    const lineupsResponse = await this.db
-      .from('lineups')
-      .select('id')
-      .eq('club_id', clubId)
-      .in('id', lineupIds);
-    const allowedLineupIds = ((optionalData(lineupsResponse) as Array<{ id: string | number }> | null) ?? [])
-      .map((row) => row.id);
-
-    if (allowedLineupIds.length === 0) {
-      return [];
-    }
-
     const response = await this.db
       .from('lineup_players')
-      .select('id, lineup_id, player_id, position_code, player_profiles(*)')
-      .in('lineup_id', allowedLineupIds);
+      .select('id, lineup_id, club_id, player_id, position_code, player_profiles(*)')
+      .eq('club_id', clubId)
+      .in('lineup_id', lineupIds);
 
     return ((optionalData(response) as LineupPlayerRow[] | null) ?? []);
   }
@@ -174,6 +164,7 @@ export class LineupsService {
     const deleteResponse = await this.db
       .from('lineup_players')
       .delete()
+      .eq('club_id', clubId)
       .eq('lineup_id', lineupId);
     ensureSuccess(deleteResponse);
 
@@ -183,6 +174,7 @@ export class LineupsService {
 
     const insertResponse = await this.db.from('lineup_players').insert(
       assignments.map((assignment) => ({
+        club_id: clubId,
         lineup_id: lineupId,
         player_id: assignment.player_id,
         position_code: assignment.position_code.trim(),

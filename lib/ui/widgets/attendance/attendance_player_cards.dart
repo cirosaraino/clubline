@@ -47,21 +47,21 @@ class AttendancePlayerCard extends StatelessWidget {
                     ? 'Presenze giornaliere'
                     : '${player.teamRoleDisplay} • ${player.roleCodesDisplay}',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: UltrasAppTheme.textMuted,
+                      color: ClublineAppTheme.textMuted,
                     ),
               ),
               const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: UltrasAppTheme.gold.withValues(alpha: 0.1),
+                  color: ClublineAppTheme.gold.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: UltrasAppTheme.outlineSoft),
+                  border: Border.all(color: ClublineAppTheme.outlineSoft),
                 ),
                 child: Text(
                   '$completedDays/${weekDates.length} compilati',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: UltrasAppTheme.goldSoft,
+                        color: ClublineAppTheme.goldSoft,
                         fontWeight: FontWeight.w800,
                       ),
                 ),
@@ -86,7 +86,7 @@ class AttendancePlayerCard extends StatelessWidget {
                               ? 'Presenze giornaliere'
                               : '${player.teamRoleDisplay} • ${player.roleCodesDisplay}',
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: UltrasAppTheme.textMuted,
+                                color: ClublineAppTheme.textMuted,
                               ),
                         ),
                       ],
@@ -95,14 +95,14 @@ class AttendancePlayerCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: UltrasAppTheme.gold.withValues(alpha: 0.1),
+                      color: ClublineAppTheme.gold.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(999),
-                      border: Border.all(color: UltrasAppTheme.outlineSoft),
+                      border: Border.all(color: ClublineAppTheme.outlineSoft),
                     ),
                     child: Text(
                       '$completedDays/${weekDates.length} compilati',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: UltrasAppTheme.goldSoft,
+                            color: ClublineAppTheme.goldSoft,
                             fontWeight: FontWeight.w800,
                           ),
                     ),
@@ -144,7 +144,7 @@ class AttendancePlayerCard extends StatelessWidget {
               Text(
                 'Questo profilo puo solo consultare queste presenze giornaliere.',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: UltrasAppTheme.textMuted,
+                      color: ClublineAppTheme.textMuted,
                     ),
               ),
             ],
@@ -172,10 +172,10 @@ class AttendanceDayTile extends StatelessWidget {
   final ValueChanged<String> onSelectAvailability;
 
   Color get statusColor {
-    if (entry == null) return UltrasAppTheme.textMuted;
-    if (entry!.isPresent) return UltrasAppTheme.success;
-    if (entry!.isAbsent) return UltrasAppTheme.danger;
-    return UltrasAppTheme.warning;
+    if (entry == null) return ClublineAppTheme.textMuted;
+    if (entry!.isPresent) return ClublineAppTheme.success;
+    if (entry!.isAbsent) return ClublineAppTheme.danger;
+    return ClublineAppTheme.warning;
   }
 
   String get statusLabel => entry?.availabilityLabel ?? 'Non disponibile';
@@ -188,9 +188,9 @@ class AttendanceDayTile extends StatelessWidget {
       width: compact ? 188 : 210,
       padding: EdgeInsets.all(compact ? 12 : 14),
       decoration: BoxDecoration(
-        color: UltrasAppTheme.surfaceAlt.withValues(alpha: 0.65),
+        color: ClublineAppTheme.surfaceAlt.withValues(alpha: 0.65),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: UltrasAppTheme.outlineSoft),
+        border: Border.all(color: ClublineAppTheme.outlineSoft),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -214,7 +214,7 @@ class AttendanceDayTile extends StatelessWidget {
                           ? 'Seleziona la disponibilita'
                           : formatAttendanceDayLabel(date),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: UltrasAppTheme.textMuted,
+                            color: ClublineAppTheme.textMuted,
                           ),
                     ),
                   ],
@@ -251,7 +251,7 @@ class AttendanceDayTile extends StatelessWidget {
               AttendanceAvailabilityChip(
                 label: 'Presente',
                 selected: entry!.isPresent,
-                color: UltrasAppTheme.success,
+                color: ClublineAppTheme.success,
                 enabled: canEdit && !isSaving,
                 onTap: () => onSelectAvailability('yes'),
               ),
@@ -259,7 +259,7 @@ class AttendanceDayTile extends StatelessWidget {
               AttendanceAvailabilityChip(
                 label: 'Assente',
                 selected: entry!.isAbsent,
-                color: UltrasAppTheme.danger,
+                color: ClublineAppTheme.danger,
                 enabled: canEdit && !isSaving,
                 onTap: () => onSelectAvailability('no'),
               ),
@@ -270,7 +270,7 @@ class AttendanceDayTile extends StatelessWidget {
                     child: AttendanceAvailabilityChip(
                       label: 'Presente',
                       selected: entry!.isPresent,
-                      color: UltrasAppTheme.success,
+                      color: ClublineAppTheme.success,
                       enabled: canEdit && !isSaving,
                       onTap: () => onSelectAvailability('yes'),
                     ),
@@ -280,7 +280,7 @@ class AttendanceDayTile extends StatelessWidget {
                     child: AttendanceAvailabilityChip(
                       label: 'Assente',
                       selected: entry!.isAbsent,
-                      color: UltrasAppTheme.danger,
+                      color: ClublineAppTheme.danger,
                       enabled: canEdit && !isSaving,
                       onTap: () => onSelectAvailability('no'),
                     ),
@@ -295,7 +295,7 @@ class AttendanceDayTile extends StatelessWidget {
                       : 'Disponibilita ancora in attesa.'
                   : 'Stato aggiornato per ${formatAttendanceDayShortLabel(date)}.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: UltrasAppTheme.textMuted,
+                    color: ClublineAppTheme.textMuted,
                     height: 1.3,
                   ),
             ),
@@ -324,8 +324,8 @@ class AttendanceAvailabilityChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final backgroundColor = selected ? color.withValues(alpha: 0.14) : UltrasAppTheme.surfaceAlt;
-    final foregroundColor = selected ? color : UltrasAppTheme.textMuted;
+    final backgroundColor = selected ? color.withValues(alpha: 0.14) : ClublineAppTheme.surfaceAlt;
+    final foregroundColor = selected ? color : ClublineAppTheme.textMuted;
 
     return InkWell(
       onTap: enabled ? onTap : null,
@@ -337,7 +337,7 @@ class AttendanceAvailabilityChip extends StatelessWidget {
           color: backgroundColor,
           borderRadius: BorderRadius.circular(999),
           border: Border.all(
-            color: selected ? color.withValues(alpha: 0.4) : UltrasAppTheme.outlineSoft,
+            color: selected ? color.withValues(alpha: 0.4) : ClublineAppTheme.outlineSoft,
           ),
         ),
         child: Text(

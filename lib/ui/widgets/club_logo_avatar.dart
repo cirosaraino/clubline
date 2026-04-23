@@ -34,9 +34,9 @@ class ClubLogoAvatar extends StatelessWidget {
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: UltrasAppTheme.surfaceAlt.withValues(alpha: 0.82),
+        color: ClublineAppTheme.surfaceAlt.withValues(alpha: 0.82),
         border: Border.all(
-          color: UltrasAppTheme.outlineStrong,
+          color: ClublineAppTheme.outlineStrong,
           width: borderWidth,
         ),
       ),
@@ -70,9 +70,9 @@ class _ClubFallbackLogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: UltrasAppTheme.surfaceAlt,
+      color: ClublineAppTheme.surfaceAlt,
       alignment: Alignment.center,
-      child: Icon(icon, size: size * 0.42, color: UltrasAppTheme.goldSoft),
+      child: Icon(icon, size: size * 0.42, color: ClublineAppTheme.goldSoft),
     );
   }
 }

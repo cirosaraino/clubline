@@ -7,6 +7,8 @@ import 'package:web/web.dart' as web;
 import 'mobile_web_install_types.dart';
 
 final MobileWebInstallBridge mobileWebInstallBridge = _WebMobileInstallBridge();
+const String _clublinePwaStateKey = '__clublinePwa';
+const String _legacyUltrasPwaStateKey = '__ultrasPwa';
 
 class _WebMobileInstallBridge implements MobileWebInstallBridge {
   _WebMobileInstallBridge() {
@@ -120,16 +122,24 @@ class _WebMobileInstallBridge implements MobileWebInstallBridge {
   }
 
   JSObject get _state {
-    final existing = web.window.getProperty<JSAny?>('__ultrasPwa'.toJS);
+    final existing = web.window.getProperty<JSAny?>(_clublinePwaStateKey.toJS);
     if (existing != null) {
       return existing as JSObject;
+    }
+
+    final legacyExisting = web.window.getProperty<JSAny?>(
+      _legacyUltrasPwaStateKey.toJS,
+    );
+    if (legacyExisting != null) {
+      web.window.setProperty(_clublinePwaStateKey.toJS, legacyExisting);
+      return legacyExisting as JSObject;
     }
 
     final fallback = <String, Object?>{
       'deferredPrompt': null,
       'installed': _computeStandalone(),
     }.jsify() as JSObject;
-    web.window.setProperty('__ultrasPwa'.toJS, fallback);
+    web.window.setProperty(_clublinePwaStateKey.toJS, fallback);
     return fallback;
   }
 

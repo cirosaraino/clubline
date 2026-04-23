@@ -96,7 +96,7 @@ class _AttendanceWeekSetupSheetState extends State<AttendanceWeekSetupSheet> {
                 Text(
                   'Scegli la settimana e poi seleziona solo i giorni che vuoi mettere a voto.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: UltrasAppTheme.textMuted,
+                        color: ClublineAppTheme.textMuted,
                         height: 1.35,
                       ),
                 ),
@@ -133,16 +133,16 @@ class _AttendanceWeekSetupSheetState extends State<AttendanceWeekSetupSheet> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: UltrasAppTheme.surfaceAlt.withValues(alpha: 0.6),
+                    color: ClublineAppTheme.surfaceAlt.withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: UltrasAppTheme.outlineSoft),
+                    border: Border.all(color: ClublineAppTheme.outlineSoft),
                   ),
                   child: Text(
                     selectedDates.isEmpty
                         ? 'Seleziona almeno un giorno per poter creare il sondaggio.'
                         : 'Giorni selezionati: ${formatAttendanceSelectedDatesSummary(selectedDates)}',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: UltrasAppTheme.textMuted,
+                          color: ClublineAppTheme.textMuted,
                         ),
                   ),
                 ),

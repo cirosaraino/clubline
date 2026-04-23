@@ -349,8 +349,8 @@ class _StreamFormPageState extends State<StreamFormPage> {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
-        gradient: UltrasAppTheme.heroGradient,
-        border: Border.all(color: UltrasAppTheme.outlineStrong),
+        gradient: ClublineAppTheme.heroGradient,
+        border: Border.all(color: ClublineAppTheme.outlineStrong),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -360,13 +360,13 @@ class _StreamFormPageState extends State<StreamFormPage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: UltrasAppTheme.gold.withValues(alpha: 0.14),
+                color: ClublineAppTheme.gold.withValues(alpha: 0.14),
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Text(
                 isEditing ? 'MODIFICA LIVE' : 'NUOVA LIVE',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: UltrasAppTheme.goldSoft,
+                      color: ClublineAppTheme.goldSoft,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.8,
                     ),
@@ -466,9 +466,9 @@ class _StreamFormPageState extends State<StreamFormPage> {
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: UltrasAppTheme.surfaceAlt.withValues(alpha: 0.8),
+                color: ClublineAppTheme.surfaceAlt.withValues(alpha: 0.8),
                 borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: UltrasAppTheme.outlineSoft),
+                border: Border.all(color: ClublineAppTheme.outlineSoft),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -476,14 +476,14 @@ class _StreamFormPageState extends State<StreamFormPage> {
                   Icon(
                     Icons.info_outline,
                     size: 18,
-                    color: UltrasAppTheme.goldSoft,
+                    color: ClublineAppTheme.goldSoft,
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       'Recupera prima i dati dal link: titolo, stato e giorno live verranno compilati in automatico da YouTube o Twitch.',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: UltrasAppTheme.textMuted,
+                            color: ClublineAppTheme.textMuted,
                             height: 1.35,
                           ),
                     ),
@@ -592,7 +592,7 @@ class _StreamFormPageState extends State<StreamFormPage> {
             Text(
               description,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: UltrasAppTheme.textMuted,
+                    color: ClublineAppTheme.textMuted,
                     height: 1.35,
                   ),
             ),
@@ -642,7 +642,7 @@ class _StreamFormPageState extends State<StreamFormPage> {
               )
             : Container(
           decoration: BoxDecoration(
-            gradient: UltrasAppTheme.pageGradient,
+            gradient: ClublineAppTheme.pageGradient,
           ),
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
@@ -695,10 +695,10 @@ class _FormSectionCard extends StatelessWidget {
                   width: 42,
                   height: 42,
                   decoration: BoxDecoration(
-                    color: UltrasAppTheme.gold.withValues(alpha: 0.12),
+                    color: ClublineAppTheme.gold.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: Icon(icon, color: UltrasAppTheme.goldSoft),
+                  child: Icon(icon, color: ClublineAppTheme.goldSoft),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -744,14 +744,14 @@ class _MetadataPreviewCard extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: UltrasAppTheme.danger.withValues(alpha: 0.14),
+          color: ClublineAppTheme.danger.withValues(alpha: 0.14),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: UltrasAppTheme.danger.withValues(alpha: 0.35)),
+          border: Border.all(color: ClublineAppTheme.danger.withValues(alpha: 0.35)),
         ),
         child: Text(
           metadataError!,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: UltrasAppTheme.dangerSoft,
+                color: ClublineAppTheme.dangerSoft,
                 fontWeight: FontWeight.w600,
               ),
         ),
@@ -763,14 +763,14 @@ class _MetadataPreviewCard extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: UltrasAppTheme.surfaceAlt.withValues(alpha: 0.8),
+          color: ClublineAppTheme.surfaceAlt.withValues(alpha: 0.8),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: UltrasAppTheme.outlineSoft),
+          border: Border.all(color: ClublineAppTheme.outlineSoft),
         ),
         child: Text(
           'Quando recuperi i dati dal link, qui vedrai subito provider, stato e giorno live.',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: UltrasAppTheme.textMuted,
+                color: ClublineAppTheme.textMuted,
                 height: 1.35,
               ),
         ),
@@ -787,9 +787,9 @@ class _MetadataPreviewCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: UltrasAppTheme.surfaceAlt.withValues(alpha: 0.85),
+        color: ClublineAppTheme.surfaceAlt.withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: UltrasAppTheme.outlineSoft),
+        border: Border.all(color: ClublineAppTheme.outlineSoft),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -843,19 +843,19 @@ class _MetadataBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: UltrasAppTheme.surface.withValues(alpha: 0.45),
+        color: ClublineAppTheme.surface.withValues(alpha: 0.45),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: UltrasAppTheme.outlineSoft.withValues(alpha: 0.8)),
+        border: Border.all(color: ClublineAppTheme.outlineSoft.withValues(alpha: 0.8)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 15, color: UltrasAppTheme.goldSoft),
+          Icon(icon, size: 15, color: ClublineAppTheme.goldSoft),
           const SizedBox(width: 6),
           Text(
             label,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: UltrasAppTheme.textPrimary,
+                  color: ClublineAppTheme.textPrimary,
                   fontWeight: FontWeight.w700,
                 ),
           ),
@@ -876,20 +876,20 @@ class _InlineErrorCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: UltrasAppTheme.danger.withValues(alpha: 0.14),
+        color: ClublineAppTheme.danger.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: UltrasAppTheme.danger.withValues(alpha: 0.35)),
+        border: Border.all(color: ClublineAppTheme.danger.withValues(alpha: 0.35)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.error_outline, color: UltrasAppTheme.dangerSoft),
+          Icon(Icons.error_outline, color: ClublineAppTheme.dangerSoft),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               message,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: UltrasAppTheme.dangerSoft,
+                    color: ClublineAppTheme.dangerSoft,
                     fontWeight: FontWeight.w600,
                     height: 1.35,
                   ),

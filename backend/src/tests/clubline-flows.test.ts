@@ -237,6 +237,55 @@ test('createClub rejects duplicate club names with case-insensitive normalizatio
   );
 });
 
+test('listClubs uses prefix search and paginates club discovery results', async () => {
+  const db = new FakeSupabaseClient({
+    clubs: [
+      createClub({
+        id: 1,
+        name: 'Napoli',
+        normalized_name: 'napoli',
+        slug: 'napoli',
+      }),
+      createClub({
+        id: 2,
+        name: 'Napster FC',
+        normalized_name: 'napster fc',
+        slug: 'napster-fc',
+      }),
+      createClub({
+        id: 3,
+        name: 'Roma',
+        normalized_name: 'roma',
+        slug: 'roma',
+      }),
+    ],
+  });
+  const service = new ClubsService(db as any);
+
+  const firstPage = await service.listClubs({
+    search: 'nap',
+    page: 1,
+    limit: 1,
+  });
+
+  assert.equal(firstPage.clubs.length, 1);
+  assert.equal(firstPage.clubs[0]?.name, 'Napoli');
+  assert.equal(firstPage.pagination.hasMore, true);
+  assert.equal(firstPage.pagination.nextPage, 2);
+  assert.equal(firstPage.pagination.query, 'nap');
+
+  const secondPage = await service.listClubs({
+    search: 'nap',
+    page: 2,
+    limit: 1,
+  });
+
+  assert.equal(secondPage.clubs.length, 1);
+  assert.equal(secondPage.clubs[0]?.name, 'Napster FC');
+  assert.equal(secondPage.pagination.hasMore, false);
+  assert.equal(secondPage.pagination.nextPage, null);
+});
+
 test('requestJoinClub creates a pending request and captain approval activates membership', async () => {
   const seed = createClubSeed({ clubId: 1 });
   const db = new FakeSupabaseClient({

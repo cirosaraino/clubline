@@ -5,5 +5,5 @@ import 'app.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  runApp(const SquadraApp());
+  runApp(const ClublineApp());
 }

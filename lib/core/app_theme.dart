@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 @immutable
-class UltrasThemePalette {
-  const UltrasThemePalette({
+class ClublineThemePalette {
+  const ClublineThemePalette({
     required this.black,
     required this.backgroundTop,
     required this.backgroundBottom,
@@ -18,7 +18,7 @@ class UltrasThemePalette {
   final Color surfaceAlt;
   final Color accent;
 
-  bool matches(UltrasThemePalette other) {
+  bool matches(ClublineThemePalette other) {
     return black.toARGB32() == other.black.toARGB32() &&
         backgroundTop.toARGB32() == other.backgroundTop.toARGB32() &&
         backgroundBottom.toARGB32() == other.backgroundBottom.toARGB32() &&
@@ -27,7 +27,7 @@ class UltrasThemePalette {
         accent.toARGB32() == other.accent.toARGB32();
   }
 
-  UltrasThemePalette copyWith({
+  ClublineThemePalette copyWith({
     Color? black,
     Color? backgroundTop,
     Color? backgroundBottom,
@@ -35,7 +35,7 @@ class UltrasThemePalette {
     Color? surfaceAlt,
     Color? accent,
   }) {
-    return UltrasThemePalette(
+    return ClublineThemePalette(
       black: black ?? this.black,
       backgroundTop: backgroundTop ?? this.backgroundTop,
       backgroundBottom: backgroundBottom ?? this.backgroundBottom,
@@ -56,8 +56,8 @@ class UltrasThemePalette {
     };
   }
 
-  factory UltrasThemePalette.fromPrefsMap(Map<String, Object?> map) {
-    return UltrasThemePalette(
+  factory ClublineThemePalette.fromPrefsMap(Map<String, Object?> map) {
+    return ClublineThemePalette(
       black: _colorFromValue(map['black']),
       backgroundTop: _colorFromValue(map['background_top']),
       backgroundBottom: _colorFromValue(map['background_bottom']),
@@ -142,8 +142,8 @@ class UltrasThemePalette {
 }
 
 @immutable
-class UltrasThemePreset {
-  const UltrasThemePreset({
+class ClublineThemePreset {
+  const ClublineThemePreset({
     required this.id,
     required this.name,
     required this.description,
@@ -153,11 +153,11 @@ class UltrasThemePreset {
   final String id;
   final String name;
   final String description;
-  final UltrasThemePalette palette;
+  final ClublineThemePalette palette;
 }
 
-class UltrasAppTheme {
-  static const UltrasThemePalette defaultPalette = UltrasThemePalette(
+class ClublineAppTheme {
+  static const ClublineThemePalette defaultPalette = ClublineThemePalette(
     black: Color(0xFF040A1C),
     backgroundTop: Color(0xFF0D2C73),
     backgroundBottom: Color(0xFF040A1C),
@@ -166,12 +166,12 @@ class UltrasAppTheme {
     accent: Color(0xFF10E6CB),
   );
 
-  static const List<UltrasThemePreset> curatedPresets = [
-    UltrasThemePreset(
+  static const List<ClublineThemePreset> curatedPresets = [
+    ClublineThemePreset(
       id: 'grafite_oro',
       name: 'Grafite Oro',
       description: 'Più neutra e professionale, con oro più pulito.',
-      palette: UltrasThemePalette(
+      palette: ClublineThemePalette(
         black: Color(0xFF111214),
         backgroundTop: Color(0xFF1A1C20),
         backgroundBottom: Color(0xFF101114),
@@ -180,11 +180,11 @@ class UltrasAppTheme {
         accent: Color(0xFFFFC857),
       ),
     ),
-    UltrasThemePreset(
+    ClublineThemePreset(
       id: 'notte_blu',
       name: 'Notte Blu',
       description: 'Più fredda e moderna, ma sempre intensa.',
-      palette: UltrasThemePalette(
+      palette: ClublineThemePalette(
         black: Color(0xFF0B1116),
         backgroundTop: Color(0xFF13202B),
         backgroundBottom: Color(0xFF091017),
@@ -193,11 +193,11 @@ class UltrasAppTheme {
         accent: Color(0xFF5BC0EB),
       ),
     ),
-    UltrasThemePreset(
+    ClublineThemePreset(
       id: 'verde_campo',
       name: 'Verde Campo',
       description: 'Scuro sportivo con un accento verde elegante.',
-      palette: UltrasThemePalette(
+      palette: ClublineThemePalette(
         black: Color(0xFF0A100C),
         backgroundTop: Color(0xFF122016),
         backgroundBottom: Color(0xFF09120B),
@@ -206,11 +206,11 @@ class UltrasAppTheme {
         accent: Color(0xFF7CCB92),
       ),
     ),
-    UltrasThemePreset(
+    ClublineThemePreset(
       id: 'arena',
       name: 'Arena',
       description: 'Più caldo e deciso, con toni da match day.',
-      palette: UltrasThemePalette(
+      palette: ClublineThemePalette(
         black: Color(0xFF110909),
         backgroundTop: Color(0xFF221010),
         backgroundBottom: Color(0xFF100707),
@@ -221,8 +221,8 @@ class UltrasAppTheme {
     ),
   ];
 
-  static UltrasThemePreset clubPreset(UltrasThemePalette palette) {
-    return UltrasThemePreset(
+  static ClublineThemePreset clubPreset(ClublineThemePalette palette) {
+    return ClublineThemePreset(
       id: 'stemma',
       name: 'Stemma',
       description:
@@ -231,18 +231,18 @@ class UltrasAppTheme {
     );
   }
 
-  static List<UltrasThemePreset> presetsForClub(
-    UltrasThemePalette clubPalette,
+  static List<ClublineThemePreset> presetsForClub(
+    ClublineThemePalette clubPalette,
   ) {
     return [clubPreset(clubPalette), ...curatedPresets];
   }
 
-  static UltrasThemePalette _activePalette = defaultPalette;
+  static ClublineThemePalette _activePalette = defaultPalette;
 
-  static UltrasThemePalette get activePalette => _activePalette;
-  static UltrasThemePalette get brandPalette => defaultPalette;
+  static ClublineThemePalette get activePalette => _activePalette;
+  static ClublineThemePalette get brandPalette => defaultPalette;
 
-  static void applyPalette(UltrasThemePalette palette) {
+  static void applyPalette(ClublineThemePalette palette) {
     _activePalette = palette;
   }
 
@@ -250,7 +250,7 @@ class UltrasAppTheme {
     _activePalette = defaultPalette;
   }
 
-  static UltrasThemePalette paletteFromClubTheme({
+  static ClublineThemePalette paletteFromClubTheme({
     String? primaryColor,
     String? accentColor,
     String? surfaceColor,
@@ -267,7 +267,7 @@ class UltrasAppTheme {
     final backgroundBottom = _mix(black, accent, 0.08);
     final surfaceAlt = _mix(surface, Colors.white, 0.06);
 
-    return UltrasThemePalette(
+    return ClublineThemePalette(
       black: black,
       backgroundTop: backgroundTop,
       backgroundBottom: backgroundBottom,
@@ -346,7 +346,7 @@ class UltrasAppTheme {
     );
   }
 
-  static ThemeData buildTheme([UltrasThemePalette? palette]) {
+  static ThemeData buildTheme([ClublineThemePalette? palette]) {
     final colors = palette ?? activePalette;
     final textTheme = TextTheme(
       headlineLarge: TextStyle(
@@ -453,6 +453,16 @@ class UltrasAppTheme {
         centerTitle: false,
         scrolledUnderElevation: 0,
         titleTextStyle: textTheme.titleLarge,
+        iconTheme: IconThemeData(color: colors.textPrimary),
+        actionsIconTheme: IconThemeData(color: colors.textPrimary),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          foregroundColor: colors.textPrimary,
+          backgroundColor: Colors.transparent,
+          hoverColor: colors.gold.withValues(alpha: 0.08),
+          highlightColor: colors.gold.withValues(alpha: 0.12),
+        ),
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: colors.surface,
@@ -625,6 +635,7 @@ class UltrasAppTheme {
         backgroundColor: colors.surface,
         modalBackgroundColor: colors.surface,
         showDragHandle: true,
+        dragHandleColor: colors.outlineStrong,
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: colors.surface,
@@ -660,6 +671,14 @@ class UltrasAppTheme {
         ),
         textStyle: textTheme.bodyMedium,
       ),
+      tooltipTheme: TooltipThemeData(
+        decoration: BoxDecoration(
+          color: colors.surfaceSoft,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: colors.outlineSoft),
+        ),
+        textStyle: textTheme.bodySmall?.copyWith(color: colors.textPrimary),
+      ),
       listTileTheme: ListTileThemeData(
         contentPadding: EdgeInsets.zero,
         iconColor: colors.textMuted,
@@ -681,3 +700,12 @@ class UltrasAppTheme {
     );
   }
 }
+
+@Deprecated('Use ClublineThemePalette instead.')
+typedef UltrasThemePalette = ClublineThemePalette;
+
+@Deprecated('Use ClublineThemePreset instead.')
+typedef UltrasThemePreset = ClublineThemePreset;
+
+@Deprecated('Use ClublineAppTheme instead.')
+class UltrasAppTheme extends ClublineAppTheme {}

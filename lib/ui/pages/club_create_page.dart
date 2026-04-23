@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/app_session.dart';
+import '../../core/app_theme.dart';
 import '../../core/club_logo_picker/club_logo_picker_bridge.dart';
 import '../../core/club_logo_picker/club_logo_picker_types.dart';
 import '../../core/club_theme_palette_extractor.dart';
@@ -164,11 +165,67 @@ class _ClubCreatePageState extends State<ClubCreatePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const AppPageHeader(
+          AppHeroPanel(
             eyebrow: 'Club Setup',
             title: 'Crea la tua squadra',
             subtitle:
-                'Scegli nome e logo. Il giocatore che hai appena creato entrerà subito come capitano.',
+                'Definisci nome e logo del club. Il tuo giocatore entrerà subito come capitano e la palette verrà proposta automaticamente dal logo.',
+            media: Icon(
+              Icons.shield_outlined,
+              size: AppResponsive.isCompact(context) ? 72 : 88,
+              color: ClublineAppTheme.goldSoft,
+            ),
+            badges: [
+              const AppStatusBadge(
+                label: 'Capitano automatico',
+                tone: AppStatusTone.success,
+              ),
+              if (pickedLogo != null)
+                const AppStatusBadge(
+                  label: 'Logo pronto',
+                  tone: AppStatusTone.info,
+                ),
+            ],
+            trailing: playerIdentity == null
+                ? const AppSurfaceCard(
+                    icon: Icons.person_off_outlined,
+                    title: 'Giocatore mancante',
+                    subtitle:
+                        'Prima di creare un club devi completare il tuo giocatore.',
+                    child: SizedBox.shrink(),
+                  )
+                : AppSurfaceCard(
+                    icon: Icons.workspace_premium_outlined,
+                    title: 'Capitano iniziale',
+                    subtitle:
+                        'Questo profilo entrerà immediatamente nel club con il ruolo di capitano.',
+                    child: AppDetailsList(
+                      items: [
+                        AppDetailItem(
+                          label: 'Giocatore',
+                          value:
+                              '${playerIdentity.nome} ${playerIdentity.cognome}',
+                          emphasized: true,
+                        ),
+                        AppDetailItem(
+                          label: 'ID console',
+                          value: playerIdentity.idConsole,
+                          icon: Icons.sports_esports_outlined,
+                        ),
+                        AppDetailItem(
+                          label: 'Maglia',
+                          value:
+                              '#${playerIdentity.shirtNumber?.toString().padLeft(2, '0') ?? '--'}',
+                          icon: Icons.tag_outlined,
+                        ),
+                        AppDetailItem(
+                          label: 'Ruolo',
+                          value: playerIdentity.primaryRole ?? '-',
+                          icon: Icons.sports_soccer_outlined,
+                        ),
+                      ],
+                    ),
+                  ),
           ),
           const SizedBox(height: AppSpacing.lg),
           AppAdaptiveColumns(
@@ -253,53 +310,6 @@ class _ClubCreatePageState extends State<ClubCreatePage> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (playerIdentity == null)
-                    const AppErrorState(
-                      title: 'Giocatore mancante',
-                      message:
-                          'Prima di creare un club devi completare il tuo giocatore dalla schermata precedente.',
-                    )
-                  else
-                    AppSurfaceCard(
-                      icon: Icons.workspace_premium_outlined,
-                      title: 'Capitano iniziale',
-                      subtitle:
-                          'Questo profilo entrerà immediatamente nel club con il ruolo di capitano.',
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${playerIdentity.nome} ${playerIdentity.cognome}',
-                            style: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(fontWeight: FontWeight.w900),
-                          ),
-                          const SizedBox(height: AppSpacing.sm),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              AppCountPill(
-                                label: 'ID',
-                                value: playerIdentity.idConsole,
-                                icon: Icons.sports_esports_outlined,
-                              ),
-                              AppCountPill(
-                                label: 'Maglia',
-                                value:
-                                    '#${playerIdentity.shirtNumber?.toString().padLeft(2, '0') ?? '--'}',
-                                icon: Icons.tag_outlined,
-                              ),
-                              AppCountPill(
-                                label: 'Ruolo',
-                                value: playerIdentity.primaryRole,
-                                icon: Icons.sports_soccer_outlined,
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  const SizedBox(height: AppSpacing.md),
                   const AppSurfaceCard(
                     icon: Icons.auto_awesome_outlined,
                     title: 'Tema automatico',

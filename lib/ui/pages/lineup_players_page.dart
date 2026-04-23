@@ -480,7 +480,7 @@ class _LineupPlayersPageState extends State<LineupPlayersPage> {
                             ? readOnlyDescription
                             : 'Tocca uno slot sul campo per assegnare il giocatore.',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: UltrasAppTheme.textMuted,
+                              color: ClublineAppTheme.textMuted,
                               height: 1.35,
                             ),
                       ),
@@ -566,12 +566,12 @@ class _ViewerPresenceBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final backgroundColor = isIncluded
-        ? UltrasAppTheme.success.withValues(alpha: 0.12)
-        : UltrasAppTheme.danger;
+        ? ClublineAppTheme.success.withValues(alpha: 0.12)
+        : ClublineAppTheme.danger;
     final borderColor = isIncluded
-        ? UltrasAppTheme.success.withValues(alpha: 0.3)
-        : UltrasAppTheme.danger;
-    final contentColor = isIncluded ? UltrasAppTheme.success : Colors.white;
+        ? ClublineAppTheme.success.withValues(alpha: 0.3)
+        : ClublineAppTheme.danger;
+    final contentColor = isIncluded ? ClublineAppTheme.success : Colors.white;
     final icon = isIncluded ? Icons.check_circle_outline : Icons.cancel_outlined;
 
     return Container(
@@ -635,9 +635,9 @@ class _AttendanceFilterNotice extends StatelessWidget {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: UltrasAppTheme.surfaceAlt.withValues(alpha: 0.78),
+        color: ClublineAppTheme.surfaceAlt.withValues(alpha: 0.78),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: UltrasAppTheme.outlineSoft),
+        border: Border.all(color: ClublineAppTheme.outlineSoft),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -654,12 +654,12 @@ class _AttendanceFilterNotice extends StatelessWidget {
                     width: 32,
                     height: 32,
                     decoration: BoxDecoration(
-                      color: UltrasAppTheme.gold.withValues(alpha: 0.12),
+                      color: ClublineAppTheme.gold.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
                       Icons.event_busy_outlined,
-                      color: UltrasAppTheme.goldSoft,
+                      color: ClublineAppTheme.goldSoft,
                       size: 16,
                     ),
                   ),
@@ -680,7 +680,7 @@ class _AttendanceFilterNotice extends StatelessWidget {
                           formatMatchDateTime(matchDateTime),
                           style:
                               Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: UltrasAppTheme.textMuted,
+                                    color: ClublineAppTheme.textMuted,
                                   ),
                         ),
                         const SizedBox(height: 6),
@@ -690,24 +690,24 @@ class _AttendanceFilterNotice extends StatelessWidget {
                           children: [
                             _SummaryPill(
                               label: collapsedLabel,
-                              color: UltrasAppTheme.gold,
-                              textColor: UltrasAppTheme.goldSoft,
+                              color: ClublineAppTheme.gold,
+                              textColor: ClublineAppTheme.goldSoft,
                             ),
                             if (absentPlayers.isNotEmpty)
                               _SummaryPill(
                                 label: absentPlayers.length == 1
                                     ? '1 assente'
                                     : '${absentPlayers.length} assenti',
-                                color: UltrasAppTheme.danger,
-                                textColor: UltrasAppTheme.dangerSoft,
+                                color: ClublineAppTheme.danger,
+                                textColor: ClublineAppTheme.dangerSoft,
                               ),
                             if (pendingPlayers.isNotEmpty)
                               _SummaryPill(
                                 label: pendingPlayers.length == 1
                                     ? '1 in attesa'
                                     : '${pendingPlayers.length} in attesa',
-                                color: UltrasAppTheme.warning,
-                                textColor: UltrasAppTheme.warningSoft,
+                                color: ClublineAppTheme.warning,
+                                textColor: ClublineAppTheme.warningSoft,
                               ),
                           ],
                         ),
@@ -717,7 +717,7 @@ class _AttendanceFilterNotice extends StatelessWidget {
                             'Tocca per vedere chi e stato filtrato.',
                             style:
                                 Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: UltrasAppTheme.textMuted,
+                                      color: ClublineAppTheme.textMuted,
                                       height: 1.3,
                                     ),
                           ),
@@ -730,7 +730,7 @@ class _AttendanceFilterNotice extends StatelessWidget {
                     isExpanded
                         ? Icons.keyboard_arrow_up_rounded
                         : Icons.keyboard_arrow_down_rounded,
-                    color: UltrasAppTheme.textMuted,
+                    color: ClublineAppTheme.textMuted,
                     size: compact ? 24 : 26,
                   ),
                 ],
@@ -741,7 +741,7 @@ class _AttendanceFilterNotice extends StatelessWidget {
             Divider(
               height: 1,
               thickness: 1,
-              color: UltrasAppTheme.outlineSoft,
+              color: ClublineAppTheme.outlineSoft,
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
@@ -751,7 +751,7 @@ class _AttendanceFilterNotice extends StatelessWidget {
                   Text(
                     subtitle,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: UltrasAppTheme.textMuted,
+                          color: ClublineAppTheme.textMuted,
                           height: 1.35,
                         ),
                   ),
@@ -760,7 +760,7 @@ class _AttendanceFilterNotice extends StatelessWidget {
                     Text(
                       'Assenti filtrati',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: UltrasAppTheme.dangerSoft,
+                            color: ClublineAppTheme.dangerSoft,
                             fontWeight: FontWeight.w800,
                           ),
                     ),
@@ -772,8 +772,8 @@ class _AttendanceFilterNotice extends StatelessWidget {
                           .map(
                             (player) => _FilteredPlayerChip(
                               label: player.fullName,
-                              color: UltrasAppTheme.danger,
-                              textColor: UltrasAppTheme.dangerSoft,
+                              color: ClublineAppTheme.danger,
+                              textColor: ClublineAppTheme.dangerSoft,
                             ),
                           )
                           .toList(),
@@ -785,7 +785,7 @@ class _AttendanceFilterNotice extends StatelessWidget {
                     Text(
                       'In attesa filtrati',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: UltrasAppTheme.warningSoft,
+                            color: ClublineAppTheme.warningSoft,
                             fontWeight: FontWeight.w800,
                           ),
                     ),
@@ -797,8 +797,8 @@ class _AttendanceFilterNotice extends StatelessWidget {
                           .map(
                             (player) => _FilteredPlayerChip(
                               label: player.fullName,
-                              color: UltrasAppTheme.warning,
-                              textColor: UltrasAppTheme.warningSoft,
+                              color: ClublineAppTheme.warning,
+                              textColor: ClublineAppTheme.warningSoft,
                             ),
                           )
                           .toList(),

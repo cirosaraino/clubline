@@ -136,6 +136,7 @@ class _AuthSheetState extends State<AuthSheet> {
   Widget build(BuildContext context) {
     final compact = AppResponsive.isCompact(context);
     final horizontalPadding = AppResponsive.horizontalPadding(context) + 4;
+    final isSignIn = selectedMode == AuthSheetMode.signIn;
 
     return SafeArea(
       child: Padding(
@@ -147,7 +148,7 @@ class _AuthSheetState extends State<AuthSheet> {
         ),
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 520),
+            constraints: const BoxConstraints(maxWidth: 920),
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -158,138 +159,198 @@ class _AuthSheetState extends State<AuthSheet> {
                       width: 42,
                       height: 5,
                       decoration: BoxDecoration(
-                        color: UltrasAppTheme.outlineStrong,
+                        color: ClublineAppTheme.outlineStrong,
                         borderRadius: BorderRadius.circular(999),
                       ),
                     ),
                   ),
                   const SizedBox(height: 18),
-                  Center(child: ClublineBrandLogo(width: compact ? 170 : 220)),
-                  const SizedBox(height: 18),
-                  AppPageHeader(
-                    title: selectedMode == AuthSheetMode.signIn
-                        ? 'Accedi a Clubline'
-                        : 'Crea account Clubline',
-                    subtitle: selectedMode == AuthSheetMode.signIn
-                        ? 'Usa email e password per entrare nella piattaforma.'
-                        : 'Registrati ed entra subito in Clubline.',
-                    centered: true,
-                  ),
-                  if (selectedMode == AuthSheetMode.signUp) ...[
-                    const SizedBox(height: 14),
-                    const AppBanner(
-                      message:
-                          'Con la configurazione attuale, dopo la registrazione entrerai direttamente nell app.',
-                      tone: AppStatusTone.info,
-                      icon: Icons.info_outline,
-                    ),
-                  ],
-                  const SizedBox(height: 18),
-                  SizedBox(
-                    width: double.infinity,
-                    child: SegmentedButton<AuthSheetMode>(
-                      segments: const [
-                        ButtonSegment<AuthSheetMode>(
-                          value: AuthSheetMode.signIn,
-                          label: Text('Accedi'),
-                          icon: Icon(Icons.login_outlined),
+                  AppAdaptiveColumns(
+                    breakpoint: 760,
+                    gap: AppResponsive.sectionGap(context),
+                    flex: const [5, 4],
+                    children: [
+                      AppHeroPanel(
+                        eyebrow: isSignIn ? 'Bentornato' : 'Nuovo account',
+                        title: isSignIn
+                            ? 'Entra in Clubline'
+                            : 'Crea il tuo accesso',
+                        subtitle: isSignIn
+                            ? 'Accedi e riprendi subito il flusso del tuo club su web, iPhone e Android.'
+                            : 'Registrati, crea il tuo giocatore e poi scegli se fondare un club o unirti a una squadra esistente.',
+                        media: Center(
+                          child: ClublineBrandLogo(width: compact ? 170 : 210),
                         ),
-                        ButtonSegment<AuthSheetMode>(
-                          value: AuthSheetMode.signUp,
-                          label: Text('Registrati'),
-                          icon: Icon(Icons.person_add_alt_1_outlined),
+                        badges: [
+                          const AppStatusBadge(
+                            label: 'Multi-club',
+                            tone: AppStatusTone.info,
+                          ),
+                          AppStatusBadge(
+                            label: isSignIn
+                                ? 'Login sicuro'
+                                : 'Accesso immediato',
+                            tone: AppStatusTone.success,
+                          ),
+                        ],
+                        footer: AppResponsiveGrid(
+                          minChildWidth: 170,
+                          gap: AppSpacing.sm,
+                          children: const [
+                            AppMetricCard(
+                              label: 'Flusso account',
+                              value: '1 accesso',
+                              icon: Icons.login_outlined,
+                              caption: 'Email e password',
+                            ),
+                            AppMetricCard(
+                              label: 'Onboarding',
+                              value: '1 giocatore',
+                              icon: Icons.badge_outlined,
+                              caption: 'Profilo unico riusabile',
+                            ),
+                            AppMetricCard(
+                              label: 'Prossimo step',
+                              value: 'Club',
+                              icon: Icons.shield_outlined,
+                              caption: 'Crea o richiedi ingresso',
+                              emphasized: true,
+                            ),
+                          ],
                         ),
-                      ],
-                      selected: {selectedMode},
-                      onSelectionChanged: isSubmitting
-                          ? null
-                          : (selection) {
-                              setState(() {
-                                selectedMode = selection.first;
-                                errorMessage = null;
-                              });
-                            },
-                      style: compact
-                          ? ButtonStyle(
-                              visualDensity: const VisualDensity(
-                                horizontal: -1,
-                                vertical: -1,
+                      ),
+                      AppSurfaceCard(
+                        icon: isSignIn
+                            ? Icons.login_outlined
+                            : Icons.person_add_alt_1_outlined,
+                        title: isSignIn
+                            ? 'Accesso account'
+                            : 'Registrazione account',
+                        subtitle: isSignIn
+                            ? 'Usa le tue credenziali per entrare nel progetto Clubline.'
+                            : 'Completa i dati essenziali. Il resto del flusso avviene dentro l app.',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            SizedBox(
+                              width: double.infinity,
+                              child: SegmentedButton<AuthSheetMode>(
+                                segments: const [
+                                  ButtonSegment<AuthSheetMode>(
+                                    value: AuthSheetMode.signIn,
+                                    label: Text('Accedi'),
+                                    icon: Icon(Icons.login_outlined),
+                                  ),
+                                  ButtonSegment<AuthSheetMode>(
+                                    value: AuthSheetMode.signUp,
+                                    label: Text('Registrati'),
+                                    icon: Icon(Icons.person_add_alt_1_outlined),
+                                  ),
+                                ],
+                                selected: {selectedMode},
+                                onSelectionChanged: isSubmitting
+                                    ? null
+                                    : (selection) {
+                                        setState(() {
+                                          selectedMode = selection.first;
+                                          errorMessage = null;
+                                        });
+                                      },
+                                style: compact
+                                    ? ButtonStyle(
+                                        visualDensity: const VisualDensity(
+                                          horizontal: -1,
+                                          vertical: -1,
+                                        ),
+                                      )
+                                    : null,
                               ),
-                            )
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  TextField(
-                    controller: emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    autocorrect: false,
-                    enableSuggestions: false,
-                    decoration: _decoration(
-                      'Email',
-                      icon: Icons.alternate_email_outlined,
-                    ),
-                    enabled: !isSubmitting,
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: passwordController,
-                    obscureText: true,
-                    decoration: _decoration(
-                      'Password',
-                      icon: Icons.lock_outline,
-                    ),
-                    enabled: !isSubmitting,
-                  ),
-                  if (selectedMode == AuthSheetMode.signIn) ...[
-                    const SizedBox(height: 6),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: isSubmitting
-                            ? null
-                            : _openPasswordResetSheet,
-                        child: const Text('Password dimenticata?'),
+                            ),
+                            if (!isSignIn) ...[
+                              const SizedBox(height: AppSpacing.md),
+                              const AppBanner(
+                                message:
+                                    'Con la configurazione attuale, dopo la registrazione entrerai direttamente nell app.',
+                                tone: AppStatusTone.info,
+                                icon: Icons.info_outline,
+                              ),
+                            ],
+                            const SizedBox(height: AppSpacing.lg),
+                            TextField(
+                              controller: emailController,
+                              keyboardType: TextInputType.emailAddress,
+                              autocorrect: false,
+                              enableSuggestions: false,
+                              decoration: _decoration(
+                                'Email',
+                                icon: Icons.alternate_email_outlined,
+                              ),
+                              enabled: !isSubmitting,
+                            ),
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: passwordController,
+                              obscureText: true,
+                              decoration: _decoration(
+                                'Password',
+                                icon: Icons.lock_outline,
+                              ),
+                              enabled: !isSubmitting,
+                            ),
+                            if (isSignIn) ...[
+                              const SizedBox(height: 6),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: TextButton(
+                                  onPressed: isSubmitting
+                                      ? null
+                                      : _openPasswordResetSheet,
+                                  child: const Text('Password dimenticata?'),
+                                ),
+                              ),
+                            ],
+                            if (!isSignIn) ...[
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: confirmPasswordController,
+                                obscureText: true,
+                                decoration: _decoration(
+                                  'Conferma password',
+                                  icon: Icons.lock_reset_outlined,
+                                ),
+                                enabled: !isSubmitting,
+                              ),
+                            ],
+                            if (errorMessage != null) ...[
+                              const SizedBox(height: 14),
+                              AppBanner(
+                                message: errorMessage!,
+                                tone: _isEmailRateLimitMessage(errorMessage!)
+                                    ? AppStatusTone.info
+                                    : AppStatusTone.error,
+                                icon: _isEmailRateLimitMessage(errorMessage!)
+                                    ? Icons.schedule_outlined
+                                    : Icons.error_outline,
+                              ),
+                            ],
+                            const SizedBox(height: AppSpacing.lg),
+                            AppActionButton(
+                              label: isSubmitting
+                                  ? 'Attendi...'
+                                  : isSignIn
+                                  ? 'Accedi'
+                                  : 'Crea account',
+                              icon: isSignIn
+                                  ? Icons.arrow_forward_outlined
+                                  : Icons.person_add_alt_1_outlined,
+                              expand: true,
+                              isLoading: isSubmitting,
+                              onPressed: isSubmitting ? null : _submit,
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                  if (selectedMode == AuthSheetMode.signUp) ...[
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: confirmPasswordController,
-                      obscureText: true,
-                      decoration: _decoration(
-                        'Conferma password',
-                        icon: Icons.lock_reset_outlined,
-                      ),
-                      enabled: !isSubmitting,
-                    ),
-                  ],
-                  if (errorMessage != null) ...[
-                    const SizedBox(height: 14),
-                    AppBanner(
-                      message: errorMessage!,
-                      tone: _isEmailRateLimitMessage(errorMessage!)
-                          ? AppStatusTone.info
-                          : AppStatusTone.error,
-                      icon: _isEmailRateLimitMessage(errorMessage!)
-                          ? Icons.schedule_outlined
-                          : Icons.error_outline,
-                    ),
-                  ],
-                  const SizedBox(height: 18),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: isSubmitting ? null : _submit,
-                      child: Text(
-                        isSubmitting
-                            ? 'Attendi...'
-                            : selectedMode == AuthSheetMode.signIn
-                            ? 'Accedi'
-                            : 'Crea account',
-                      ),
-                    ),
+                    ],
                   ),
                 ],
               ),

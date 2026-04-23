@@ -26,7 +26,7 @@ class PlayerListTile extends StatelessWidget {
     ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800);
     final subtitleStyle = Theme.of(
       context,
-    ).textTheme.bodyMedium?.copyWith(color: UltrasAppTheme.textMuted);
+    ).textTheme.bodyMedium?.copyWith(color: ClublineAppTheme.textMuted);
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 5),
@@ -197,11 +197,11 @@ class _MetaPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final backgroundColor = highlighted
-        ? UltrasAppTheme.gold.withValues(alpha: 0.18)
-        : UltrasAppTheme.surfaceAlt;
+        ? ClublineAppTheme.gold.withValues(alpha: 0.18)
+        : ClublineAppTheme.surfaceAlt;
     final foregroundColor = highlighted
-        ? UltrasAppTheme.goldSoft
-        : UltrasAppTheme.textMuted;
+        ? ClublineAppTheme.goldSoft
+        : ClublineAppTheme.textMuted;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
@@ -210,8 +210,8 @@ class _MetaPill extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         border: Border.all(
           color: highlighted
-              ? UltrasAppTheme.outlineStrong
-              : UltrasAppTheme.outlineSoft,
+              ? ClublineAppTheme.outlineStrong
+              : ClublineAppTheme.outlineSoft,
         ),
       ),
       child: Row(
@@ -249,10 +249,10 @@ class _ActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final foregroundColor = isDestructive
         ? Theme.of(context).colorScheme.error
-        : UltrasAppTheme.textPrimary;
+        : ClublineAppTheme.textPrimary;
 
     return Material(
-      color: UltrasAppTheme.surfaceAlt,
+      color: ClublineAppTheme.surfaceAlt,
       borderRadius: BorderRadius.circular(14),
       child: IconButton(
         visualDensity: VisualDensity.compact,

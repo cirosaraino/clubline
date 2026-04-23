@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import { supabaseDb } from '../lib/supabase';
 import { sendCreated, sendNoContent, sendOk } from '../lib/http';
-import { realtimeEventsBus } from '../lib/realtime-events';
+import { publishRealtimeChange } from '../lib/realtime-publisher';
 import { asyncHandler } from '../middleware/async-handler';
 import { requireAuth } from '../middleware/auth';
 import { AttendanceService } from '../services/attendance.service';
@@ -40,7 +40,7 @@ attendanceRouter.post(
       createWeekSchema.parse(req.body),
       req.principal!,
     );
-    realtimeEventsBus.publishChange(['attendance', 'lineups'], 'attendance_week_created');
+    publishRealtimeChange(['attendance', 'lineups'], 'attendance_week_created');
     sendCreated(res, { week });
   }),
 );
@@ -59,7 +59,7 @@ attendanceRouter.post(
   requireAuth,
   asyncHandler(async (req, res) => {
     await attendanceService.archiveWeek(req.params.id, req.principal!);
-    realtimeEventsBus.publishChange(['attendance', 'lineups'], 'attendance_week_archived');
+    publishRealtimeChange(['attendance', 'lineups'], 'attendance_week_archived');
     sendNoContent(res);
   }),
 );
@@ -69,7 +69,7 @@ attendanceRouter.post(
   requireAuth,
   asyncHandler(async (req, res) => {
     await attendanceService.restoreArchivedWeek(req.params.id, req.principal!);
-    realtimeEventsBus.publishChange(['attendance', 'lineups'], 'attendance_week_restored');
+    publishRealtimeChange(['attendance', 'lineups'], 'attendance_week_restored');
     sendNoContent(res);
   }),
 );
@@ -79,7 +79,7 @@ attendanceRouter.delete(
   requireAuth,
   asyncHandler(async (req, res) => {
     await attendanceService.deleteArchivedWeek(req.params.id, req.principal!);
-    realtimeEventsBus.publishChange(['attendance', 'lineups'], 'attendance_week_deleted');
+    publishRealtimeChange(['attendance', 'lineups'], 'attendance_week_deleted');
     sendNoContent(res);
   }),
 );
@@ -121,7 +121,7 @@ attendanceRouter.put(
       saveAvailabilitySchema.parse(req.body),
       req.principal!,
     );
-    realtimeEventsBus.publishChange(['attendance', 'lineups'], 'attendance_updated');
+    publishRealtimeChange(['attendance', 'lineups'], 'attendance_updated');
     sendNoContent(res);
   }),
 );

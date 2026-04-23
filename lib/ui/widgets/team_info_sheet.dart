@@ -407,7 +407,7 @@ class _TeamInfoSheetState extends State<TeamInfoSheet> {
                     Text(
                       'Nessun link extra configurato. Qui puoi aggiungere sponsor, canali secondari o riferimenti utili.',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: UltrasAppTheme.textMuted,
+                        color: ClublineAppTheme.textMuted,
                         height: 1.35,
                       ),
                     ),
@@ -483,9 +483,9 @@ class _TeamPreviewCard extends StatelessWidget {
       width: double.infinity,
       padding: EdgeInsets.all(compact ? 16 : 20),
       decoration: BoxDecoration(
-        gradient: UltrasAppTheme.heroGradient,
+        gradient: ClublineAppTheme.heroGradient,
         borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: UltrasAppTheme.outlineStrong),
+        border: Border.all(color: ClublineAppTheme.outlineStrong),
       ),
       child: Column(
         children: [
@@ -503,7 +503,7 @@ class _TeamPreviewCard extends StatelessWidget {
             'Anteprima Home del club',
             style: Theme.of(
               context,
-            ).textTheme.bodyMedium?.copyWith(color: UltrasAppTheme.textMuted),
+            ).textTheme.bodyMedium?.copyWith(color: ClublineAppTheme.textMuted),
           ),
         ],
       ),
@@ -617,9 +617,9 @@ class _CustomLinkRow extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: enabled ? onRemove : null,
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: UltrasAppTheme.dangerSoft,
+                    foregroundColor: ClublineAppTheme.dangerSoft,
                     side: BorderSide(
-                      color: UltrasAppTheme.danger.withValues(alpha: 0.34),
+                      color: ClublineAppTheme.danger.withValues(alpha: 0.34),
                     ),
                   ),
                   icon: const Icon(Icons.delete_outline),
@@ -631,9 +631,9 @@ class _CustomLinkRow extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: enabled ? onRemove : null,
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: UltrasAppTheme.dangerSoft,
+                    foregroundColor: ClublineAppTheme.dangerSoft,
                     side: BorderSide(
-                      color: UltrasAppTheme.danger.withValues(alpha: 0.34),
+                      color: ClublineAppTheme.danger.withValues(alpha: 0.34),
                     ),
                   ),
                   icon: const Icon(Icons.delete_outline),

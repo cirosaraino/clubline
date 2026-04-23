@@ -182,6 +182,7 @@ export interface LineupRow {
 export interface LineupPlayerRow {
   id: number | string;
   lineup_id: number | string;
+  club_id?: number | string | null;
   player_id: number | string;
   position_code: string;
   created_at?: string | null;

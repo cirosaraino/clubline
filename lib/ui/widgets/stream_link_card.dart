@@ -144,9 +144,9 @@ class StreamLinkCard extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: UltrasAppTheme.surfaceAlt.withValues(alpha: 0.72),
+                  color: ClublineAppTheme.surfaceAlt.withValues(alpha: 0.72),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: UltrasAppTheme.outlineSoft),
+                  border: Border.all(color: ClublineAppTheme.outlineSoft),
                 ),
                 child: Column(
                   children: [
@@ -306,11 +306,11 @@ class _CardLeadingIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final background = isLive
-        ? UltrasAppTheme.danger.withValues(alpha: 0.14)
-        : UltrasAppTheme.gold.withValues(alpha: 0.12);
+        ? ClublineAppTheme.danger.withValues(alpha: 0.14)
+        : ClublineAppTheme.gold.withValues(alpha: 0.12);
     final border =
-        isLive ? UltrasAppTheme.danger : UltrasAppTheme.outline;
-    final iconColor = isLive ? UltrasAppTheme.dangerSoft : UltrasAppTheme.goldSoft;
+        isLive ? ClublineAppTheme.danger : ClublineAppTheme.outline;
+    final iconColor = isLive ? ClublineAppTheme.dangerSoft : ClublineAppTheme.goldSoft;
 
     return Container(
       width: 48,
@@ -340,11 +340,11 @@ class _StreamBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final backgroundColor = isLive
-        ? UltrasAppTheme.danger.withValues(alpha: 0.14)
-        : UltrasAppTheme.gold.withValues(alpha: 0.16);
+        ? ClublineAppTheme.danger.withValues(alpha: 0.14)
+        : ClublineAppTheme.gold.withValues(alpha: 0.16);
     final borderColor =
-        isLive ? UltrasAppTheme.danger : UltrasAppTheme.outlineStrong;
-    final textColor = isLive ? UltrasAppTheme.dangerSoft : UltrasAppTheme.goldSoft;
+        isLive ? ClublineAppTheme.danger : ClublineAppTheme.outlineStrong;
+    final textColor = isLive ? ClublineAppTheme.dangerSoft : ClublineAppTheme.goldSoft;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -379,14 +379,14 @@ class _StreamTag extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: UltrasAppTheme.surfaceAlt,
+        color: ClublineAppTheme.surfaceAlt,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: UltrasAppTheme.outlineSoft),
+        border: Border.all(color: ClublineAppTheme.outlineSoft),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 15, color: UltrasAppTheme.goldSoft),
+          Icon(icon, size: 15, color: ClublineAppTheme.goldSoft),
           const SizedBox(width: 6),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 220),
@@ -394,7 +394,7 @@ class _StreamTag extends StatelessWidget {
               label,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: UltrasAppTheme.textPrimary,
+                    color: ClublineAppTheme.textPrimary,
                     fontWeight: FontWeight.w700,
                   ),
             ),
@@ -422,22 +422,22 @@ class _StreamFactTile extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: UltrasAppTheme.surface.withValues(alpha: 0.5),
+        color: ClublineAppTheme.surface.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: UltrasAppTheme.outlineSoft),
+        border: Border.all(color: ClublineAppTheme.outlineSoft),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, size: 16, color: UltrasAppTheme.goldSoft),
+              Icon(icon, size: 16, color: ClublineAppTheme.goldSoft),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   label,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: UltrasAppTheme.textMuted,
+                        color: ClublineAppTheme.textMuted,
                         fontWeight: FontWeight.w700,
                       ),
                 ),
@@ -470,13 +470,13 @@ class _StreamLinkPanel extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
-        color: UltrasAppTheme.surface.withValues(alpha: 0.42),
+        color: ClublineAppTheme.surface.withValues(alpha: 0.42),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: UltrasAppTheme.outlineSoft),
+        border: Border.all(color: ClublineAppTheme.outlineSoft),
       ),
       child: Row(
         children: [
-          Icon(Icons.link_outlined, size: 18, color: UltrasAppTheme.goldSoft),
+          Icon(Icons.link_outlined, size: 18, color: ClublineAppTheme.goldSoft),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -484,7 +484,7 @@ class _StreamLinkPanel extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: UltrasAppTheme.textMuted,
+                    color: ClublineAppTheme.textMuted,
                   ),
             ),
           ),
@@ -492,7 +492,7 @@ class _StreamLinkPanel extends StatelessWidget {
           Icon(
             Icons.open_in_new_outlined,
             size: 18,
-            color: UltrasAppTheme.textMuted,
+            color: ClublineAppTheme.textMuted,
           ),
         ],
       ),

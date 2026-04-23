@@ -772,7 +772,7 @@ class _PlayersFilterCard extends StatelessWidget {
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
             color: hasActiveFilters
                 ? Theme.of(context).colorScheme.primary
-                : UltrasAppTheme.textMuted,
+                : ClublineAppTheme.textMuted,
             fontWeight: hasActiveFilters ? FontWeight.w700 : null,
           ),
         ),

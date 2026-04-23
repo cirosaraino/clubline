@@ -102,6 +102,7 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
   private expectMode: 'many' | 'single' | 'maybeSingle' = 'many';
   private readonly filters: Array<(row: Row) => boolean> = [];
   private limitValue: number | null = null;
+  private rangeWindow: { from: number; to: number } | null = null;
   private orderBy: { column: string; ascending: boolean } | null = null;
   private payload: Row[] | Row | null = null;
   private upsertOptions: UpsertOptions = {};
@@ -166,6 +167,12 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
     return this;
   }
 
+  in(column: string, values: unknown[]): this {
+    const allowedValues = new Set(values.map((value) => `${value}`));
+    this.filters.push((row) => allowedValues.has(`${row[column]}`));
+    return this;
+  }
+
   or(expression: string): this {
     const clauses = expression
       .split(',')
@@ -187,6 +194,14 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
 
   limit(value: number): this {
     this.limitValue = value;
+    return this;
+  }
+
+  range(from: number, to: number): this {
+    this.rangeWindow = {
+      from: Math.max(0, Math.trunc(from)),
+      to: Math.max(0, Math.trunc(to)),
+    };
     return this;
   }
 
@@ -433,7 +448,11 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
   }
 
   private applyLimit(rows: Row[]): Row[] {
-    return this.limitValue == null ? rows : rows.slice(0, this.limitValue);
+    let nextRows = rows;
+    if (this.rangeWindow != null) {
+      nextRows = nextRows.slice(this.rangeWindow.from, this.rangeWindow.to + 1);
+    }
+    return this.limitValue == null ? nextRows : nextRows.slice(0, this.limitValue);
   }
 
   private decorateRow(row: Row): Row {

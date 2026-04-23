@@ -4,26 +4,76 @@ import '../models/leave_request.dart';
 import '../models/membership.dart';
 import 'api_client.dart';
 
+class ClubSearchResult {
+  const ClubSearchResult({
+    required this.clubs,
+    required this.page,
+    required this.limit,
+    required this.hasMore,
+    required this.nextPage,
+    this.query,
+  });
+
+  final List<Club> clubs;
+  final int page;
+  final int limit;
+  final bool hasMore;
+  final int? nextPage;
+  final String? query;
+}
+
 class ClubRepository {
   ClubRepository({ApiClient? apiClient})
     : _apiClient = apiClient ?? ApiClient.shared;
 
   final ApiClient _apiClient;
 
-  Future<List<Club>> searchClubs({String? query}) async {
-    final path = query == null || query.trim().isEmpty
-        ? '/clubs'
-        : '/clubs?q=${Uri.encodeQueryComponent(query.trim())}';
+  Future<ClubSearchResult> searchClubs({
+    String? query,
+    int page = 1,
+    int? limit,
+  }) async {
+    final queryParameters = <String, String>{
+      'page': page.toString(),
+      if (limit != null) 'limit': limit.toString(),
+      if (query != null && query.trim().isNotEmpty) 'q': query.trim(),
+    };
+    final queryString = queryParameters.entries
+        .map(
+          (entry) =>
+              '${Uri.encodeQueryComponent(entry.key)}=${Uri.encodeQueryComponent(entry.value)}',
+        )
+        .join('&');
+    final path = queryString.isEmpty ? '/clubs' : '/clubs?$queryString';
     final response = await _apiClient.get(path, authenticated: true);
     final rawClubs = switch (response) {
       {'clubs': final List clubs} => clubs,
       List clubs => clubs,
       _ => const [],
     };
+    final rawPagination = switch (response) {
+      {'pagination': final Map pagination} => Map<String, dynamic>.from(
+        pagination,
+      ),
+      _ => const <String, dynamic>{},
+    };
 
-    return rawClubs
-        .map<Club>((club) => Club.fromMap(Map<String, dynamic>.from(club)))
-        .toList();
+    return ClubSearchResult(
+      clubs: rawClubs
+          .map<Club>((club) => Club.fromMap(Map<String, dynamic>.from(club)))
+          .toList(),
+      page: rawPagination['page'] is num
+          ? (rawPagination['page'] as num).toInt()
+          : page,
+      limit: rawPagination['limit'] is num
+          ? (rawPagination['limit'] as num).toInt()
+          : (limit ?? 20),
+      hasMore: rawPagination['hasMore'] == true,
+      nextPage: rawPagination['nextPage'] is num
+          ? (rawPagination['nextPage'] as num).toInt()
+          : null,
+      query: rawPagination['query']?.toString(),
+    );
   }
 
   Future<Club?> fetchCurrentClub() async {

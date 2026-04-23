@@ -5,7 +5,7 @@ import { supabaseDb } from '../lib/supabase';
 import { asyncHandler } from '../middleware/async-handler';
 import { requireAuth } from '../middleware/auth';
 import { sendOk } from '../lib/http';
-import { realtimeEventsBus } from '../lib/realtime-events';
+import { publishRealtimeChange } from '../lib/realtime-publisher';
 import { VicePermissionsService } from '../services/vice-permissions.service';
 
 const permissionsSchema = z.object({
@@ -42,7 +42,7 @@ vicePermissionsRouter.put(
       },
       principal!,
     );
-    realtimeEventsBus.publishChange(['vicePermissions', 'players'], 'vice_permissions_updated');
+    publishRealtimeChange(['vicePermissions', 'players'], 'vice_permissions_updated');
     sendOk(res, { permissions });
   }),
 );

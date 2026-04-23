@@ -213,13 +213,13 @@ class _ViewerStatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final backgroundColor = positive
-        ? UltrasAppTheme.success.withValues(alpha: 0.14)
-        : UltrasAppTheme.danger;
+        ? ClublineAppTheme.success.withValues(alpha: 0.14)
+        : ClublineAppTheme.danger;
     final borderColor = positive
-        ? UltrasAppTheme.success
-        : UltrasAppTheme.danger;
+        ? ClublineAppTheme.success
+        : ClublineAppTheme.danger;
     final textColor = positive
-        ? UltrasAppTheme.successSoft
+        ? ClublineAppTheme.successSoft
         : Colors.white;
     final icon = positive ? Icons.check_circle_outline : Icons.cancel_outlined;
 
@@ -258,14 +258,14 @@ class _LineupBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: UltrasAppTheme.gold.withValues(alpha: 0.16),
+        color: ClublineAppTheme.gold.withValues(alpha: 0.16),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: UltrasAppTheme.outlineStrong),
+        border: Border.all(color: ClublineAppTheme.outlineStrong),
       ),
       child: Text(
         label,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: UltrasAppTheme.goldSoft,
+              color: ClublineAppTheme.goldSoft,
               fontWeight: FontWeight.w800,
             ),
       ),
@@ -289,7 +289,7 @@ class _LineupInfoRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 18, color: UltrasAppTheme.goldSoft),
+        Icon(icon, size: 18, color: ClublineAppTheme.goldSoft),
         const SizedBox(width: 10),
         Expanded(
           child: RichText(
@@ -299,7 +299,7 @@ class _LineupInfoRow extends StatelessWidget {
                 TextSpan(
                   text: '$label: ',
                   style: TextStyle(
-                    color: UltrasAppTheme.textMuted,
+                    color: ClublineAppTheme.textMuted,
                     fontWeight: FontWeight.w700,
                   ),
                 ),

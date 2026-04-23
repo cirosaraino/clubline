@@ -95,7 +95,7 @@ class AppPageBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(gradient: UltrasAppTheme.pageGradient),
+      decoration: BoxDecoration(gradient: ClublineAppTheme.pageGradient),
       child: child,
     );
   }
@@ -307,7 +307,7 @@ class AppPageHeader extends StatelessWidget {
       height: 1.02,
     );
     final subtitleStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
-      color: UltrasAppTheme.textMuted,
+      color: ClublineAppTheme.textMuted,
       height: 1.45,
     );
 
@@ -321,7 +321,7 @@ class AppPageHeader extends StatelessWidget {
             eyebrow!,
             textAlign: centered ? TextAlign.center : TextAlign.start,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: UltrasAppTheme.goldSoft,
+              color: ClublineAppTheme.goldSoft,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.8,
             ),
@@ -353,6 +353,293 @@ class AppPageHeader extends StatelessWidget {
       children: [
         content,
         Align(alignment: Alignment.topRight, child: trailing!),
+      ],
+    );
+  }
+}
+
+class AppHeroPanel extends StatelessWidget {
+  const AppHeroPanel({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    this.eyebrow,
+    this.media,
+    this.trailing,
+    this.badges = const [],
+    this.actions = const [],
+    this.footer,
+    this.centered = false,
+  });
+
+  final String title;
+  final String subtitle;
+  final String? eyebrow;
+  final Widget? media;
+  final Widget? trailing;
+  final List<Widget> badges;
+  final List<Widget> actions;
+  final Widget? footer;
+  final bool centered;
+
+  @override
+  Widget build(BuildContext context) {
+    final horizontalAlignment = centered
+        ? CrossAxisAlignment.center
+        : CrossAxisAlignment.start;
+    final textAlign = centered ? TextAlign.center : TextAlign.start;
+
+    Widget buildContent() {
+      return Column(
+        crossAxisAlignment: horizontalAlignment,
+        children: [
+          if (media != null &&
+              (trailing == null || !AppResponsive.isDesktop(context))) ...[
+            Center(child: media!),
+            const SizedBox(height: AppSpacing.lg),
+          ],
+          if (eyebrow != null) ...[
+            Text(
+              eyebrow!,
+              textAlign: textAlign,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: ClublineAppTheme.goldSoft,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.9,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+          ],
+          Text(
+            title,
+            textAlign: textAlign,
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+              fontWeight: FontWeight.w900,
+              height: 1.04,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            subtitle,
+            textAlign: textAlign,
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              color: ClublineAppTheme.textMuted,
+              height: 1.48,
+            ),
+          ),
+          if (badges.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.md),
+            Wrap(
+              alignment: centered ? WrapAlignment.center : WrapAlignment.start,
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
+              children: badges,
+            ),
+          ],
+          if (actions.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.lg),
+            Wrap(
+              alignment: centered ? WrapAlignment.center : WrapAlignment.start,
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
+              children: actions,
+            ),
+          ],
+          if (footer != null) ...[
+            const SizedBox(height: AppSpacing.lg),
+            footer!,
+          ],
+        ],
+      );
+    }
+
+    final padding = EdgeInsets.all(
+      AppResponsive.isDesktop(context)
+          ? 28
+          : AppResponsive.cardPadding(context),
+    );
+
+    return Container(
+      width: double.infinity,
+      decoration: ClublineAppTheme.heroDecoration(
+        radius: AppResponsive.isCompact(context) ? 24 : 30,
+      ),
+      child: Padding(
+        padding: padding,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final useSplitLayout =
+                trailing != null && constraints.maxWidth >= 980;
+
+            if (!useSplitLayout) {
+              return buildContent();
+            }
+
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(child: buildContent()),
+                const SizedBox(width: AppSpacing.xl),
+                SizedBox(width: constraints.maxWidth * 0.34, child: trailing!),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class AppMetricCard extends StatelessWidget {
+  const AppMetricCard({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.icon,
+    this.caption,
+    this.emphasized = false,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final String? caption;
+  final bool emphasized;
+
+  @override
+  Widget build(BuildContext context) {
+    final accentColor = emphasized
+        ? ClublineAppTheme.goldSoft
+        : ClublineAppTheme.infoSoft;
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: ClublineAppTheme.surfaceAlt.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: emphasized
+              ? ClublineAppTheme.outlineStrong
+              : ClublineAppTheme.outlineSoft,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AppIconBadge(
+            icon: icon,
+            backgroundColor: accentColor.withValues(alpha: 0.16),
+            iconColor: accentColor,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            value,
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: ClublineAppTheme.textPrimary,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          if (caption != null) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              caption!,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: ClublineAppTheme.textMuted,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class AppDetailItem {
+  const AppDetailItem({
+    required this.label,
+    required this.value,
+    this.icon,
+    this.emphasized = false,
+  });
+
+  final String label;
+  final String value;
+  final IconData? icon;
+  final bool emphasized;
+}
+
+class AppDetailsList extends StatelessWidget {
+  const AppDetailsList({super.key, required this.items});
+
+  final List<AppDetailItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (var index = 0; index < items.length; index++) ...[
+          if (index > 0)
+            Divider(height: AppSpacing.md, color: ClublineAppTheme.outlineSoft),
+          _AppDetailRow(item: items[index]),
+        ],
+      ],
+    );
+  }
+}
+
+class _AppDetailRow extends StatelessWidget {
+  const _AppDetailRow({required this.item});
+
+  final AppDetailItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final valueColor = item.emphasized
+        ? ClublineAppTheme.goldSoft
+        : ClublineAppTheme.textPrimary;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (item.icon != null) ...[
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(
+              item.icon,
+              size: 16,
+              color: item.emphasized
+                  ? ClublineAppTheme.goldSoft
+                  : ClublineAppTheme.textMuted,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+        ],
+        Expanded(
+          child: Text(
+            item.label,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: ClublineAppTheme.textMuted),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.md),
+        Flexible(
+          child: Text(
+            item.value,
+            textAlign: TextAlign.end,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: valueColor,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -405,7 +692,7 @@ class AppSurfaceCard extends StatelessWidget {
                           Text(
                             subtitle!,
                             style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(color: UltrasAppTheme.textMuted),
+                                ?.copyWith(color: ClublineAppTheme.textMuted),
                           ),
                         ],
                       ],
@@ -454,7 +741,7 @@ class AppFeatureCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surfaceColor = emphasized
-        ? UltrasAppTheme.surfaceRaised
+        ? ClublineAppTheme.surfaceRaised
         : Theme.of(context).cardColor;
 
     return Card(
@@ -473,7 +760,7 @@ class AppFeatureCard extends StatelessWidget {
                   AppIconBadge(
                     icon: icon,
                     backgroundColor: emphasized
-                        ? UltrasAppTheme.gold.withValues(alpha: 0.18)
+                        ? ClublineAppTheme.gold.withValues(alpha: 0.18)
                         : null,
                   ),
                   const SizedBox(width: AppSpacing.sm),
@@ -490,7 +777,7 @@ class AppFeatureCard extends StatelessWidget {
                         Text(
                           message,
                           style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: UltrasAppTheme.textMuted),
+                              ?.copyWith(color: ClublineAppTheme.textMuted),
                         ),
                       ],
                     ),
@@ -536,15 +823,15 @@ class AppBanner extends StatelessWidget {
   Color _toneColor() {
     switch (tone) {
       case AppStatusTone.success:
-        return UltrasAppTheme.success;
+        return ClublineAppTheme.success;
       case AppStatusTone.warning:
-        return UltrasAppTheme.warning;
+        return ClublineAppTheme.warning;
       case AppStatusTone.error:
-        return UltrasAppTheme.danger;
+        return ClublineAppTheme.danger;
       case AppStatusTone.info:
-        return UltrasAppTheme.infoSoft;
+        return ClublineAppTheme.infoSoft;
       case AppStatusTone.neutral:
-        return UltrasAppTheme.textMuted;
+        return ClublineAppTheme.textMuted;
     }
   }
 
@@ -569,7 +856,7 @@ class AppBanner extends StatelessWidget {
             child: Text(
               message,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: UltrasAppTheme.textPrimary,
+                color: ClublineAppTheme.textPrimary,
                 height: 1.4,
               ),
             ),
@@ -621,7 +908,7 @@ class AppStatusCard extends StatelessWidget {
               Text(
                 eyebrow!,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: UltrasAppTheme.goldSoft,
+                  color: ClublineAppTheme.goldSoft,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0.8,
                 ),
@@ -640,7 +927,7 @@ class AppStatusCard extends StatelessWidget {
               message,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: UltrasAppTheme.textMuted,
+                color: ClublineAppTheme.textMuted,
                 height: 1.4,
               ),
             ),
@@ -681,9 +968,9 @@ class AppLoadingState extends StatelessWidget {
             const SizedBox(height: AppSpacing.md),
             Text(
               label,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: UltrasAppTheme.textMuted),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: ClublineAppTheme.textMuted,
+              ),
             ),
           ],
         ),
@@ -776,8 +1063,8 @@ class AppActionButton extends StatelessWidget {
       child: CircularProgressIndicator(
         strokeWidth: 2,
         color: variant == AppButtonVariant.primary
-            ? UltrasAppTheme.onAccent
-            : UltrasAppTheme.goldSoft,
+            ? ClublineAppTheme.onAccent
+            : ClublineAppTheme.goldSoft,
       ),
     );
     final child = isLoading
@@ -855,14 +1142,14 @@ class AppIconBadge extends StatelessWidget {
       width: compact ? size - 4 : size,
       height: compact ? size - 4 : size,
       decoration: BoxDecoration(
-        color: backgroundColor ?? UltrasAppTheme.gold.withValues(alpha: 0.14),
+        color: backgroundColor ?? ClublineAppTheme.gold.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(borderRadius),
         border: borderColor == null ? null : Border.all(color: borderColor!),
       ),
       child: Icon(
         icon,
         size: compact ? iconSize - 1 : iconSize,
-        color: iconColor ?? UltrasAppTheme.goldSoft,
+        color: iconColor ?? ClublineAppTheme.goldSoft,
       ),
     );
   }
@@ -881,15 +1168,15 @@ class AppStatusBadge extends StatelessWidget {
   Color _foreground() {
     switch (tone) {
       case AppStatusTone.success:
-        return UltrasAppTheme.successSoft;
+        return ClublineAppTheme.successSoft;
       case AppStatusTone.warning:
-        return UltrasAppTheme.warningSoft;
+        return ClublineAppTheme.warningSoft;
       case AppStatusTone.error:
-        return UltrasAppTheme.dangerSoft;
+        return ClublineAppTheme.dangerSoft;
       case AppStatusTone.info:
-        return UltrasAppTheme.infoSoft;
+        return ClublineAppTheme.infoSoft;
       case AppStatusTone.neutral:
-        return UltrasAppTheme.textMuted;
+        return ClublineAppTheme.textMuted;
     }
   }
 
@@ -938,16 +1225,16 @@ class AppCountPill extends StatelessWidget {
     final compact = AppResponsive.isUltraCompact(context);
     final tone =
         color ??
-        (emphasized ? UltrasAppTheme.goldSoft : UltrasAppTheme.textPrimary);
+        (emphasized ? ClublineAppTheme.goldSoft : ClublineAppTheme.textPrimary);
     final backgroundColor = color == null
         ? (emphasized
-              ? UltrasAppTheme.gold.withValues(alpha: 0.14)
-              : UltrasAppTheme.surfaceAlt)
+              ? ClublineAppTheme.gold.withValues(alpha: 0.14)
+              : ClublineAppTheme.surfaceAlt)
         : color!.withValues(alpha: 0.14);
     final borderColor = color == null
         ? (emphasized
-              ? UltrasAppTheme.outlineStrong
-              : UltrasAppTheme.outlineSoft)
+              ? ClublineAppTheme.outlineStrong
+              : ClublineAppTheme.outlineSoft)
         : color!.withValues(alpha: 0.35);
 
     return Container(

@@ -553,29 +553,52 @@ class _AppShellPageState extends State<AppShellPage> {
       body: Row(
         children: [
           Container(
-            width: AppResponsive.isDesktop(context) ? 108 : 96,
+            width: AppResponsive.isDesktop(context) ? 124 : 108,
             color: Theme.of(context).colorScheme.surface,
             child: SafeArea(
               child: Column(
                 children: [
                   const SizedBox(height: AppSpacing.md),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                    child: ClublineBrandLogo(width: 88),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
                   Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.sm,
                     ),
-                    child: Text(
-                      session.teamInfo.displayTeamName,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: UltrasAppTheme.textMuted,
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.sm,
+                        AppSpacing.sm,
+                        AppSpacing.sm,
+                        AppSpacing.md,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                      decoration: BoxDecoration(
+                        color: ClublineAppTheme.surfaceAlt.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: ClublineAppTheme.outlineSoft),
+                      ),
+                      child: Column(
+                        children: [
+                          const ClublineBrandLogo(width: 76),
+                          const SizedBox(height: AppSpacing.sm),
+                          Text(
+                            session.teamInfo.displayTeamName,
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w800),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: AppSpacing.xs),
+                          AppStatusBadge(
+                            label:
+                                session.currentUser?.teamRoleDisplay ??
+                                'Club attivo',
+                            tone: session.needsProfileSetup
+                                ? AppStatusTone.warning
+                                : AppStatusTone.info,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: AppSpacing.md),

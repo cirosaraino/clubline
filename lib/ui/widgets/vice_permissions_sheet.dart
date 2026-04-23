@@ -277,9 +277,9 @@ class _ViceScopeSummaryCard extends StatelessWidget {
       width: double.infinity,
       padding: EdgeInsets.all(compact ? 14 : 16),
       decoration: BoxDecoration(
-        color: UltrasAppTheme.surfaceAlt.withValues(alpha: 0.72),
+        color: ClublineAppTheme.surfaceAlt.withValues(alpha: 0.72),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: UltrasAppTheme.outlineSoft),
+        border: Border.all(color: ClublineAppTheme.outlineSoft),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -300,7 +300,7 @@ class _ViceScopeSummaryCard extends StatelessWidget {
                 ? 'Quando assegnerai uno o piu vice, i permessi qui sotto varranno per tutti loro.'
                 : viceNames.join(' • '),
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: UltrasAppTheme.textMuted,
+                  color: ClublineAppTheme.textMuted,
                   height: 1.35,
                 ),
           ),
@@ -374,7 +374,7 @@ class _PermissionSwitchCard extends StatelessWidget {
                   Text(
                     description,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: UltrasAppTheme.textMuted,
+                          color: ClublineAppTheme.textMuted,
                           height: 1.35,
                         ),
                   ),
@@ -405,14 +405,14 @@ class _PermissionPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final backgroundColor = enabled
-        ? UltrasAppTheme.success.withValues(alpha: 0.16)
-        : UltrasAppTheme.surface;
+        ? ClublineAppTheme.success.withValues(alpha: 0.16)
+        : ClublineAppTheme.surface;
     final borderColor = enabled
-        ? UltrasAppTheme.success.withValues(alpha: 0.34)
-        : UltrasAppTheme.outlineSoft;
+        ? ClublineAppTheme.success.withValues(alpha: 0.34)
+        : ClublineAppTheme.outlineSoft;
     final foregroundColor = enabled
-        ? UltrasAppTheme.successSoft
-        : UltrasAppTheme.textMuted;
+        ? ClublineAppTheme.successSoft
+        : ClublineAppTheme.textMuted;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),

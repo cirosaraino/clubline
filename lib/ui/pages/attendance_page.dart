@@ -64,6 +64,14 @@ class _AttendancePageState extends State<AttendancePage> {
     return AppSessionScope.read(context).currentUser;
   }
 
+  bool _sameId(dynamic left, dynamic right) {
+    if (left == null || right == null) {
+      return false;
+    }
+
+    return '$left' == '$right';
+  }
+
   bool get canManageAll => activeViewer?.canManageAttendanceAll ?? false;
 
   bool get canUseCaptainFilters => activeViewer?.isCaptain == true;
@@ -80,7 +88,7 @@ class _AttendancePageState extends State<AttendancePage> {
     }
 
     final viewerId = activeViewer?.id;
-    return entries.where((entry) => entry.playerId == viewerId).toList();
+    return entries.where((entry) => _sameId(entry.playerId, viewerId)).toList();
   }
 
   List<AttendancePlayerEntries> _applyCaptainFilters(
@@ -259,7 +267,7 @@ class _AttendancePageState extends State<AttendancePage> {
       return;
     }
 
-    final canEditEntry = canManageAll || entry.playerId == viewer.id;
+    final canEditEntry = canManageAll || _sameId(entry.playerId, viewer.id);
     if (!canEditEntry) {
       return;
     }
@@ -596,7 +604,7 @@ class _AttendancePageState extends State<AttendancePage> {
               AttendancePlayerCard(
                 playerEntries: playerEntries,
                 weekDates: weekDates,
-                canEdit: canManageAll || playerEntries.playerId == viewer.id,
+                canEdit: canManageAll || _sameId(playerEntries.playerId, viewer.id),
                 savingEntryKeys: savingEntryKeys,
                 onSelectAvailability: _updateAvailability,
               ),

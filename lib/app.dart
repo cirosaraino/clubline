@@ -9,14 +9,14 @@ import 'ui/pages/app_shell_page.dart';
 import 'ui/widgets/app_realtime_sync_host.dart';
 import 'ui/widgets/mobile_web_install_prompt_host.dart';
 
-class SquadraApp extends StatefulWidget {
-  const SquadraApp({super.key});
+class ClublineApp extends StatefulWidget {
+  const ClublineApp({super.key});
 
   @override
-  State<SquadraApp> createState() => _SquadraAppState();
+  State<ClublineApp> createState() => _ClublineAppState();
 }
 
-class _SquadraAppState extends State<SquadraApp> {
+class _ClublineAppState extends State<ClublineApp> {
   late final AppSessionController sessionController;
   late final AppThemeController themeController;
 
@@ -52,12 +52,12 @@ class _SquadraAppState extends State<SquadraApp> {
       builder: (context, _) {
         final activePalette = sessionController.hasClubMembership
             ? themeController.palette
-            : UltrasAppTheme.defaultPalette;
+            : ClublineAppTheme.defaultPalette;
 
         return MaterialApp(
           title: 'Clubline',
           debugShowCheckedModeBanner: false,
-          theme: UltrasAppTheme.buildTheme(activePalette),
+          theme: ClublineAppTheme.buildTheme(activePalette),
           builder: (context, child) {
             return AppThemeScope(
               controller: themeController,
@@ -76,4 +76,9 @@ class _SquadraAppState extends State<SquadraApp> {
       },
     );
   }
+}
+
+@Deprecated('Use ClublineApp instead.')
+class SquadraApp extends ClublineApp {
+  const SquadraApp({super.key});
 }

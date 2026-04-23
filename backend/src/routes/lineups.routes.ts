@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import { supabaseDb } from '../lib/supabase';
 import { sendCreated, sendNoContent, sendOk } from '../lib/http';
-import { realtimeEventsBus } from '../lib/realtime-events';
+import { publishRealtimeChange } from '../lib/realtime-publisher';
 import { asyncHandler } from '../middleware/async-handler';
 import { requireAuth } from '../middleware/auth';
 import { LineupsService } from '../services/lineups.service';
@@ -64,7 +64,7 @@ lineupsRouter.post(
       lineupInputSchema.parse(req.body),
       req.principal!,
     );
-    realtimeEventsBus.publishChange(['lineups', 'attendance'], 'lineup_created');
+    publishRealtimeChange(['lineups', 'attendance'], 'lineup_created');
     sendCreated(res, { lineup });
   }),
 );
@@ -84,7 +84,7 @@ lineupsRouter.put(
   asyncHandler(async (req, res) => {
     const { assignments } = lineupAssignmentsSchema.parse(req.body);
     await lineupsService.replaceLineupPlayers(req.params.id, assignments, req.principal!);
-    realtimeEventsBus.publishChange(['lineups', 'attendance'], 'lineup_players_updated');
+    publishRealtimeChange(['lineups', 'attendance'], 'lineup_players_updated');
     sendNoContent(res);
   }),
 );
@@ -98,7 +98,7 @@ lineupsRouter.put(
       lineupInputSchema.parse(req.body),
       req.principal!,
     );
-    realtimeEventsBus.publishChange(['lineups', 'attendance'], 'lineup_updated');
+    publishRealtimeChange(['lineups', 'attendance'], 'lineup_updated');
     sendOk(res, { lineup });
   }),
 );
@@ -108,7 +108,7 @@ lineupsRouter.delete(
   requireAuth,
   asyncHandler(async (req, res) => {
     await lineupsService.deleteAllLineups(req.principal!);
-    realtimeEventsBus.publishChange(['lineups', 'attendance'], 'lineup_deleted_all');
+    publishRealtimeChange(['lineups', 'attendance'], 'lineup_deleted_all');
     sendNoContent(res);
   }),
 );
@@ -119,7 +119,7 @@ lineupsRouter.delete(
   asyncHandler(async (req, res) => {
     const { lineup_ids: lineupIds } = deleteLineupsByIdsSchema.parse(req.body);
     await lineupsService.deleteLineupsByIds(lineupIds, req.principal!);
-    realtimeEventsBus.publishChange(['lineups', 'attendance'], 'lineup_deleted_day');
+    publishRealtimeChange(['lineups', 'attendance'], 'lineup_deleted_day');
     sendNoContent(res);
   }),
 );
@@ -129,7 +129,7 @@ lineupsRouter.delete(
   requireAuth,
   asyncHandler(async (req, res) => {
     await lineupsService.deleteLineup(req.params.id, req.principal!);
-    realtimeEventsBus.publishChange(['lineups', 'attendance'], 'lineup_deleted');
+    publishRealtimeChange(['lineups', 'attendance'], 'lineup_deleted');
     sendNoContent(res);
   }),
 );

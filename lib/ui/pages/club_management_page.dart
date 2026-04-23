@@ -178,25 +178,47 @@ class _ClubManagementPageState extends State<ClubManagementPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          AppPageHeader(
+          AppHeroPanel(
             eyebrow: 'Captain Tools',
             title: 'Gestisci richieste e ruoli del club',
             subtitle:
-                'Approva ingressi, gestisci le uscite, trasferisci la fascia e controlla le azioni sensibili del club.',
-            trailing: AppResponsiveGrid(
+                'Approva ingressi, gestisci le uscite, trasferisci la fascia e controlla le azioni sensibili del club da un unico punto.',
+            media: Icon(
+              Icons.admin_panel_settings_outlined,
+              size: AppResponsive.isCompact(context) ? 72 : 88,
+              color: ClublineAppTheme.goldSoft,
+            ),
+            badges: [
+              AppStatusBadge(
+                label: '${session.captainPendingJoinRequests.length} ingressi',
+                tone: session.captainPendingJoinRequests.isEmpty
+                    ? AppStatusTone.neutral
+                    : AppStatusTone.info,
+              ),
+              AppStatusBadge(
+                label: '${session.captainPendingLeaveRequests.length} uscite',
+                tone: session.captainPendingLeaveRequests.isEmpty
+                    ? AppStatusTone.neutral
+                    : AppStatusTone.warning,
+              ),
+            ],
+            footer: AppResponsiveGrid(
               minChildWidth: 180,
+              gap: AppSpacing.sm,
               children: [
-                AppCountPill(
-                  label: 'Ingressi',
+                AppMetricCard(
+                  label: 'Ingressi in attesa',
                   value: '${session.captainPendingJoinRequests.length}',
                   icon: Icons.group_add_outlined,
-                  emphasized: true,
+                  caption: 'Da approvare o rifiutare',
+                  emphasized: session.captainPendingJoinRequests.isNotEmpty,
                 ),
-                AppCountPill(
-                  label: 'Uscite',
+                AppMetricCard(
+                  label: 'Uscite in attesa',
                   value: '${session.captainPendingLeaveRequests.length}',
                   icon: Icons.exit_to_app_outlined,
-                  emphasized: true,
+                  caption: 'Richieste di leave',
+                  emphasized: session.captainPendingLeaveRequests.isNotEmpty,
                 ),
               ],
             ),
@@ -409,7 +431,7 @@ class _RequestTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: UltrasAppTheme.outlineSoft),
+        border: Border.all(color: ClublineAppTheme.outlineSoft),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -435,7 +457,7 @@ class _RequestTile extends StatelessWidget {
             subtitle,
             style: Theme.of(
               context,
-            ).textTheme.bodyMedium?.copyWith(color: UltrasAppTheme.textMuted),
+            ).textTheme.bodyMedium?.copyWith(color: ClublineAppTheme.textMuted),
           ),
           const SizedBox(height: 12),
           AppAdaptiveColumns(

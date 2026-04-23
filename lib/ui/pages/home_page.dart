@@ -262,14 +262,17 @@ class HomePage extends StatelessWidget {
           Positioned(
             top: -120,
             right: -70,
-            child: _GlowCircle(size: 260, color: UltrasAppTheme.outlineStrong),
+            child: _GlowCircle(
+              size: 260,
+              color: ClublineAppTheme.outlineStrong,
+            ),
           ),
           Positioned(
             left: -90,
             bottom: 60,
             child: _GlowCircle(
               size: 220,
-              color: UltrasAppTheme.goldSoft.withValues(alpha: 0.16),
+              color: ClublineAppTheme.goldSoft.withValues(alpha: 0.16),
             ),
           ),
           SafeArea(
@@ -461,120 +464,49 @@ class _HomeWelcomeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final compact = AppResponsive.isCompact(context);
-    final cardPadding = AppResponsive.cardPadding(context);
     final heroCrestUrl = isPersonalizedExperience ? teamInfo.crestUrl : null;
     final showUsefulLinks = isPersonalizedExperience && teamInfo.hasAnyLinks;
-
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        gradient: UltrasAppTheme.heroGradient,
-        borderRadius: BorderRadius.circular(compact ? 26 : 30),
-        border: Border.all(color: UltrasAppTheme.outlineStrong),
-        boxShadow: UltrasAppTheme.softShadow,
-      ),
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          cardPadding,
-          compact ? 18 : 24,
-          cardPadding,
-          cardPadding,
-        ),
-        child: Column(
-          children: [
-            if (isPersonalizedExperience)
-              ClubLogoAvatar(
-                logoUrl: heroCrestUrl,
-                size: compact ? 96 : 126,
-                fallbackIcon: Icons.shield_outlined,
-              )
-            else
-              ClublineBrandLogo(width: compact ? 172 : 224),
-            SizedBox(height: compact ? 14 : 18),
-            if (isPersonalizedExperience) ...[
-              Text(
-                teamInfo.displayTeamName,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w900,
-                  height: 1.05,
-                  fontSize: compact ? 28 : null,
-                ),
-              ),
-              const SizedBox(height: 8),
-            ],
-            Text(
-              _welcomeText(),
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: UltrasAppTheme.textMuted,
-                height: 1.4,
-              ),
-            ),
-            if (showUsefulLinks) ...[
-              SizedBox(height: compact ? 14 : 18),
-              Wrap(
-                alignment: WrapAlignment.center,
-                spacing: compact ? 8 : 10,
-                runSpacing: compact ? 8 : 10,
-                children: [
-                  for (final link in teamInfo.allLinks)
-                    _UsefulLinkChip(
-                      link: link,
-                      onTap: () => onOpenLink(link.url),
-                    ),
-                ],
-              ),
-            ],
-            if (onOpenThemeSettings != null ||
-                onOpenTeamInfoSettings != null) ...[
-              SizedBox(height: compact ? 14 : 18),
-              if (compact) ...[
-                if (onOpenThemeSettings != null)
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: onOpenThemeSettings,
-                      icon: const Icon(Icons.palette_outlined),
-                      label: const Text('Colori app'),
-                    ),
+    return AppHeroPanel(
+      centered: true,
+      eyebrow: isPersonalizedExperience ? 'Club attivo' : 'Clubline',
+      title: isPersonalizedExperience ? teamInfo.displayTeamName : 'Clubline',
+      subtitle: _welcomeText(),
+      media: isPersonalizedExperience
+          ? ClubLogoAvatar(
+              logoUrl: heroCrestUrl,
+              size: compact ? 96 : 126,
+              fallbackIcon: Icons.shield_outlined,
+            )
+          : ClublineBrandLogo(width: compact ? 172 : 224),
+      actions: [
+        if (onOpenThemeSettings != null)
+          AppActionButton(
+            label: 'Colori app',
+            icon: Icons.palette_outlined,
+            variant: AppButtonVariant.secondary,
+            onPressed: onOpenThemeSettings,
+          ),
+        if (onOpenTeamInfoSettings != null)
+          AppActionButton(
+            label: 'Info club',
+            icon: Icons.edit_note_outlined,
+            onPressed: onOpenTeamInfoSettings,
+          ),
+      ],
+      footer: showUsefulLinks
+          ? Wrap(
+              alignment: WrapAlignment.center,
+              spacing: compact ? 8 : 10,
+              runSpacing: compact ? 8 : 10,
+              children: [
+                for (final link in teamInfo.allLinks)
+                  _UsefulLinkChip(
+                    link: link,
+                    onTap: () => onOpenLink(link.url),
                   ),
-                if (onOpenThemeSettings != null &&
-                    onOpenTeamInfoSettings != null)
-                  const SizedBox(height: 10),
-                if (onOpenTeamInfoSettings != null)
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: onOpenTeamInfoSettings,
-                      icon: const Icon(Icons.edit_note_outlined),
-                      label: const Text('Info club'),
-                    ),
-                  ),
-              ] else
-                Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    if (onOpenThemeSettings != null)
-                      OutlinedButton.icon(
-                        onPressed: onOpenThemeSettings,
-                        icon: const Icon(Icons.palette_outlined),
-                        label: const Text('Colori app'),
-                      ),
-                    if (onOpenTeamInfoSettings != null)
-                      ElevatedButton.icon(
-                        onPressed: onOpenTeamInfoSettings,
-                        icon: const Icon(Icons.edit_note_outlined),
-                        label: const Text('Info club'),
-                      ),
-                  ],
-                ),
-            ],
-          ],
-        ),
-      ),
+              ],
+            )
+          : null,
     );
   }
 }
@@ -697,7 +629,7 @@ class _AccessCard extends StatelessWidget {
             Text(
               _sessionSubtitle(),
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: UltrasAppTheme.textMuted,
+                color: ClublineAppTheme.textMuted,
                 height: 1.35,
               ),
             ),
@@ -723,7 +655,7 @@ class _AccessCard extends StatelessWidget {
               Text(
                 'Accedi con un account esistente oppure registrane uno nuovo. Dopo il login creerai prima il tuo giocatore e poi potrai creare un club o chiedere l ingresso in uno esistente.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: UltrasAppTheme.textMuted,
+                  color: ClublineAppTheme.textMuted,
                   height: 1.35,
                 ),
               ),
@@ -782,7 +714,7 @@ class _AccessCard extends StatelessWidget {
                     ? 'Sei autenticato con ${currentUserEmail ?? 'un account valido'}, ma manca ancora il profilo club da compilare.'
                     : 'Sei dentro il club come ${currentUser!.fullName}, ma devi ancora completare il profilo giocatore con maglia, ruolo e dati mancanti.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: UltrasAppTheme.textMuted,
+                  color: ClublineAppTheme.textMuted,
                   height: 1.35,
                 ),
               ),
@@ -792,7 +724,7 @@ class _AccessCard extends StatelessWidget {
                     ? 'Usa l icona profilo in alto a destra per completare il profilo giocatore. Finche non lo fai, gli altri tab restano bloccati.'
                     : 'Usa l icona profilo in alto a destra per aprire il completamento del profilo e salvare i dettagli mancanti. Finche non completi il giocatore, gli altri tab restano bloccati.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: UltrasAppTheme.textMuted,
+                  color: ClublineAppTheme.textMuted,
                   height: 1.35,
                 ),
               ),
@@ -814,7 +746,7 @@ class _AccessCard extends StatelessWidget {
               Text(
                 'Hai un profilo collegato e puoi continuare usando Clubline con i tuoi permessi.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: UltrasAppTheme.textMuted,
+                  color: ClublineAppTheme.textMuted,
                   height: 1.35,
                 ),
               ),
@@ -824,16 +756,16 @@ class _AccessCard extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: UltrasAppTheme.warning.withValues(alpha: 0.12),
+                    color: ClublineAppTheme.warning.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(
-                      color: UltrasAppTheme.warning.withValues(alpha: 0.28),
+                      color: ClublineAppTheme.warning.withValues(alpha: 0.28),
                     ),
                   ),
                   child: Text(
                     'Sei entrato dal link di recupero password. Impostane una nuova per chiudere il recupero e continuare ad usare Clubline normalmente.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: UltrasAppTheme.warningSoft,
+                      color: ClublineAppTheme.warningSoft,
                       fontWeight: FontWeight.w700,
                       height: 1.35,
                     ),
@@ -850,7 +782,7 @@ class _AccessCard extends StatelessWidget {
               Text(
                 'Le azioni account (modifica profilo, password, cancellazione ed uscita) sono nel menu profilo in alto a destra.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: UltrasAppTheme.textMuted,
+                  color: ClublineAppTheme.textMuted,
                   height: 1.35,
                 ),
               ),
@@ -997,12 +929,12 @@ class _UsefulLinkChip extends StatelessWidget {
       avatar: Icon(
         _iconForLink(link.key),
         size: 16,
-        color: UltrasAppTheme.goldSoft,
+        color: ClublineAppTheme.goldSoft,
       ),
-      side: BorderSide(color: UltrasAppTheme.outlineSoft),
-      backgroundColor: UltrasAppTheme.surfaceAlt.withValues(alpha: 0.8),
+      side: BorderSide(color: ClublineAppTheme.outlineSoft),
+      backgroundColor: ClublineAppTheme.surfaceAlt.withValues(alpha: 0.8),
       labelStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-        color: UltrasAppTheme.textPrimary,
+        color: ClublineAppTheme.textPrimary,
         fontWeight: FontWeight.w700,
       ),
       label: Text(link.label),

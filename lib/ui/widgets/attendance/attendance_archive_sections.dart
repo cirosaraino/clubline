@@ -69,7 +69,7 @@ class AttendanceArchiveWeekCard extends StatelessWidget {
           child: Text(
             '${week.subtitle} • ${week.selectedDatesSummary}',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: UltrasAppTheme.textMuted,
+                  color: ClublineAppTheme.textMuted,
                 ),
           ),
         ),
@@ -106,9 +106,9 @@ class AttendanceArchiveWeekCard extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: (isDeleting || isRestoring) ? null : onDelete,
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: UltrasAppTheme.danger,
+                    foregroundColor: ClublineAppTheme.danger,
                     side: BorderSide(
-                      color: UltrasAppTheme.danger.withValues(alpha: 0.3),
+                      color: ClublineAppTheme.danger.withValues(alpha: 0.3),
                     ),
                   ),
                   icon: isDeleting
@@ -130,7 +130,7 @@ class AttendanceArchiveWeekCard extends StatelessWidget {
             Text(
               'Ripristino non disponibile: esiste gia una settimana presenze attiva.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: UltrasAppTheme.textMuted,
+                    color: ClublineAppTheme.textMuted,
                     fontWeight: FontWeight.w600,
                   ),
             ),
@@ -144,17 +144,17 @@ class AttendanceArchiveWeekCard extends StatelessWidget {
                 AppCountPill(
                   label: 'Si',
                   value: '$presentCount',
-                  color: UltrasAppTheme.success,
+                  color: ClublineAppTheme.success,
                 ),
                 AppCountPill(
                   label: 'No',
                   value: '$absentCount',
-                  color: UltrasAppTheme.danger,
+                  color: ClublineAppTheme.danger,
                 ),
                 AppCountPill(
                   label: 'Attesa',
                   value: '$pendingCount',
-                  color: UltrasAppTheme.warning,
+                  color: ClublineAppTheme.warning,
                 ),
               ],
             ),
@@ -170,7 +170,7 @@ class AttendanceArchiveWeekCard extends StatelessWidget {
             Text(
               'Apri la settimana per caricare le presenze archiviate.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: UltrasAppTheme.textMuted,
+                    color: ClublineAppTheme.textMuted,
                   ),
             ),
         ],
@@ -192,12 +192,12 @@ class AttendanceArchivePlayerRow extends StatelessWidget {
   Color _statusColor(String availability) {
     switch (availability) {
       case 'yes':
-        return UltrasAppTheme.success;
+        return ClublineAppTheme.success;
       case 'no':
-        return UltrasAppTheme.danger;
+        return ClublineAppTheme.danger;
       case 'pending':
       default:
-        return UltrasAppTheme.warning;
+        return ClublineAppTheme.warning;
     }
   }
 
@@ -208,9 +208,9 @@ class AttendanceArchivePlayerRow extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(compact ? 10 : 12),
       decoration: BoxDecoration(
-        color: UltrasAppTheme.surfaceAlt.withValues(alpha: 0.7),
+        color: ClublineAppTheme.surfaceAlt.withValues(alpha: 0.7),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: UltrasAppTheme.outlineSoft),
+        border: Border.all(color: ClublineAppTheme.outlineSoft),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -257,7 +257,7 @@ class AttendanceArchivePlayerRow extends StatelessWidget {
             Text(
               playerEntries.player!.teamRoleDisplay,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: UltrasAppTheme.textMuted,
+                    color: ClublineAppTheme.textMuted,
                     fontWeight: FontWeight.w700,
                   ),
             ),

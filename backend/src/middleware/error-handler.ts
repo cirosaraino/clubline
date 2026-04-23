@@ -50,9 +50,23 @@ export function errorHandler(
     return;
   }
 
+  if (maybeError.code === 'P0001' || maybeError.code === '23514') {
+    sendError(res, 409, maybeError.message ?? 'Operazione in conflitto', {
+      code: 'db_business_rule_violation',
+    });
+    return;
+  }
+
   if (maybeError.code === '42501') {
     sendError(res, 403, 'Operazione non consentita', {
       code: 'db_permission_denied',
+    });
+    return;
+  }
+
+  if (maybeError.code === '22023' || maybeError.code === '22P02') {
+    sendError(res, 400, maybeError.message ?? 'Parametri non validi', {
+      code: 'db_validation_error',
     });
     return;
   }

@@ -32,9 +32,9 @@ class ClublineBrandLogo extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(radius),
         border: Border.all(
-          color: UltrasAppTheme.outlineStrong.withValues(alpha: 0.78),
+          color: ClublineAppTheme.outlineStrong.withValues(alpha: 0.78),
         ),
-        boxShadow: UltrasAppTheme.softShadow,
+        boxShadow: ClublineAppTheme.softShadow,
       ),
       child: logo,
     );

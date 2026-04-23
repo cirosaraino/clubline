@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { env } from '../config/env';
 import { inferNamesFromEmail } from '../domain/player-identity';
 import type {
   ClubRow,
@@ -9,8 +10,16 @@ import type {
   RequestPrincipal,
   TeamRole,
 } from '../domain/types';
-import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../lib/errors';
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  ServiceUnavailableError,
+  ValidationError,
+} from '../lib/errors';
+import { mapDatabaseError } from '../lib/database-error';
 import { ensureSuccess, optionalData, requiredData } from '../lib/supabase-result';
+import { ClubWorkflowsRepository } from '../repositories/club-workflows.repository';
 import { MembershipsRepository } from '../repositories/memberships.repository';
 import { PlayerProfilesRepository } from '../repositories/player-profiles.repository';
 import { PlayerIdentityService } from './player-identity.service';
@@ -57,6 +66,15 @@ function normalizeClubName(value: string): string {
 
 function normalizeClubKey(value: string): string {
   return normalizeClubName(value).toLowerCase();
+}
+
+function normalizeClubSearchTerm(value: string | null | undefined): string | null {
+  const normalized = normalizeText(value)
+    .toLowerCase()
+    .replaceAll(/[%,()]/g, ' ')
+    .replaceAll(/\s+/g, ' ')
+    .trim();
+  return normalized.length > 0 ? normalized : null;
 }
 
 function slugifyClubName(value: string): string {
@@ -164,31 +182,79 @@ export interface UpdateClubLogoInput {
   surface_color?: string | null;
 }
 
+export interface ListClubsInput {
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface ClubListItemRow
+  extends Pick<
+    ClubRow,
+    'id' | 'name' | 'slug' | 'logo_url' | 'primary_color' | 'accent_color' | 'surface_color'
+  > {}
+
+export interface ClubListResult {
+  clubs: ClubListItemRow[];
+  pagination: {
+    page: number;
+    limit: number;
+    hasMore: boolean;
+    nextPage: number | null;
+    query: string | null;
+  };
+}
+
 export class ClubsService {
+  private readonly workflows: ClubWorkflowsRepository;
   private readonly memberships: MembershipsRepository;
   private readonly playerProfiles: PlayerProfilesRepository;
   private readonly playerIdentity: PlayerIdentityService;
 
   constructor(private readonly db: SupabaseClient) {
+    this.workflows = new ClubWorkflowsRepository(db);
     this.memberships = new MembershipsRepository(db);
     this.playerProfiles = new PlayerProfilesRepository(db);
     this.playerIdentity = new PlayerIdentityService(db);
   }
 
-  async listClubs(search?: string): Promise<ClubRow[]> {
+  async listClubs({ search, page = 1, limit = 20 }: ListClubsInput = {}): Promise<ClubListResult> {
+    const safePage = Number.isFinite(page) ? Math.max(1, Math.trunc(page)) : 1;
+    const safeLimit = Number.isFinite(limit)
+      ? Math.min(50, Math.max(1, Math.trunc(limit)))
+      : 20;
+    const start = (safePage - 1) * safeLimit;
+    const end = start + safeLimit;
+
     let query = this.db
       .from('clubs')
-      .select('*')
-      .order('name', { ascending: true });
+      .select('id,name,slug,logo_url,primary_color,accent_color,surface_color')
+      .order('normalized_name', { ascending: true })
+      .range(start, end);
 
-    const needle = normalizeText(search);
-    if (needle.length > 0) {
-      const normalizedNeedle = needle.toLowerCase();
-      query = query.or(`name.ilike.%${normalizedNeedle}%,slug.ilike.%${normalizedNeedle}%`);
+    const normalizedSearch = normalizeClubSearchTerm(search);
+    if (normalizedSearch != null) {
+      const namePrefixPattern = `${normalizedSearch}%`;
+      const slugPrefixPattern = `${normalizedSearch.replaceAll(' ', '-')}%`;
+      query = query.or(
+        `normalized_name.like.${namePrefixPattern},slug.like.${slugPrefixPattern}`,
+      );
     }
 
     const response = await query;
-    return ((optionalData(response) as ClubRow[] | null) ?? []);
+    const rawClubs = ((optionalData(response) as ClubListItemRow[] | null) ?? []);
+    const hasMore = rawClubs.length > safeLimit;
+
+    return {
+      clubs: hasMore ? rawClubs.slice(0, safeLimit) : rawClubs,
+      pagination: {
+        page: safePage,
+        limit: safeLimit,
+        hasMore,
+        nextPage: hasMore ? safePage + 1 : null,
+        query: normalizedSearch,
+      },
+    };
   }
 
   async createClub(input: CreateClubInput, principal: RequestPrincipal): Promise<{
@@ -196,6 +262,16 @@ export class ClubsService {
     membership: MembershipRow;
   }> {
     await this.ensureVerifiedUser(principal);
+    this.ensureWorkflowExecutionPath('createClub');
+    if (this.workflows.canUseRpc) {
+      try {
+        return await this.createClubViaRpc(input, principal);
+      } catch (error) {
+        if (!this.shouldFallbackToLegacyWorkflow(error, 'createClub')) {
+          throw error;
+        }
+      }
+    }
     await this.ensureNoActiveMembership(principal.authUser.id);
     await this.ensureNoPendingJoinRequest(principal.authUser.id);
 
@@ -334,6 +410,16 @@ export class ClubsService {
     principal: RequestPrincipal,
   ): Promise<JoinRequestRow> {
     await this.ensureVerifiedUser(principal);
+    this.ensureWorkflowExecutionPath('requestJoinClub');
+    if (this.workflows.canUseRpc) {
+      try {
+        return await this.requestJoinClubViaRpc(input, principal);
+      } catch (error) {
+        if (!this.shouldFallbackToLegacyWorkflow(error, 'requestJoinClub')) {
+          throw error;
+        }
+      }
+    }
     await this.ensureNoActiveMembership(principal.authUser.id);
     await this.ensureNoPendingJoinRequest(principal.authUser.id);
 
@@ -390,6 +476,16 @@ export class ClubsService {
     joinRequestId: string | number,
     principal: RequestPrincipal,
   ): Promise<MembershipRow> {
+    this.ensureWorkflowExecutionPath('approveJoinRequest');
+    if (this.workflows.canUseRpc) {
+      try {
+        return await this.approveJoinRequestViaRpc(joinRequestId, principal);
+      } catch (error) {
+        if (!this.shouldFallbackToLegacyWorkflow(error, 'approveJoinRequest')) {
+          throw error;
+        }
+      }
+    }
     const captainMembership = ensureCaptain(principal);
     const joinRequest = await this.getJoinRequest(joinRequestId);
     if (`${joinRequest.club_id}` != `${captainMembership.club_id}`) {
@@ -446,6 +542,17 @@ export class ClubsService {
     joinRequestId: string | number,
     principal: RequestPrincipal,
   ): Promise<void> {
+    this.ensureWorkflowExecutionPath('rejectJoinRequest');
+    if (this.workflows.canUseRpc) {
+      try {
+        await this.rejectJoinRequestViaRpc(joinRequestId, principal);
+        return;
+      } catch (error) {
+        if (!this.shouldFallbackToLegacyWorkflow(error, 'rejectJoinRequest')) {
+          throw error;
+        }
+      }
+    }
     const captainMembership = ensureCaptain(principal);
     const joinRequest = await this.getJoinRequest(joinRequestId);
     if (`${joinRequest.club_id}` != `${captainMembership.club_id}`) {
@@ -469,6 +576,16 @@ export class ClubsService {
   }
 
   async requestLeaveClub(principal: RequestPrincipal): Promise<LeaveRequestRow> {
+    this.ensureWorkflowExecutionPath('requestLeaveClub');
+    if (this.workflows.canUseRpc) {
+      try {
+        return await this.requestLeaveClubViaRpc(principal);
+      } catch (error) {
+        if (!this.shouldFallbackToLegacyWorkflow(error, 'requestLeaveClub')) {
+          throw error;
+        }
+      }
+    }
     const membership = ensureHasClub(principal);
     if (principal.isCaptain) {
       const membersCount = await this.countActiveMembers(membership.club_id);
@@ -536,6 +653,17 @@ export class ClubsService {
     leaveRequestId: string | number,
     principal: RequestPrincipal,
   ): Promise<void> {
+    this.ensureWorkflowExecutionPath('approveLeaveRequest');
+    if (this.workflows.canUseRpc) {
+      try {
+        await this.approveLeaveRequestViaRpc(leaveRequestId, principal);
+        return;
+      } catch (error) {
+        if (!this.shouldFallbackToLegacyWorkflow(error, 'approveLeaveRequest')) {
+          throw error;
+        }
+      }
+    }
     const captainMembership = ensureCaptain(principal);
     const leaveRequest = await this.getLeaveRequest(leaveRequestId);
     if (`${leaveRequest.club_id}` != `${captainMembership.club_id}`) {
@@ -569,6 +697,17 @@ export class ClubsService {
     leaveRequestId: string | number,
     principal: RequestPrincipal,
   ): Promise<void> {
+    this.ensureWorkflowExecutionPath('rejectLeaveRequest');
+    if (this.workflows.canUseRpc) {
+      try {
+        await this.rejectLeaveRequestViaRpc(leaveRequestId, principal);
+        return;
+      } catch (error) {
+        if (!this.shouldFallbackToLegacyWorkflow(error, 'rejectLeaveRequest')) {
+          throw error;
+        }
+      }
+    }
     const captainMembership = ensureCaptain(principal);
     const leaveRequest = await this.getLeaveRequest(leaveRequestId);
     if (`${leaveRequest.club_id}` != `${captainMembership.club_id}`) {
@@ -595,6 +734,17 @@ export class ClubsService {
     targetMembershipId: string | number,
     principal: RequestPrincipal,
   ): Promise<void> {
+    this.ensureWorkflowExecutionPath('transferCaptain');
+    if (this.workflows.canUseRpc) {
+      try {
+        await this.transferCaptainViaRpc(targetMembershipId, principal);
+        return;
+      } catch (error) {
+        if (!this.shouldFallbackToLegacyWorkflow(error, 'transferCaptain')) {
+          throw error;
+        }
+      }
+    }
     const captainMembership = ensureCaptain(principal);
     if (`${captainMembership.id}` == `${targetMembershipId}`) {
       throw new ConflictError('Seleziona un altro membro per il trasferimento del ruolo');
@@ -625,6 +775,17 @@ export class ClubsService {
   }
 
   async deleteCurrentClub(principal: RequestPrincipal): Promise<void> {
+    this.ensureWorkflowExecutionPath('deleteCurrentClub');
+    if (this.workflows.canUseRpc) {
+      try {
+        await this.deleteCurrentClubViaRpc(principal);
+        return;
+      } catch (error) {
+        if (!this.shouldFallbackToLegacyWorkflow(error, 'deleteCurrentClub')) {
+          throw error;
+        }
+      }
+    }
     const membership = ensureCaptain(principal);
     const membersCount = await this.countActiveMembers(membership.club_id);
     if (membersCount != 1) {
@@ -673,6 +834,223 @@ export class ClubsService {
       .single();
 
     return requiredData(response) as ClubRow;
+  }
+
+  private async createClubViaRpc(
+    input: CreateClubInput,
+    principal: RequestPrincipal,
+  ): Promise<{
+    club: ClubRow;
+    membership: MembershipRow;
+  }> {
+    const ownerNome = normalizeOptionalText(input.owner_nome);
+    const ownerCognome = normalizeOptionalText(input.owner_cognome);
+    const ownerConsoleId = normalizeOptionalText(input.owner_id_console);
+    if (!ownerNome || !ownerCognome || !ownerConsoleId) {
+      throw new ValidationError('Inserisci nome, cognome e ID console del capitano');
+    }
+
+    try {
+      const result = await this.workflows.createClub({
+        actorUserId: principal.authUser.id,
+        actorEmail: principal.authUser.email,
+        name: normalizeClubName(input.name),
+        ownerNome,
+        ownerCognome,
+        ownerConsoleId,
+        ownerShirtNumber: input.owner_shirt_number,
+        ownerPrimaryRole: input.owner_primary_role,
+        primaryColor: normalizeHexColor(input.primary_color),
+        accentColor: normalizeHexColor(input.accent_color),
+        surfaceColor: normalizeHexColor(input.surface_color),
+      });
+
+      let club = await this.getClubById(result.clubId);
+      const membership = await this.getMembershipById(result.membershipId);
+
+      if (normalizeOptionalText(input.logo_data_url) != null) {
+        try {
+          club = await this.updateClubLogoForClub(club.id, {
+            logo_data_url: normalizeOptionalText(input.logo_data_url)!,
+            primary_color: input.primary_color,
+            accent_color: input.accent_color,
+            surface_color: input.surface_color,
+          });
+        } catch (error) {
+          await this.workflows.deleteCurrentClub({
+            actorUserId: principal.authUser.id,
+          });
+          throw error;
+        }
+      }
+
+      return { club, membership };
+    } catch (error) {
+      throw mapDatabaseError(error);
+    }
+  }
+
+  private async requestJoinClubViaRpc(
+    input: JoinClubRequestInput,
+    principal: RequestPrincipal,
+  ): Promise<JoinRequestRow> {
+    try {
+      const result = await this.workflows.requestJoinClub({
+        actorUserId: principal.authUser.id,
+        actorEmail: principal.authUser.email,
+        clubId: input.club_id,
+        requestedNome: normalizeOptionalText(input.requested_nome),
+        requestedCognome: normalizeOptionalText(input.requested_cognome),
+        requestedShirtNumber: input.requested_shirt_number,
+        requestedPrimaryRole: normalizeOptionalText(input.requested_primary_role),
+      });
+      return this.getJoinRequest(result.joinRequestId);
+    } catch (error) {
+      throw mapDatabaseError(error);
+    }
+  }
+
+  private async approveJoinRequestViaRpc(
+    joinRequestId: string | number,
+    principal: RequestPrincipal,
+  ): Promise<MembershipRow> {
+    ensureCaptain(principal);
+    try {
+      const result = await this.workflows.approveJoinRequest({
+        actorUserId: principal.authUser.id,
+        joinRequestId,
+      });
+      return this.getMembershipById(result.membershipId);
+    } catch (error) {
+      throw mapDatabaseError(error);
+    }
+  }
+
+  private async rejectJoinRequestViaRpc(
+    joinRequestId: string | number,
+    principal: RequestPrincipal,
+  ): Promise<void> {
+    ensureCaptain(principal);
+    try {
+      await this.workflows.rejectJoinRequest({
+        actorUserId: principal.authUser.id,
+        joinRequestId,
+      });
+    } catch (error) {
+      throw mapDatabaseError(error);
+    }
+  }
+
+  private async requestLeaveClubViaRpc(
+    principal: RequestPrincipal,
+  ): Promise<LeaveRequestRow> {
+    ensureHasClub(principal);
+    try {
+      const result = await this.workflows.requestLeaveClub({
+        actorUserId: principal.authUser.id,
+      });
+      return this.getLeaveRequest(result.leaveRequestId);
+    } catch (error) {
+      throw mapDatabaseError(error);
+    }
+  }
+
+  private async approveLeaveRequestViaRpc(
+    leaveRequestId: string | number,
+    principal: RequestPrincipal,
+  ): Promise<void> {
+    ensureCaptain(principal);
+    try {
+      await this.workflows.approveLeaveRequest({
+        actorUserId: principal.authUser.id,
+        leaveRequestId,
+      });
+    } catch (error) {
+      throw mapDatabaseError(error);
+    }
+  }
+
+  private async rejectLeaveRequestViaRpc(
+    leaveRequestId: string | number,
+    principal: RequestPrincipal,
+  ): Promise<void> {
+    ensureCaptain(principal);
+    try {
+      await this.workflows.rejectLeaveRequest({
+        actorUserId: principal.authUser.id,
+        leaveRequestId,
+      });
+    } catch (error) {
+      throw mapDatabaseError(error);
+    }
+  }
+
+  private async transferCaptainViaRpc(
+    targetMembershipId: string | number,
+    principal: RequestPrincipal,
+  ): Promise<void> {
+    ensureCaptain(principal);
+    try {
+      await this.workflows.transferCaptain({
+        actorUserId: principal.authUser.id,
+        targetMembershipId,
+      });
+    } catch (error) {
+      throw mapDatabaseError(error);
+    }
+  }
+
+  private async deleteCurrentClubViaRpc(principal: RequestPrincipal): Promise<void> {
+    ensureCaptain(principal);
+    try {
+      await this.workflows.deleteCurrentClub({
+        actorUserId: principal.authUser.id,
+      });
+    } catch (error) {
+      throw mapDatabaseError(error);
+    }
+  }
+
+  private ensureWorkflowExecutionPath(operation: string): void {
+    if (this.workflows.canUseRpc || env.ENABLE_LEGACY_WORKFLOW_FALLBACK) {
+      return;
+    }
+
+    throw new ServiceUnavailableError(
+      `Il workflow hardened per ${operation} non e disponibile. Applica le RPC SQL di Clubline oppure abilita il fallback legacy solo in sviluppo controllato.`,
+      'hardened_workflow_unavailable',
+      {
+        operation,
+        reason: 'rpc_transport_unavailable',
+      },
+    );
+  }
+
+  private shouldFallbackToLegacyWorkflow(error: unknown, operation: string): boolean {
+    const message = error instanceof Error ? error.message.toLowerCase() : '';
+    const code = (error as { code?: string })?.code;
+    const isMissingWorkflow =
+      code === '42883' ||
+      message.includes('does not exist') ||
+      message.includes('could not find the function public.clubline_') ||
+      message.includes('function public.clubline_');
+
+    if (!isMissingWorkflow) {
+      return false;
+    }
+
+    if (!env.ENABLE_LEGACY_WORKFLOW_FALLBACK) {
+      throw new ServiceUnavailableError(
+        `Il workflow hardened per ${operation} non e installato sul database. Applica lo schema SQL aggiornato prima di eseguire questo flusso in ambienti non legacy.`,
+        'hardened_workflow_unavailable',
+        {
+          operation,
+          reason: 'rpc_function_missing',
+        },
+      );
+    }
+
+    return true;
   }
 
   private async ensureVerifiedUser(principal: RequestPrincipal): Promise<void> {
