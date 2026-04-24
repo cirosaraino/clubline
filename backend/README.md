@@ -10,6 +10,7 @@ Backend REST TypeScript/Express per autenticazione, flussi multi-club, gestione 
 - `src/repositories`: accesso dati Supabase
 - `src/domain`: tipi e regole condivise
 - `src/lib` / `src/middleware`: errori, HTTP helpers, auth e cross-cutting concerns
+- `../config/environments/backend`: template ambiente versionati
 - `sql/clubline_backend_hardening.sql`: vincoli, RLS, audit trail, publication realtime e RPC transazionali
 - `sql/README.md`: elenco del solo percorso schema attivo; gli script storici sono stati spostati in `sql/deprecated/`
 
@@ -34,20 +35,38 @@ Backend REST TypeScript/Express per autenticazione, flussi multi-club, gestione 
 - le subscription client devono essere filtrate per `club_id`, `auth_user_id`, `requester_user_id` o `player_id`, mai broad su tutto il dataset
 - il bus SSE in-memory del backend resta solo come fallback locale / sviluppo e va usato esplicitamente con `REALTIME_TRANSPORT=local`
 
-## Variabili ambiente
+## Configurazione ambienti
 
-Template disponibili:
+Template versionati:
 
 - [`.env.example`](/Users/ciro.saraino/clubline/backend/.env.example)
-- [`.env.clubline-dev.example`](/Users/ciro.saraino/clubline/backend/.env.clubline-dev.example)
-- [`.env.clubline-test.example`](/Users/ciro.saraino/clubline/backend/.env.clubline-test.example)
-- [`.env.clubline-prod.example`](/Users/ciro.saraino/clubline/backend/.env.clubline-prod.example)
+- [`../config/environments/backend/local.env.example`](/Users/ciro.saraino/clubline/config/environments/backend/local.env.example)
+- [`../config/environments/backend/dev.env.example`](/Users/ciro.saraino/clubline/config/environments/backend/dev.env.example)
+- [`../config/environments/backend/prod.env.example`](/Users/ciro.saraino/clubline/config/environments/backend/prod.env.example)
+- [`../config/environments/backend/test.env.example`](/Users/ciro.saraino/clubline/config/environments/backend/test.env.example)
+
+File locali non versionati attesi:
+
+- `config/environments/backend/local.env.local`
+- `config/environments/backend/dev.env.local`
+- `config/environments/backend/prod.env.local`
+
+Attivazione:
+
+```bash
+./scripts/env/use-backend-env.sh local
+./scripts/env/use-backend-env.sh dev
+./scripts/env/use-backend-env.sh prod
+```
+
+Lo script copia il file scelto in `backend/.env`, che resta il solo file letto da `dotenv` in runtime locale.
 
 Variabili runtime richieste:
 
+- `APP_ENV`
 - `PORT`
 - `NODE_ENV`
-- `CORS_ORIGIN`
+- `CORS_ALLOWED_ORIGINS`
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
@@ -62,9 +81,10 @@ Variabili opzionali:
 
 Regola consigliata:
 
-- `development`: abilita i fallback solo in modo esplicito se stai facendo debugging locale controllato
-- `test`: il fallback workflow legacy resta disponibile per l harness locale, ma non va usato come comportamento applicativo normale
-- `production`: il fallback workflow legacy e vietato; il processo fallisce all avvio se viene abilitato e i flussi club devono usare solo `RPC SQL`
+- `APP_ENV=local`: sviluppo locale e fallback realtime locale opzionale
+- `APP_ENV=dev`: backend locale ma con configurazione sviluppo / progetto Supabase di dev
+- `APP_ENV=prod`: runtime di produzione, senza fallback realtime locale o workflow legacy
+- `NODE_ENV=test`: riservato ai test backend
 
 ## Run From Zero
 
@@ -77,37 +97,37 @@ Regola consigliata:
 2. Crea il file locale ambiente
 
 ```bash
-cp backend/.env.clubline-dev.example backend/.env.clubline-dev.local
-./scripts/env/use-backend-env.sh dev
+cp config/environments/backend/local.env.example config/environments/backend/local.env.local
+./scripts/env/use-backend-env.sh local
 ```
 
 3. Applica schema e guardrail
 
 ```bash
-./scripts/backend/migrate.sh dev
-./scripts/db/verify-clubline-schema.sh dev
+./scripts/backend/migrate.sh local
+./scripts/db/verify-clubline-schema.sh local
 ```
 
-4. Seed opzionale dev/test
+4. Seed opzionale local/dev/test
 
 ```bash
-./scripts/backend/seed.sh dev
+./scripts/backend/seed.sh local
 ```
 
 5. Avvia il server
 
 ```bash
-./scripts/backend/dev.sh
+./scripts/backend/dev.sh local
 ```
 
 ## Script principali
 
 - `./scripts/backend/install.sh`: install dipendenze backend
 - `./scripts/backend/dev.sh [target]`: seleziona env e avvia il server in watch
-- `./scripts/backend/migrate.sh <dev|test|prod>`: applica schema completo
-- `./scripts/backend/seed.sh <dev|test>`: esegue il seed hook locale
-- `./scripts/backend/reset-dev-db.sh <dev|test>`: rebuild schema + seed + verify
-- `./scripts/backend/rebuild-from-zero.sh <dev|test>`: install + env + reset completo + typecheck
+- `./scripts/backend/migrate.sh <local|dev|prod|test>`: applica schema completo
+- `./scripts/backend/seed.sh <local|dev|test>`: esegue il seed hook locale
+- `./scripts/backend/reset-dev-db.sh <local|dev|test>`: rebuild schema + seed + verify
+- `./scripts/backend/rebuild-from-zero.sh <local|dev|test>`: install + env + reset completo + typecheck
 
 ## Verifica rapida
 
@@ -131,6 +151,19 @@ Uso consigliato:
 - avvia il backend con `ENABLE_LEGACY_WORKFLOW_FALLBACK=false`
 - usa un `.env` puntato al progetto Supabase reale che vuoi verificare
 - lascia allo script il cleanup finale dei dati creati per il test
+
+## Render / deploy
+
+In produzione usa:
+
+- `APP_ENV=prod`
+- `NODE_ENV=production`
+- `CORS_ALLOWED_ORIGINS=<origini pubbliche consentite>`
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+
+Il fallback workflow legacy e il fallback realtime locale devono restare spenti.
 
 ## Nota sul seed
 

@@ -8,6 +8,7 @@ import '../../core/app_backend_config.dart';
 import '../../core/app_data_sync.dart';
 import '../../core/app_session.dart';
 import '../../core/app_supabase_config.dart';
+import '../../core/config/app_runtime_config.dart';
 import '../../core/realtime/app_realtime_bridge.dart';
 import '../../data/api_client.dart';
 import '../../data/auth_session_store.dart';
@@ -100,11 +101,6 @@ class _AppRealtimeSyncHostState extends State<AppRealtimeSyncHost>
   static const Duration _reconnectPollInterval = Duration(seconds: 6);
   static const Duration _sessionRebindDelay = Duration(milliseconds: 250);
   static const int _highTrafficEventsThreshold = 4;
-  static const String _configuredTransport = String.fromEnvironment(
-    'REALTIME_TRANSPORT',
-    defaultValue: 'supabase',
-  );
-
   final AuthSessionStore _sessionStore = AuthSessionStore();
   final ApiClient _apiClient = ApiClient.shared;
   final AppSupabaseConfigRepository _supabaseConfigRepository =
@@ -262,7 +258,7 @@ class _AppRealtimeSyncHostState extends State<AppRealtimeSyncHost>
   }
 
   _RealtimeTransportMode _resolveTransportMode(AppSupabaseConfig config) {
-    final requested = _configuredTransport.trim().toLowerCase();
+    final requested = AppRuntimeConfig.instance.realtimeTransport;
     if (requested == 'local' && config.localRealtimeFallbackEnabled) {
       return _RealtimeTransportMode.local;
     }

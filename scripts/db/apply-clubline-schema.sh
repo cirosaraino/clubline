@@ -6,23 +6,23 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TARGET="${1:-}"
 CUSTOM_ENV_FILE="${2:-}"
 
+# shellcheck disable=SC1091
+source "${ROOT_DIR}/scripts/env/_backend_env_helpers.sh"
+
 if [[ -z "${TARGET}" ]]; then
-  echo "Uso: ./scripts/db/apply-clubline-schema.sh <dev|test|prod> [percorso-file-env]"
+  echo "Uso: ./scripts/db/apply-clubline-schema.sh <local|dev|prod|test> [percorso-file-env]"
   exit 1
 fi
 
-case "${TARGET}" in
-  dev|test|prod) ;;
-  *)
-    echo "Target non valido: ${TARGET}. Usa dev, test oppure prod."
-    exit 1
-    ;;
-esac
+if ! TARGET="$(normalize_backend_target "${TARGET}")"; then
+  echo "Target non valido: ${TARGET}. Usa local, dev, prod oppure test."
+  exit 1
+fi
 
-ENV_FILE="${CUSTOM_ENV_FILE:-${ROOT_DIR}/backend/.env.clubline-${TARGET}.local}"
+ENV_FILE="${CUSTOM_ENV_FILE:-$(backend_env_local_file "${ROOT_DIR}" "${TARGET}")}"
 if [[ ! -f "${ENV_FILE}" ]]; then
   echo "File env non trovato: ${ENV_FILE}"
-  echo "Crea prima il file locale partendo da ${ROOT_DIR}/backend/.env.clubline-${TARGET}.example"
+  echo "Crea prima il file locale partendo da $(backend_env_example_file "${ROOT_DIR}" "${TARGET}")"
   exit 1
 fi
 

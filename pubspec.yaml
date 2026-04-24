@@ -37,6 +37,7 @@ dependencies:
   flutter_svg: ^2.0.17
   flutter_secure_storage: ^9.2.4
   http: ^1.6.0
+  local_auth: ^3.0.1
   shared_preferences: ^2.5.3
   supabase: ^2.10.4
   url_launcher: ^6.3.1

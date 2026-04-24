@@ -148,6 +148,10 @@ authRouter.get(
   '/public-config',
   asyncHandler(async (_req, res) => {
     sendOk(res, {
+      environment: {
+        appEnv: env.APP_ENV,
+        nodeEnv: env.NODE_ENV,
+      },
       supabase: {
         url: env.SUPABASE_URL,
         anonKey: env.SUPABASE_ANON_KEY,

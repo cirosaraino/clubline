@@ -43,30 +43,45 @@ class AttendanceEntry {
       player: playerMap is Map<String, dynamic>
           ? PlayerProfile.fromMap(playerMap)
           : playerMap is Map
-              ? PlayerProfile.fromMap(Map<String, dynamic>.from(playerMap))
-              : null,
+          ? PlayerProfile.fromMap(Map<String, dynamic>.from(playerMap))
+          : null,
     );
   }
 
   String get availabilityLabel => attendanceAvailabilityLabel(availability);
 
-  String get availabilityShortLabel => attendanceAvailabilityShortLabel(availability);
+  String get availabilityShortLabel =>
+      attendanceAvailabilityShortLabel(availability);
 
   String get attendanceDateLabel => formatAttendanceDate(attendanceDate);
 
   String get attendanceDayLabel => formatAttendanceDayLabel(attendanceDate);
 
-  String get attendanceDayShortLabel => formatAttendanceDayShortLabel(attendanceDate);
+  String get attendanceDayShortLabel =>
+      formatAttendanceDayShortLabel(attendanceDate);
 
-  String get attendanceDayWithDateLabel => formatAttendanceDayWithDate(attendanceDate);
+  String get attendanceDayWithDateLabel =>
+      formatAttendanceDayWithDate(attendanceDate);
 
-  String get entryKey => '${playerId}_${formatDatabaseAttendanceDate(attendanceDate)}';
+  String get entryKey =>
+      '${playerId}_${formatDatabaseAttendanceDate(attendanceDate)}';
 
   bool get isPending => availability == 'pending';
 
   bool get isPresent => availability == 'yes';
 
   bool get isAbsent => availability == 'no';
+
+  bool get isResolved => availability != 'pending';
+
+  int get recencyScore {
+    final updated = updatedAt?.millisecondsSinceEpoch ?? 0;
+    if (updated != 0) {
+      return updated;
+    }
+
+    return createdAt?.millisecondsSinceEpoch ?? 0;
+  }
 
   AttendanceEntry copyWith({
     dynamic id,

@@ -3,18 +3,21 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-TARGET="${1:-dev}"
+TARGET="${1:-local}"
 CUSTOM_ENV_FILE="${2:-}"
 
+# shellcheck disable=SC1091
+source "${ROOT_DIR}/scripts/env/_backend_env_helpers.sh"
+
 case "${TARGET}" in
-  dev|test) ;;
+  local|dev|test) ;;
   *)
-    echo "Il seed di default e disponibile solo per dev o test."
+    echo "Il seed di default e disponibile solo per local, dev o test."
     exit 1
     ;;
 esac
 
-ENV_FILE="${CUSTOM_ENV_FILE:-${ROOT_DIR}/backend/.env.clubline-${TARGET}.local}"
+ENV_FILE="${CUSTOM_ENV_FILE:-$(backend_env_local_file "${ROOT_DIR}" "${TARGET}")}"
 if [[ ! -f "${ENV_FILE}" ]]; then
   echo "File env non trovato: ${ENV_FILE}"
   exit 1

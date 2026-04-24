@@ -2,7 +2,7 @@ import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
 
-import { corsOrigins, env } from './config/env';
+import { corsOrigins, env, isLocalAppEnvironment } from './config/env';
 import { errorHandler, notFoundHandler } from './middleware/error-handler';
 import { apiRouter } from './routes';
 
@@ -15,7 +15,7 @@ function isAllowedOrigin(origin: string | undefined): boolean {
     return true;
   }
 
-  if (env.NODE_ENV != 'development') {
+  if (!isLocalAppEnvironment) {
     return false;
   }
 

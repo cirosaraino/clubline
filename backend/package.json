@@ -9,14 +9,14 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "NODE_ENV=test tsx --test src/**/*.test.ts",
+    "test": "APP_ENV=local NODE_ENV=test tsx --test src/**/*.test.ts",
     "validate:e2e:supabase": "tsx tests/e2e/production-supabase-validation.ts",
     "check": "npm run typecheck && npm test",
     "bootstrap": "../scripts/backend/install.sh",
-    "db:migrate": "../scripts/backend/migrate.sh dev",
-    "db:seed": "../scripts/backend/seed.sh dev",
-    "db:reset": "../scripts/backend/reset-dev-db.sh dev",
-    "rebuild": "../scripts/backend/rebuild-from-zero.sh dev"
+    "db:migrate": "../scripts/backend/migrate.sh local",
+    "db:seed": "../scripts/backend/seed.sh local",
+    "db:reset": "../scripts/backend/reset-dev-db.sh local",
+    "rebuild": "../scripts/backend/rebuild-from-zero.sh local"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.56.0",

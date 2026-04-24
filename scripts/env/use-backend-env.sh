@@ -6,22 +6,22 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TARGET="${1:-}"
 CUSTOM_SOURCE="${2:-}"
 
+# shellcheck disable=SC1091
+source "${ROOT_DIR}/scripts/env/_backend_env_helpers.sh"
+
 if [[ -z "${TARGET}" ]]; then
-  echo "Uso: ./scripts/env/use-backend-env.sh <dev|test|prod> [percorso-file-env]"
+  echo "Uso: ./scripts/env/use-backend-env.sh <local|dev|prod|test> [percorso-file-env]"
   exit 1
 fi
 
-case "${TARGET}" in
-  dev|test|prod) ;;
-  *)
-    echo "Target non valido: ${TARGET}. Usa dev, test oppure prod."
-    exit 1
-    ;;
-esac
+if ! TARGET="$(normalize_backend_target "${TARGET}")"; then
+  echo "Target non valido: ${TARGET}. Usa local, dev, prod oppure test."
+  exit 1
+fi
 
-SOURCE_FILE="${CUSTOM_SOURCE:-${ROOT_DIR}/backend/.env.clubline-${TARGET}.local}"
+SOURCE_FILE="${CUSTOM_SOURCE:-$(backend_env_local_file "${ROOT_DIR}" "${TARGET}")}"
 DEST_FILE="${ROOT_DIR}/backend/.env"
-EXAMPLE_FILE="${ROOT_DIR}/backend/.env.clubline-${TARGET}.example"
+EXAMPLE_FILE="$(backend_env_example_file "${ROOT_DIR}" "${TARGET}")"
 
 if [[ ! -f "${SOURCE_FILE}" ]]; then
   echo "File env non trovato: ${SOURCE_FILE}"

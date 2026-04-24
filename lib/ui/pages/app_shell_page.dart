@@ -14,6 +14,7 @@ import 'player_form_page.dart';
 import 'players_page.dart';
 import 'streams_page.dart';
 import '../widgets/auth_sheet.dart';
+import '../widgets/biometric_unlock_sheet.dart';
 import '../widgets/auth_password_sheet.dart';
 import '../widgets/clubline_brand_logo.dart';
 import '../widgets/theme_palette_sheet.dart';
@@ -405,6 +406,14 @@ class _AppShellPageState extends State<AppShellPage> {
     );
   }
 
+  Future<void> _openBiometricSettings() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => const BiometricUnlockSheet(),
+    );
+  }
+
   Future<void> _openVicePermissionsSettings() async {
     await showModalBottomSheet<void>(
       context: context,
@@ -508,6 +517,7 @@ class _AppShellPageState extends State<AppShellPage> {
         onOpenPasswordSettings: () => _openPasswordSheet(
           isRecoveryFlow: session.requiresPasswordRecovery,
         ),
+        onOpenBiometricSettings: _openBiometricSettings,
         onOpenClubManagement: _openClubManagement,
         onOpenThemeSettings: _openThemeSettings,
         onOpenVicePermissionsSettings: _openVicePermissionsSettings,
@@ -572,7 +582,9 @@ class _AppShellPageState extends State<AppShellPage> {
                         AppSpacing.md,
                       ),
                       decoration: BoxDecoration(
-                        color: ClublineAppTheme.surfaceAlt.withValues(alpha: 0.5),
+                        color: ClublineAppTheme.surfaceAlt.withValues(
+                          alpha: 0.5,
+                        ),
                         borderRadius: BorderRadius.circular(24),
                         border: Border.all(color: ClublineAppTheme.outlineSoft),
                       ),

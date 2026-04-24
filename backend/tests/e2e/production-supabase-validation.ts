@@ -44,6 +44,11 @@ type ClubRecord = {
   id: string | number;
   name: string;
   slug: string;
+  logo_url?: string | null;
+  logo_storage_path?: string | null;
+  primary_color?: string | null;
+  accent_color?: string | null;
+  surface_color?: string | null;
 };
 
 type JoinRequestRecord = {
@@ -87,6 +92,25 @@ type LineupRecord = {
   notes: string | null;
 };
 
+type AttendanceWeekRecord = {
+  id: string | number;
+  club_id: string | number;
+  week_start: string;
+  week_end: string;
+  selected_dates: string[];
+  archived_at: string | null;
+};
+
+type AttendanceEntryRecord = {
+  id: string | number;
+  club_id: string | number;
+  week_id: string | number;
+  player_id: string | number;
+  attendance_date: string;
+  availability: 'pending' | 'yes' | 'no';
+  updated_by_player_id: string | number | null;
+};
+
 type CapturedEvent = {
   table: string;
   eventType: string;
@@ -128,6 +152,7 @@ type ValidationContext = {
   runId: string;
   users: RegisteredUser[];
   clubIds: Array<string | number>;
+  logoStoragePaths: string[];
   subscriptions: CaptureContext[];
 };
 
@@ -139,6 +164,9 @@ type RealtimeAuditState = {
 const DEFAULT_TIMEOUT_MS = 12000;
 const ABSENCE_TIMEOUT_MS = 1800;
 const POLL_INTERVAL_MS = 120;
+const CLUB_LOGO_BUCKET = 'club-assets';
+const ONE_PIXEL_PNG_DATA_URL =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a6GQAAAAASUVORK5CYII=';
 
 function logStep(message: string): void {
   console.log(`\n[clubline-e2e] ${message}`);
@@ -152,6 +180,17 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
+}
+
+function toDateOnly(value: Date): string {
+  return value.toISOString().slice(0, 10);
+}
+
+function weekDate(reference: Date, offsetDays: number): string {
+  const date = new Date(reference);
+  const utcDay = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() - utcDay + 1 + offsetDays);
+  return toDateOnly(date);
 }
 
 function buildBackendUrl(baseUrl: string, path: string): string {
@@ -481,6 +520,9 @@ async function cleanup(context: ValidationContext): Promise<void> {
   };
 
   try {
+    if (context.logoStoragePaths.length > 0) {
+      await service.storage.from(CLUB_LOGO_BUCKET).remove(context.logoStoragePaths);
+    }
     await deleteByClub('lineup_players');
     await deleteByClub('lineups');
     await deleteByClub('attendance_entries');
@@ -533,6 +575,31 @@ async function runRealtimeAssertion(
   }
 }
 
+async function expectLoginRejected(
+  baseUrl: string,
+  credentials: { email: string; password: string },
+): Promise<{ status: number; payload: unknown }> {
+  const response = await fetch(buildBackendUrl(baseUrl, '/auth/login'), {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(credentials),
+  });
+
+  const raw = await response.text();
+  const payload = raw.length > 0 ? JSON.parse(raw) : null;
+  if (response.status >= 200 && response.status < 300) {
+    throw new Error(`Deleted account login unexpectedly succeeded for ${credentials.email}`);
+  }
+
+  return {
+    status: response.status,
+    payload,
+  };
+}
+
 async function main(): Promise<void> {
   const backendBaseUrl =
     process.env.BACKEND_BASE_URL ??
@@ -558,6 +625,7 @@ async function main(): Promise<void> {
     runId: `${Date.now()}-${randomUUID().slice(0, 8)}`,
     users: [],
     clubIds: [],
+    logoStoragePaths: [],
     subscriptions: [],
   };
 
@@ -584,10 +652,11 @@ async function main(): Promise<void> {
       issues: [],
     };
 
-    logStep('Registering four real auth users through the backend');
+    logStep('Registering real auth users through the backend');
     const captainA = await registerUser(context, 'captain-a');
     const captainB = await registerUser(context, 'captain-b');
     const playerA = await registerUser(context, 'player-a');
+    const playerB = await registerUser(context, 'player-b');
     const outsiderA = await registerUser(context, 'outsider-a');
 
     logStep('Validating login flow on a freshly created account');
@@ -862,7 +931,16 @@ async function main(): Promise<void> {
       'Player A should only see club A after joining.',
     );
 
-    logStep('Validating self profile update and club-scoped lineups CRUD with realtime');
+    const captainAMe = await backendRequest<{ player: PlayerRecord | null }>(
+      backendBaseUrl,
+      '/players/me',
+      {
+        token: captainA.session.accessToken,
+      },
+    );
+    assert(captainAMe.player, 'Captain A should have a captain player profile after club creation.');
+    const captainARecordId = stringifyId(captainAMe.player.id);
+
     const playerMe = await backendRequest<{ player: PlayerRecord | null }>(
       backendBaseUrl,
       '/players/me',
@@ -873,6 +951,314 @@ async function main(): Promise<void> {
     assert(playerMe.player, 'Player A should have a player profile after join approval.');
     const playerARecordId = stringifyId(playerMe.player.id);
 
+    logStep('Validating attendance flows, scoping and realtime');
+    const attendanceReference = new Date();
+    const attendanceDayA = weekDate(attendanceReference, 0);
+    const attendanceDayB = weekDate(attendanceReference, 1);
+    const captainAAttendanceWeeksCapture = await subscribeToChanges(
+      context,
+      captainA.client,
+      'captain-a-attendance-weeks',
+      [{ table: 'attendance_weeks', filter: `club_id=eq.${stringifyId(clubA.id)}` }],
+    );
+    const captainAAttendanceEntriesCapture = await subscribeToChanges(
+      context,
+      captainA.client,
+      'captain-a-attendance-entries',
+      [{ table: 'attendance_entries', filter: `club_id=eq.${stringifyId(clubA.id)}` }],
+    );
+    const playerAAttendanceEntriesCapture = await subscribeToChanges(
+      context,
+      playerA.client,
+      'player-a-attendance-entries',
+      [{ table: 'attendance_entries', filter: `player_id=eq.${playerARecordId}` }],
+    );
+
+    const attendanceWeeksCheckpoint = captainAAttendanceWeeksCapture.mark();
+    const attendanceEntriesCheckpoint = captainAAttendanceEntriesCapture.mark();
+    const playerAAttendanceEntriesCheckpoint = playerAAttendanceEntriesCapture.mark();
+
+    await expectBackendError(backendBaseUrl, '/attendance/weeks', {
+      method: 'POST',
+      token: playerA.session.accessToken,
+      expectedStatus: 403,
+      body: {
+        reference_date: attendanceDayA,
+        selected_dates: [attendanceDayA, attendanceDayB],
+      },
+    });
+
+    const createdWeek = await backendRequest<{ week: AttendanceWeekRecord | null }>(
+      backendBaseUrl,
+      '/attendance/weeks',
+      {
+        method: 'POST',
+        token: captainA.session.accessToken,
+        expectedStatus: 201,
+        body: {
+          reference_date: attendanceDayA,
+          selected_dates: [attendanceDayA, attendanceDayB],
+        },
+      },
+    );
+    assert(createdWeek.week, 'Attendance week should be returned after creation.');
+    const activeWeekId = stringifyId(createdWeek.week.id);
+
+    await runRealtimeAssertion(realtimeAudit, 'attendance week insert for captain A', async () => {
+      await captainAAttendanceWeeksCapture.waitFor(
+        (event) =>
+          event.table === 'attendance_weeks' &&
+          event.eventType === 'INSERT' &&
+          stringifyId(event.new.id) === activeWeekId,
+        'attendance week insert for captain A',
+        { since: attendanceWeeksCheckpoint },
+      );
+    });
+    await runRealtimeAssertion(realtimeAudit, 'attendance entry insert for player A', async () => {
+      await playerAAttendanceEntriesCapture.waitFor(
+        (event) =>
+          event.table === 'attendance_entries' &&
+          event.eventType === 'INSERT' &&
+          stringifyId(event.new.week_id) === activeWeekId &&
+          stringifyId(event.new.player_id) === playerARecordId,
+        'attendance entry insert for player A',
+        { since: playerAAttendanceEntriesCheckpoint },
+      );
+    });
+    await runRealtimeAssertion(realtimeAudit, 'attendance entry insert visible to captain A', async () => {
+      await captainAAttendanceEntriesCapture.waitFor(
+        (event) =>
+          event.table === 'attendance_entries' &&
+          event.eventType === 'INSERT' &&
+          stringifyId(event.new.week_id) === activeWeekId &&
+          stringifyId(event.new.player_id) === playerARecordId,
+        'attendance entry insert visible to captain A',
+        { since: attendanceEntriesCheckpoint },
+      );
+    });
+
+    const activeWeekResponse = await backendRequest<{ week: AttendanceWeekRecord | null }>(
+      backendBaseUrl,
+      '/attendance/active-week',
+      {
+        token: playerA.session.accessToken,
+      },
+    );
+    assert.equal(
+      stringifyId(activeWeekResponse.week?.id),
+      activeWeekId,
+      'Player A should see the active attendance week.',
+    );
+
+    const captainAttendanceEntries = await backendRequest<{ entries: AttendanceEntryRecord[] }>(
+      backendBaseUrl,
+      `/attendance/weeks/${activeWeekId}/entries`,
+      {
+        token: captainA.session.accessToken,
+      },
+    );
+    assert.equal(
+      captainAttendanceEntries.entries.length,
+      4,
+      'Captain A should see all attendance entries for both players and dates.',
+    );
+
+    const playerAttendanceEntries = await backendRequest<{ entries: AttendanceEntryRecord[] }>(
+      backendBaseUrl,
+      `/attendance/weeks/${activeWeekId}/entries`,
+      {
+        token: playerA.session.accessToken,
+      },
+    );
+    assert.equal(
+      playerAttendanceEntries.entries.length,
+      2,
+      'Player A should only see their own attendance entries.',
+    );
+    assert(
+      playerAttendanceEntries.entries.every(
+        (entry) => stringifyId(entry.player_id) === playerARecordId,
+      ),
+      'Player A attendance payload should be self-scoped.',
+    );
+
+    const directPlayerAttendanceRows = ensureSupabaseSuccess(
+      await playerA.client
+        .from('attendance_entries')
+        .select('id,player_id,week_id,attendance_date,availability')
+        .eq('week_id', activeWeekId),
+      'playerA direct attendance entries read',
+    ) as AttendanceEntryRecord[];
+    assert.equal(
+      directPlayerAttendanceRows.length,
+      2,
+      'Direct Supabase read should still only expose player A attendance rows.',
+    );
+
+    const crossClubAttendanceRows = ensureSupabaseSuccess(
+      await captainB.client
+        .from('attendance_entries')
+        .select('id,club_id')
+        .eq('club_id', clubA.id),
+      'captainB cross-club attendance read',
+    ) as AttendanceEntryRecord[];
+    assert.equal(crossClubAttendanceRows.length, 0, 'Captain B should not see attendance rows for club A.');
+
+    const directAttendanceUpdateError = ensureSupabaseFailure(
+      await playerA.client
+        .from('attendance_entries')
+        .update({ availability: 'yes' })
+        .eq('week_id', activeWeekId)
+        .eq('player_id', playerARecordId),
+      'direct attendance update via Supabase client',
+    );
+    assert(
+      directAttendanceUpdateError.code === '42501' ||
+        /permission|policy/i.test(directAttendanceUpdateError.message),
+      `Unexpected direct attendance update error: ${directAttendanceUpdateError.code} ${directAttendanceUpdateError.message}`,
+    );
+
+    const attendanceUpdateCheckpoint = playerAAttendanceEntriesCapture.mark();
+    const captainAttendanceUpdateCheckpoint = captainAAttendanceEntriesCapture.mark();
+    await backendRequest<null>(backendBaseUrl, '/attendance/entries', {
+      method: 'PUT',
+      token: playerA.session.accessToken,
+      expectedStatus: 204,
+      body: {
+        week_id: activeWeekId,
+        player_id: playerARecordId,
+        attendance_date: attendanceDayA,
+        availability: 'yes',
+      },
+    });
+    await runRealtimeAssertion(realtimeAudit, 'player A attendance update realtime', async () => {
+      await playerAAttendanceEntriesCapture.waitFor(
+        (event) =>
+          event.table === 'attendance_entries' &&
+          event.eventType === 'UPDATE' &&
+          stringifyId(event.new.week_id) === activeWeekId &&
+          stringifyId(event.new.player_id) === playerARecordId &&
+          event.new.availability === 'yes',
+        'player A attendance update realtime',
+        { since: attendanceUpdateCheckpoint },
+      );
+    });
+    await runRealtimeAssertion(realtimeAudit, 'captain A attendance update realtime', async () => {
+      await captainAAttendanceEntriesCapture.waitFor(
+        (event) =>
+          event.table === 'attendance_entries' &&
+          event.eventType === 'UPDATE' &&
+          stringifyId(event.new.week_id) === activeWeekId &&
+          stringifyId(event.new.player_id) === playerARecordId &&
+          event.new.availability === 'yes',
+        'captain A attendance update realtime',
+        { since: captainAttendanceUpdateCheckpoint },
+      );
+    });
+
+    const updatedAttendanceRows = await backendRequest<{ entries: AttendanceEntryRecord[] }>(
+      backendBaseUrl,
+      `/attendance/weeks/${activeWeekId}/entries`,
+      {
+        token: playerA.session.accessToken,
+      },
+    );
+    assert(
+      updatedAttendanceRows.entries.some(
+        (entry) =>
+          entry.attendance_date === attendanceDayA &&
+          entry.availability === 'yes',
+      ),
+      'Player A attendance update should be persisted.',
+    );
+
+    const lineupFilters = await backendRequest<{
+      filters: { absentPlayerIds: Array<string | number>; pendingPlayerIds: Array<string | number> };
+    }>(backendBaseUrl, `/attendance/lineup-filters?date=${attendanceDayA}`, {
+      token: captainA.session.accessToken,
+    });
+    assert(
+      !lineupFilters.filters.pendingPlayerIds.some(
+        (id) => stringifyId(id) === playerARecordId,
+      ),
+      'Player A should not remain pending after confirming attendance.',
+    );
+    assert(
+      lineupFilters.filters.pendingPlayerIds.some(
+        (id) => stringifyId(id) === captainARecordId,
+      ),
+      'Captain A should still appear as pending before updating their own attendance.',
+    );
+
+    await expectBackendError(backendBaseUrl, `/attendance/lineup-filters?date=${attendanceDayA}`, {
+      method: 'GET',
+      token: playerA.session.accessToken,
+      expectedStatus: 403,
+    });
+
+    logStep('Validating club logo upload, storage retrieval and team-info permissions');
+    const playerAClubCapture = await subscribeToChanges(context, playerA.client, 'player-a-club', [
+      { table: 'clubs', filter: `id=eq.${stringifyId(clubA.id)}` },
+    ]);
+    const playerAClubCheckpoint = playerAClubCapture.mark();
+
+    await expectBackendError(backendBaseUrl, '/clubs/current/logo', {
+      method: 'PUT',
+      token: playerA.session.accessToken,
+      expectedStatus: 403,
+      body: {
+        logo_data_url: ONE_PIXEL_PNG_DATA_URL,
+      },
+    });
+
+    const updatedClubLogo = await backendRequest<{ club: ClubRecord }>(
+      backendBaseUrl,
+      '/clubs/current/logo',
+      {
+        method: 'PUT',
+        token: captainA.session.accessToken,
+        body: {
+          logo_data_url: ONE_PIXEL_PNG_DATA_URL,
+          primary_color: '#112244',
+          accent_color: '#33ccaa',
+          surface_color: '#0a1b2c',
+        },
+      },
+    );
+    assert(updatedClubLogo.club.logo_url, 'Club logo upload should return a public logo URL.');
+    assert(updatedClubLogo.club.logo_storage_path, 'Club logo upload should persist a storage path.');
+    context.logoStoragePaths.push(updatedClubLogo.club.logo_storage_path!);
+    assert.equal(updatedClubLogo.club.primary_color?.toUpperCase(), '#112244');
+    assert.equal(updatedClubLogo.club.accent_color?.toUpperCase(), '#33CCAA');
+    assert.equal(updatedClubLogo.club.surface_color?.toUpperCase(), '#0A1B2C');
+
+    await runRealtimeAssertion(realtimeAudit, 'club update event after logo upload', async () => {
+      await playerAClubCapture.waitFor(
+        (event) =>
+          event.table === 'clubs' &&
+          event.eventType === 'UPDATE' &&
+          stringifyId(event.new.id) === stringifyId(clubA.id) &&
+          typeof event.new.logo_url === 'string',
+        'club update event after logo upload',
+        { since: playerAClubCheckpoint },
+      );
+    });
+
+    const logoResponse = await fetch(String(updatedClubLogo.club.logo_url));
+    assert.equal(logoResponse.status, 200, 'Uploaded club logo should be retrievable from storage.');
+    assert(
+      (logoResponse.headers.get('content-type') ?? '').startsWith('image/'),
+      'Uploaded club logo should be served as an image.',
+    );
+
+    const playerAClubAfterLogo = ensureSupabaseSuccess(
+      await playerA.client.from('clubs').select('id,logo_url,primary_color,accent_color,surface_color').eq('id', clubA.id),
+      'playerA direct club read after logo upload',
+    ) as ClubRecord[];
+    assert.equal(playerAClubAfterLogo.length, 1);
+    assert.equal(playerAClubAfterLogo[0]?.logo_url, updatedClubLogo.club.logo_url);
+
+    logStep('Validating self profile update and club-scoped lineups CRUD with realtime');
     const updatedPlayer = await backendRequest<{ player: PlayerRecord }>(
       backendBaseUrl,
       `/players/${playerARecordId}`,
@@ -1032,7 +1418,176 @@ async function main(): Promise<void> {
       expectedStatus: 403,
     });
 
-    logStep('Validating reject path for join requests under realtime and permission rules');
+    logStep('Adding a second real member for captain transfer validation');
+    const playerBOwnJoinCapture = await subscribeToChanges(context, playerB.client, 'player-b-own-join', [
+      {
+        table: 'join_requests',
+        filter: `requester_user_id=eq.${playerB.session.user.id}`,
+      },
+    ]);
+    const playerBMembershipCapture = await subscribeToChanges(context, playerB.client, 'player-b-membership', [
+      {
+        table: 'memberships',
+        filter: `auth_user_id=eq.${playerB.session.user.id}`,
+      },
+    ]);
+    const playerBJoinCheckpoint = playerBOwnJoinCapture.mark();
+    const playerBMembershipCheckpoint = playerBMembershipCapture.mark();
+    const captainAJoinCheckpointForPlayerB = captainAJoinCapture.mark();
+
+    const playerBJoin = await backendRequest<{ joinRequest: JoinRequestRecord }>(
+      backendBaseUrl,
+      '/clubs/join-requests',
+      {
+        method: 'POST',
+        token: playerB.session.accessToken,
+        expectedStatus: 201,
+        body: {
+          club_id: clubA.id,
+          requested_nome: 'Player',
+          requested_cognome: 'Beta',
+          requested_shirt_number: 4,
+          requested_primary_role: 'DC',
+        },
+      },
+    );
+    const playerBJoinRequestId = stringifyId(playerBJoin.joinRequest.id);
+    await runRealtimeAssertion(realtimeAudit, 'captain A second member join request insert', async () => {
+      await captainAJoinCapture.waitFor(
+        (event) =>
+          event.table === 'join_requests' &&
+          event.eventType === 'INSERT' &&
+          stringifyId(event.new.id) === playerBJoinRequestId,
+        'captain A second member join request insert',
+        { since: captainAJoinCheckpointForPlayerB },
+      );
+    });
+    await runRealtimeAssertion(realtimeAudit, 'player B own join request insert', async () => {
+      await playerBOwnJoinCapture.waitFor(
+        (event) =>
+          event.table === 'join_requests' &&
+          event.eventType === 'INSERT' &&
+          stringifyId(event.new.id) === playerBJoinRequestId,
+        'player B own join request insert',
+        { since: playerBJoinCheckpoint },
+      );
+    });
+
+    const approvedPlayerBJoin = await backendRequest<{ membership: MembershipRecord }>(
+      backendBaseUrl,
+      `/clubs/join-requests/${playerBJoinRequestId}/approve`,
+      {
+        method: 'POST',
+        token: captainA.session.accessToken,
+      },
+    );
+    const playerBMembershipId = stringifyId(approvedPlayerBJoin.membership.id);
+    await runRealtimeAssertion(realtimeAudit, 'player B membership insert after join approval', async () => {
+      await playerBMembershipCapture.waitFor(
+        (event) =>
+          event.table === 'memberships' &&
+          event.eventType === 'INSERT' &&
+          stringifyId(event.new.id) === playerBMembershipId,
+        'player B membership insert after join approval',
+        { since: playerBMembershipCheckpoint },
+      );
+    });
+
+    const playerBMe = await backendRequest<{ player: PlayerRecord | null }>(
+      backendBaseUrl,
+      '/players/me',
+      {
+        token: playerB.session.accessToken,
+      },
+    );
+    assert(playerBMe.player, 'Player B should have a player profile after join approval.');
+    const playerBRecordId = stringifyId(playerBMe.player.id);
+
+    logStep('Validating captain transfer end to end');
+    await backendRequest<null>(backendBaseUrl, '/clubs/transfer-captain', {
+      method: 'POST',
+      token: captainA.session.accessToken,
+      expectedStatus: 204,
+      body: {
+        target_membership_id: playerBMembershipId,
+      },
+    });
+
+    const captainAMembershipAfterTransfer = await backendRequest<{ membership: MembershipRecord | null }>(
+      backendBaseUrl,
+      '/clubs/current/membership',
+      {
+        token: captainA.session.accessToken,
+      },
+    );
+    const playerBMembershipAfterTransfer = await backendRequest<{ membership: MembershipRecord | null }>(
+      backendBaseUrl,
+      '/clubs/current/membership',
+      {
+        token: playerB.session.accessToken,
+      },
+    );
+    assert.equal(
+      captainAMembershipAfterTransfer.membership?.role,
+      'player',
+      'Old captain should become a normal player after captain transfer.',
+    );
+    assert.equal(
+      playerBMembershipAfterTransfer.membership?.role,
+      'captain',
+      'Transfer target should become captain.',
+    );
+
+    const captainAPlayerAfterTransfer = await backendRequest<{ player: PlayerRecord | null }>(
+      backendBaseUrl,
+      '/players/me',
+      {
+        token: captainA.session.accessToken,
+      },
+    );
+    const playerBPlayerAfterTransfer = await backendRequest<{ player: PlayerRecord | null }>(
+      backendBaseUrl,
+      '/players/me',
+      {
+        token: playerB.session.accessToken,
+      },
+    );
+    assert.equal(stringifyId(captainAPlayerAfterTransfer.player?.id), captainARecordId);
+    assert.equal(captainAPlayerAfterTransfer.player?.membership_id != null, true);
+    assert.equal(stringifyId(playerBPlayerAfterTransfer.player?.id), playerBRecordId);
+    assert.equal(playerBPlayerAfterTransfer.player?.membership_id != null, true);
+
+    await expectBackendError(backendBaseUrl, '/clubs/join-requests/pending', {
+      method: 'GET',
+      token: captainA.session.accessToken,
+      expectedStatus: 403,
+    });
+    const newCaptainPendingJoinRequests = await backendRequest<{ joinRequests: JoinRequestRecord[] }>(
+      backendBaseUrl,
+      '/clubs/join-requests/pending',
+      {
+        token: playerB.session.accessToken,
+      },
+    );
+    assert.equal(
+      newCaptainPendingJoinRequests.joinRequests.length,
+      0,
+      'New captain should be able to access the pending join request dashboard.',
+    );
+
+    await expectBackendError(backendBaseUrl, '/clubs/current/logo', {
+      method: 'PUT',
+      token: captainA.session.accessToken,
+      expectedStatus: 403,
+      body: {
+        logo_data_url: ONE_PIXEL_PNG_DATA_URL,
+      },
+    });
+
+    logStep('Validating reject path for join requests under the new captain');
+    const playerBCaptainJoinCapture = await subscribeToChanges(context, playerB.client, 'player-b-captain-join', [
+      { table: 'join_requests', filter: `club_id=eq.${stringifyId(clubA.id)}` },
+    ]);
     const outsiderOwnJoinCapture = await subscribeToChanges(context, outsiderA.client, 'outsider-own-join', [
       {
         table: 'join_requests',
@@ -1040,6 +1595,7 @@ async function main(): Promise<void> {
       },
     ]);
     const outsiderJoinCheckpoint = outsiderOwnJoinCapture.mark();
+    const playerBCaptainJoinCheckpoint = playerBCaptainJoinCapture.mark();
     const captainAJoinCheckpoint2 = captainAJoinCapture.mark();
     const captainBJoinCheckpoint2 = captainBJoinCapture.mark();
 
@@ -1061,14 +1617,14 @@ async function main(): Promise<void> {
     );
     const outsiderJoinRequestId = stringifyId(outsiderJoin.joinRequest.id);
 
-    await runRealtimeAssertion(realtimeAudit, 'captain A outsider join request insert', async () => {
-      await captainAJoinCapture.waitFor(
+    await runRealtimeAssertion(realtimeAudit, 'new captain outsider join request insert', async () => {
+      await playerBCaptainJoinCapture.waitFor(
         (event) =>
           event.table === 'join_requests' &&
           event.eventType === 'INSERT' &&
           stringifyId(event.new.id) === outsiderJoinRequestId,
-        'captain A outsider join request insert',
-        { since: captainAJoinCheckpoint2 },
+        'new captain outsider join request insert',
+        { since: playerBCaptainJoinCheckpoint },
       );
     });
     await runRealtimeAssertion(realtimeAudit, 'outsider own join request insert', async () => {
@@ -1083,6 +1639,17 @@ async function main(): Promise<void> {
     });
     await runRealtimeAssertion(
       realtimeAudit,
+      'old captain should not receive outsider join request after transfer',
+      async () => {
+        await captainAJoinCapture.expectNoMatch(
+          (event) => stringifyId(event.new.id) === outsiderJoinRequestId,
+          'old captain should not receive outsider join request after transfer',
+          { since: captainAJoinCheckpoint2 },
+        );
+      },
+    );
+    await runRealtimeAssertion(
+      realtimeAudit,
       'captain B should not receive outsider join request for club A',
       async () => {
         await captainBJoinCapture.expectNoMatch(
@@ -1095,12 +1662,12 @@ async function main(): Promise<void> {
 
     await expectBackendError(backendBaseUrl, '/clubs/join-requests/pending', {
       method: 'GET',
-      token: playerA.session.accessToken,
+      token: captainA.session.accessToken,
       expectedStatus: 403,
     });
     await expectBackendError(backendBaseUrl, `/clubs/join-requests/${outsiderJoinRequestId}/reject`, {
       method: 'POST',
-      token: playerA.session.accessToken,
+      token: captainA.session.accessToken,
       expectedStatus: 403,
     });
 
@@ -1119,7 +1686,7 @@ async function main(): Promise<void> {
 
     await backendRequest<null>(backendBaseUrl, `/clubs/join-requests/${outsiderJoinRequestId}/reject`, {
       method: 'POST',
-      token: captainA.session.accessToken,
+      token: playerB.session.accessToken,
       expectedStatus: 204,
     });
     await runRealtimeAssertion(realtimeAudit, 'outsider rejected join request update', async () => {
@@ -1147,11 +1714,11 @@ async function main(): Promise<void> {
     logStep('Validating captain leave edge case and leave request reject/approve flow');
     await expectBackendError(backendBaseUrl, '/clubs/leave-requests', {
       method: 'POST',
-      token: captainA.session.accessToken,
+      token: playerB.session.accessToken,
       expectedStatus: 409,
     });
 
-    const captainALeaveCapture = await subscribeToChanges(context, captainA.client, 'captain-a-leave', [
+    const playerBCaptainLeaveCapture = await subscribeToChanges(context, playerB.client, 'player-b-captain-leave', [
       { table: 'leave_requests', filter: `club_id=eq.${stringifyId(clubA.id)}` },
     ]);
     const playerALeaveCapture = await subscribeToChanges(context, playerA.client, 'player-a-leave', [
@@ -1161,7 +1728,7 @@ async function main(): Promise<void> {
       },
     ]);
     const playerAMembershipCheckpoint2 = playerAMembershipCapture.mark();
-    const captainALeaveCheckpoint = captainALeaveCapture.mark();
+    const playerBCaptainLeaveCheckpoint = playerBCaptainLeaveCapture.mark();
     const playerALeaveCheckpoint = playerALeaveCapture.mark();
 
     const leaveRequested = await backendRequest<{ leaveRequest: LeaveRequestRecord }>(
@@ -1175,14 +1742,14 @@ async function main(): Promise<void> {
     );
     const leaveRequestId = stringifyId(leaveRequested.leaveRequest.id);
 
-    await runRealtimeAssertion(realtimeAudit, 'captain A leave request insert', async () => {
-      await captainALeaveCapture.waitFor(
+    await runRealtimeAssertion(realtimeAudit, 'new captain leave request insert', async () => {
+      await playerBCaptainLeaveCapture.waitFor(
         (event) =>
           event.table === 'leave_requests' &&
           event.eventType === 'INSERT' &&
           stringifyId(event.new.id) === leaveRequestId,
-        'captain A leave request insert',
-        { since: captainALeaveCheckpoint },
+        'new captain leave request insert',
+        { since: playerBCaptainLeaveCheckpoint },
       );
     });
     await runRealtimeAssertion(realtimeAudit, 'player A own leave request insert', async () => {
@@ -1204,7 +1771,7 @@ async function main(): Promise<void> {
 
     await backendRequest<null>(backendBaseUrl, `/clubs/leave-requests/${leaveRequestId}/reject`, {
       method: 'POST',
-      token: captainA.session.accessToken,
+      token: playerB.session.accessToken,
       expectedStatus: 204,
     });
     await runRealtimeAssertion(realtimeAudit, 'player A leave request rejected update', async () => {
@@ -1230,7 +1797,7 @@ async function main(): Promise<void> {
     assert(stillActiveAfterReject, 'Membership should still exist after rejected leave request.');
     assert.equal(stillActiveAfterReject.status, 'active');
 
-    const captainALeaveCheckpoint2 = captainALeaveCapture.mark();
+    const playerBCaptainLeaveCheckpoint2 = playerBCaptainLeaveCapture.mark();
     const playerALeaveCheckpoint2 = playerALeaveCapture.mark();
     const playerAMembershipCheckpoint3 = playerAMembershipCapture.mark();
 
@@ -1245,14 +1812,14 @@ async function main(): Promise<void> {
     );
     const leaveRequestId2 = stringifyId(leaveRequestedAgain.leaveRequest.id);
 
-    await runRealtimeAssertion(realtimeAudit, 'captain A second leave request insert', async () => {
-      await captainALeaveCapture.waitFor(
+    await runRealtimeAssertion(realtimeAudit, 'new captain second leave request insert', async () => {
+      await playerBCaptainLeaveCapture.waitFor(
         (event) =>
           event.table === 'leave_requests' &&
           event.eventType === 'INSERT' &&
           stringifyId(event.new.id) === leaveRequestId2,
-        'captain A second leave request insert',
-        { since: captainALeaveCheckpoint2 },
+        'new captain second leave request insert',
+        { since: playerBCaptainLeaveCheckpoint2 },
       );
     });
     await runRealtimeAssertion(realtimeAudit, 'player A second leave request insert', async () => {
@@ -1268,7 +1835,7 @@ async function main(): Promise<void> {
 
     await backendRequest<null>(backendBaseUrl, `/clubs/leave-requests/${leaveRequestId2}/approve`, {
       method: 'POST',
-      token: captainA.session.accessToken,
+      token: playerB.session.accessToken,
       expectedStatus: 204,
     });
     await runRealtimeAssertion(realtimeAudit, 'player A leave request approved update', async () => {
@@ -1310,10 +1877,78 @@ async function main(): Promise<void> {
     ) as Array<{ id: string | number }>;
     assert.equal(activeMembershipsAfterLeave.length, 0, 'Player A should not have active memberships after approved leave.');
 
-    logStep('Deleting clubs through the backend after membership cleanup');
-    await backendRequest<null>(backendBaseUrl, '/clubs/current', {
+    logStep('Validating account deletion edge cases and success path');
+    await expectBackendError(backendBaseUrl, '/auth/account', {
       method: 'DELETE',
       token: captainA.session.accessToken,
+      expectedStatus: 409,
+    });
+
+    const pendingDelete = await registerUser(context, 'pending-delete');
+    const pendingDeleteJoin = await backendRequest<{ joinRequest: JoinRequestRecord }>(
+      backendBaseUrl,
+      '/clubs/join-requests',
+      {
+        method: 'POST',
+        token: pendingDelete.session.accessToken,
+        expectedStatus: 201,
+        body: {
+          club_id: clubB.id,
+          requested_nome: 'Pending',
+          requested_cognome: 'Delete',
+          requested_primary_role: 'CC',
+        },
+      },
+    );
+    const pendingDeleteJoinRequestId = stringifyId(pendingDeleteJoin.joinRequest.id);
+    await expectBackendError(backendBaseUrl, '/auth/account', {
+      method: 'DELETE',
+      token: pendingDelete.session.accessToken,
+      expectedStatus: 409,
+    });
+    await backendRequest<null>(backendBaseUrl, `/clubs/join-requests/${pendingDeleteJoinRequestId}`, {
+      method: 'DELETE',
+      token: pendingDelete.session.accessToken,
+      expectedStatus: 204,
+    });
+    await backendRequest<null>(backendBaseUrl, '/auth/account', {
+      method: 'DELETE',
+      token: pendingDelete.session.accessToken,
+      expectedStatus: 204,
+    });
+    const pendingDeleteLoginFailure = await expectLoginRejected(backendBaseUrl, {
+      email: pendingDelete.email,
+      password: pendingDelete.password,
+    });
+    assert(
+      pendingDeleteLoginFailure.status === 401 || pendingDeleteLoginFailure.status === 400,
+      `Deleted pending-delete account should reject login cleanly, got ${pendingDeleteLoginFailure.status}.`,
+    );
+
+    const deleteMe = await registerUser(context, 'delete-me');
+    await backendRequest<null>(backendBaseUrl, '/auth/account', {
+      method: 'DELETE',
+      token: deleteMe.session.accessToken,
+      expectedStatus: 204,
+    });
+    const deleteMeLoginFailure = await expectLoginRejected(backendBaseUrl, {
+      email: deleteMe.email,
+      password: deleteMe.password,
+    });
+    assert(
+      deleteMeLoginFailure.status === 401 || deleteMeLoginFailure.status === 400,
+      `Deleted standalone account should reject login cleanly, got ${deleteMeLoginFailure.status}.`,
+    );
+
+    logStep('Deleting clubs through the backend after membership cleanup');
+    await backendRequest<null>(backendBaseUrl, `/players/${captainARecordId}/release`, {
+      method: 'POST',
+      token: playerB.session.accessToken,
+      expectedStatus: 204,
+    });
+    await backendRequest<null>(backendBaseUrl, '/clubs/current', {
+      method: 'DELETE',
+      token: playerB.session.accessToken,
       expectedStatus: 204,
     });
     await backendRequest<null>(backendBaseUrl, '/clubs/current', {
@@ -1347,11 +1982,14 @@ async function main(): Promise<void> {
           validated: [
             'backend auth register/login against real Supabase Auth',
             'local SSE fallback disabled while Supabase Realtime remains functional',
-            'club-scoped RLS reads on clubs, memberships, join_requests, lineup_players',
+            'club-scoped RLS reads on clubs, memberships, join_requests, lineup_players and attendance_entries',
             'join approve/reject with realtime delivery to correct scoped clients',
             'leave reject/approve with realtime delivery and membership state transitions',
-            'captain-only operations and captain leave edge case enforcement',
+            'captain-only operations, captain transfer and captain leave edge case enforcement',
+            'attendance week creation, self availability updates and manager-only filters',
             'club-scoped lineups create/update/delete plus lineup_players realtime',
+            'club logo upload to storage plus public retrieval',
+            'account deletion blocked when unsafe and successful when standalone/pending-free',
             'direct unauthorized writes blocked at the database layer',
           ],
         },

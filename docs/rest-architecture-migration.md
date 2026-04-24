@@ -42,11 +42,17 @@ La migrazione è completa:
 
 ## Config frontend
 
-Il frontend legge il backend da `API_BASE_URL`:
+Il frontend legge il backend dal runtime config Flutter, caricato con `--dart-define-from-file`:
 
 ```bash
-flutter run --dart-define=API_BASE_URL=http://localhost:3001/api
+./scripts/flutter/run-local.sh
 ```
+
+I file di configurazione pubblici sono in:
+
+- [config/environments/flutter/local.json](/Users/ciro.saraino/clubline/config/environments/flutter/local.json)
+- [config/environments/flutter/dev.json](/Users/ciro.saraino/clubline/config/environments/flutter/dev.json)
+- [config/environments/flutter/prod.json](/Users/ciro.saraino/clubline/config/environments/flutter/prod.json)
 
 ## Prossimo passo
 

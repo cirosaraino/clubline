@@ -1,4 +1,5 @@
 import '../data/api_client.dart';
+import 'config/app_runtime_config.dart';
 
 class AppSupabaseConfig {
   const AppSupabaseConfig({
@@ -21,11 +22,6 @@ class AppSupabaseConfigRepository {
   static final AppSupabaseConfigRepository instance =
       AppSupabaseConfigRepository();
 
-  static const String _configuredUrl = String.fromEnvironment('SUPABASE_URL');
-  static const String _configuredAnonKey = String.fromEnvironment(
-    'SUPABASE_ANON_KEY',
-  );
-
   final ApiClient _apiClient;
 
   AppSupabaseConfig? _cachedConfig;
@@ -36,12 +32,11 @@ class AppSupabaseConfigRepository {
       return cached;
     }
 
-    final configuredUrl = _configuredUrl.trim();
-    final configuredAnonKey = _configuredAnonKey.trim();
-    if (configuredUrl.isNotEmpty && configuredAnonKey.isNotEmpty) {
+    final runtimeConfig = AppRuntimeConfig.instance;
+    if (runtimeConfig.hasSupabaseOverride) {
       final config = AppSupabaseConfig(
-        url: configuredUrl,
-        anonKey: configuredAnonKey,
+        url: runtimeConfig.supabaseUrlOverride!,
+        anonKey: runtimeConfig.supabaseAnonKeyOverride!,
         localRealtimeFallbackEnabled: false,
       );
       _cachedConfig = config;

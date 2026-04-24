@@ -15,6 +15,7 @@ enum _HomeProfileMenuAction {
   completeProfile,
   editProfile,
   changePassword,
+  biometricUnlock,
   manageClub,
   requestLeaveClub,
   manageVicePermissions,
@@ -30,6 +31,7 @@ class HomePage extends StatelessWidget {
     required this.onOpenSignIn,
     required this.onOpenSignUp,
     required this.onOpenPasswordSettings,
+    required this.onOpenBiometricSettings,
     required this.onOpenClubManagement,
     required this.onOpenThemeSettings,
     required this.onOpenVicePermissionsSettings,
@@ -42,6 +44,7 @@ class HomePage extends StatelessWidget {
   final VoidCallback onOpenSignIn;
   final VoidCallback onOpenSignUp;
   final VoidCallback onOpenPasswordSettings;
+  final VoidCallback onOpenBiometricSettings;
   final VoidCallback onOpenClubManagement;
   final VoidCallback onOpenThemeSettings;
   final VoidCallback onOpenVicePermissionsSettings;
@@ -95,6 +98,9 @@ class HomePage extends StatelessWidget {
         return;
       case _HomeProfileMenuAction.changePassword:
         onOpenPasswordSettings();
+        return;
+      case _HomeProfileMenuAction.biometricUnlock:
+        onOpenBiometricSettings();
         return;
       case _HomeProfileMenuAction.manageClub:
         onOpenClubManagement();
@@ -193,6 +199,15 @@ class HomePage extends StatelessWidget {
                       title: Text('Modifica profilo giocatore'),
                     ),
                   ),
+                const PopupMenuItem<_HomeProfileMenuAction>(
+                  key: Key('home-profile-menu-biometric-unlock'),
+                  value: _HomeProfileMenuAction.biometricUnlock,
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.fingerprint_outlined),
+                    title: Text('Sblocco biometrico'),
+                  ),
+                ),
                 const PopupMenuItem<_HomeProfileMenuAction>(
                   key: Key('home-profile-menu-change-password'),
                   value: _HomeProfileMenuAction.changePassword,

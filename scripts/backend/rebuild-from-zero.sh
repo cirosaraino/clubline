@@ -3,13 +3,13 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-TARGET="${1:-dev}"
+TARGET="${1:-local}"
 CUSTOM_ENV_FILE="${2:-}"
 
 case "${TARGET}" in
-  dev|test) ;;
+  local|dev|test) ;;
   *)
-    echo "Per sicurezza rebuild-from-zero.sh accetta solo dev o test."
+    echo "Per sicurezza rebuild-from-zero.sh accetta solo local, dev o test."
     exit 1
     ;;
 esac

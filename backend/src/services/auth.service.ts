@@ -70,8 +70,10 @@ export class AuthService {
       password,
     });
     if (loginResponse.error || !loginResponse.data.session) {
-      throw loginResponse.error ??
-          new UnauthorizedError('Account creato ma accesso automatico non riuscito');
+      if (loginResponse.error) {
+        throw this.mapSignInProviderError(loginResponse.error);
+      }
+      throw new UnauthorizedError('Account creato ma accesso automatico non riuscito');
     }
 
     return {
@@ -114,6 +116,39 @@ export class AuthService {
     return error as Error;
   }
 
+  private mapSignInProviderError(error: {
+    message?: string | null;
+    status?: number | null;
+    code?: string | number | null;
+  }): Error {
+    const normalizedMessage = error.message?.trim().toLowerCase() ?? '';
+
+    if (
+      normalizedMessage.includes('invalid login credentials') ||
+      normalizedMessage.includes('invalid email or password') ||
+      normalizedMessage.includes('email not found') ||
+      normalizedMessage.includes('user not found')
+    ) {
+      return new UnauthorizedError('Credenziali non valide');
+    }
+
+    if (normalizedMessage.includes('email not confirmed')) {
+      return new UnauthorizedError('Completa prima la verifica email per accedere');
+    }
+
+    if (normalizedMessage.includes('rate limit') || normalizedMessage.includes('too many requests')) {
+      return new TooManyRequestsError(
+        'Hai effettuato troppi tentativi di accesso. Attendi un momento e riprova.',
+      );
+    }
+
+    if (typeof error.status === 'number' && error.status === 401) {
+      return new UnauthorizedError('Credenziali non valide');
+    }
+
+    return error as Error;
+  }
+
   async login(email: string, password: string): Promise<{ session: AuthSessionDto }> {
     const response = await this.authClient.auth.signInWithPassword({
       email,
@@ -121,7 +156,10 @@ export class AuthService {
     });
 
     if (response.error || !response.data.session) {
-      throw response.error ?? new UnauthorizedError('Credenziali non valide');
+      if (response.error) {
+        throw this.mapSignInProviderError(response.error);
+      }
+      throw new UnauthorizedError('Credenziali non valide');
     }
 
     const session = response.data.session;
@@ -146,7 +184,7 @@ export class AuthService {
     });
 
     if (response.error || !response.data.session) {
-      throw response.error ?? new UnauthorizedError('Refresh token non valido');
+      throw new UnauthorizedError('Refresh token non valido');
     }
 
     const session = response.data.session;

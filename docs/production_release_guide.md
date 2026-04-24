@@ -1,25 +1,29 @@
 # Clubline Dev/Prod Guide
 
-Questa guida copre i due progetti Supabase dedicati:
+Questa guida copre il rilascio con i tre profili runtime del progetto:
 
-- `clubline-dev`: ambiente di sviluppo e test
-- `clubline-prod`: ambiente di produzione
+- `local`
+- `dev`
+- `prod`
 
 ## 1. File env da preparare
 
-Template già inclusi nel repository:
+Template versionati:
 
 - [backend/.env.example](/Users/ciro.saraino/clubline/backend/.env.example)
-- [backend/.env.clubline-dev.example](/Users/ciro.saraino/clubline/backend/.env.clubline-dev.example)
-- [backend/.env.clubline-prod.example](/Users/ciro.saraino/clubline/backend/.env.clubline-prod.example)
+- [config/environments/backend/local.env.example](/Users/ciro.saraino/clubline/config/environments/backend/local.env.example)
+- [config/environments/backend/dev.env.example](/Users/ciro.saraino/clubline/config/environments/backend/dev.env.example)
+- [config/environments/backend/prod.env.example](/Users/ciro.saraino/clubline/config/environments/backend/prod.env.example)
 
 Crea i file locali non versionati:
 
-- `backend/.env.clubline-dev.local`
-- `backend/.env.clubline-prod.local`
+- `config/environments/backend/local.env.local`
+- `config/environments/backend/dev.env.local`
+- `config/environments/backend/prod.env.local`
 
 Campi da valorizzare:
 
+- `APP_ENV`
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
@@ -30,6 +34,7 @@ Campi da valorizzare:
 ## 2. Attiva l env backend corretto
 
 ```bash
+./scripts/env/use-backend-env.sh local
 ./scripts/env/use-backend-env.sh dev
 ./scripts/env/use-backend-env.sh prod
 ```
@@ -41,6 +46,7 @@ Lo script copia il file locale scelto in `backend/.env`.
 Per applicare schema base + refactor multi-club:
 
 ```bash
+./scripts/db/apply-clubline-schema.sh local
 ./scripts/db/apply-clubline-schema.sh dev
 ./scripts/db/apply-clubline-schema.sh prod
 ```
@@ -48,6 +54,7 @@ Per applicare schema base + refactor multi-club:
 Per verificare che il database sia pronto:
 
 ```bash
+./scripts/db/verify-clubline-schema.sh local
 ./scripts/db/verify-clubline-schema.sh dev
 ./scripts/db/verify-clubline-schema.sh prod
 ```
@@ -78,17 +85,30 @@ Il blueprint aggiornato è [render.yaml](/Users/ciro.saraino/clubline/render.yam
 
 Variabili backend Render:
 
+- `APP_ENV=prod`
 - `NODE_ENV=production`
 - `SUPABASE_URL=<clubline-prod url>`
 - `SUPABASE_ANON_KEY=<clubline-prod anon key>`
 - `SUPABASE_SERVICE_ROLE_KEY=<clubline-prod service role key>`
-- `CORS_ORIGIN=https://clubline-web.onrender.com`
+- `CORS_ALLOWED_ORIGINS=https://clubline-web.onrender.com`
 
 Variabile frontend Render:
 
 - `API_BASE_URL=https://clubline-backend.onrender.com/api`
+- `APP_ENV=prod`
 
-## 6. Checklist prima del go-live
+## 6. Comandi Flutter
+
+```bash
+./scripts/flutter/run-local.sh
+./scripts/flutter/run-dev.sh
+./scripts/flutter/build-web-dev.sh
+./scripts/flutter/build-web-prod.sh
+./scripts/flutter/build-android-prod.sh
+./scripts/flutter/build-ios-prod.sh
+```
+
+## 7. Checklist prima del go-live
 
 1. `npm run typecheck` in `backend/`
 2. `npm run test` in `backend/`

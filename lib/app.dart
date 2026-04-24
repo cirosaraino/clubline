@@ -2,11 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'core/biometric_auth/biometric_unlock_controller.dart';
 import 'core/app_session.dart';
 import 'core/app_theme.dart';
 import 'core/app_theme_controller.dart';
 import 'ui/pages/app_shell_page.dart';
 import 'ui/widgets/app_realtime_sync_host.dart';
+import 'ui/widgets/biometric_unlock_host.dart';
 import 'ui/widgets/mobile_web_install_prompt_host.dart';
 
 class ClublineApp extends StatefulWidget {
@@ -19,6 +21,7 @@ class ClublineApp extends StatefulWidget {
 class _ClublineAppState extends State<ClublineApp> {
   late final AppSessionController sessionController;
   late final AppThemeController themeController;
+  late final BiometricUnlockController biometricUnlockController;
 
   @override
   void initState() {
@@ -36,10 +39,14 @@ class _ClublineAppState extends State<ClublineApp> {
         );
       },
     );
+    biometricUnlockController = BiometricUnlockController(
+      sessionController: sessionController,
+    );
   }
 
   @override
   void dispose() {
+    biometricUnlockController.dispose();
     sessionController.dispose();
     themeController.dispose();
     super.dispose();
@@ -63,9 +70,14 @@ class _ClublineAppState extends State<ClublineApp> {
               controller: themeController,
               child: AppSessionScope(
                 controller: sessionController,
-                child: AppRealtimeSyncHost(
-                  child: MobileWebInstallPromptHost(
-                    child: child ?? const SizedBox.shrink(),
+                child: BiometricUnlockScope(
+                  controller: biometricUnlockController,
+                  child: BiometricUnlockHost(
+                    child: AppRealtimeSyncHost(
+                      child: MobileWebInstallPromptHost(
+                        child: child ?? const SizedBox.shrink(),
+                      ),
+                    ),
                   ),
                 ),
               ),

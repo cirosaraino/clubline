@@ -1,0 +1,5 @@
+{
+  "APP_ENV": "prod",
+  "API_BASE_URL": "https://clubline-backend.onrender.com/api",
+  "REALTIME_TRANSPORT": "supabase"
+}

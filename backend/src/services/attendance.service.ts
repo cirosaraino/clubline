@@ -37,6 +37,60 @@ function teamRoleSortIndex(value: string | null | undefined): number {
   }
 }
 
+function parseAttendanceTimestamp(value: string | null | undefined): number {
+  if (!value) {
+    return 0;
+  }
+
+  const timestamp = Date.parse(value);
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function compareAttendanceEntryRecency(
+  left: AttendanceEntryRow,
+  right: AttendanceEntryRow,
+): number {
+  const leftResolved = left.availability !== 'pending';
+  const rightResolved = right.availability !== 'pending';
+  if (leftResolved != rightResolved) {
+    return leftResolved ? 1 : -1;
+  }
+
+  const updatedCompare =
+    parseAttendanceTimestamp(left.updated_at) - parseAttendanceTimestamp(right.updated_at);
+  if (updatedCompare != 0) {
+    return updatedCompare;
+  }
+
+  const createdCompare =
+    parseAttendanceTimestamp(left.created_at) - parseAttendanceTimestamp(right.created_at);
+  if (createdCompare != 0) {
+    return createdCompare;
+  }
+
+  const leftId = Number(left.id);
+  const rightId = Number(right.id);
+  if (Number.isFinite(leftId) && Number.isFinite(rightId) && leftId != rightId) {
+    return leftId - rightId;
+  }
+
+  return `${left.id}`.localeCompare(`${right.id}`);
+}
+
+function deduplicateAttendanceEntries(rows: AttendanceEntryRow[]): AttendanceEntryRow[] {
+  const byKey = new Map<string, AttendanceEntryRow>();
+
+  for (const row of rows) {
+    const key = `${row.week_id}_${row.player_id}_${normalizeDateOnly(row.attendance_date)}`;
+    const current = byKey.get(key);
+    if (!current || compareAttendanceEntryRecency(current, row) < 0) {
+      byKey.set(key, row);
+    }
+  }
+
+  return [...byKey.values()];
+}
+
 function calculateWeekStart(referenceDate: string): string {
   const date = new Date(`${normalizeDateOnly(referenceDate)}T00:00:00.000Z`);
   const utcDay = date.getUTCDay() || 7;
@@ -139,23 +193,47 @@ export class AttendanceService {
     const playerIds = ((optionalData(playersResponse) as Array<{ id: number | string }> | null) ?? [])
       .map((row) => row.id);
 
+    const existingEntriesResponse = await this.db
+      .from('attendance_entries')
+      .select('player_id, attendance_date')
+      .eq('club_id', clubId)
+      .eq('week_id', week.id);
+    const existingEntries = ((optionalData(existingEntriesResponse) as Array<{
+      player_id: number | string;
+      attendance_date: string;
+    }> | null) ?? []);
+    const existingKeys = new Set(
+      existingEntries.map(
+        (entry) => `${entry.player_id}_${normalizeDateOnly(entry.attendance_date)}`,
+      ),
+    );
+
+    const missingEntries: Array<Record<string, unknown>> = [];
+
     for (const playerId of playerIds) {
       for (const attendanceDate of week.selected_dates) {
-        const response = await this.db.from('attendance_entries').upsert(
-          {
-            club_id: clubId,
-            week_id: week.id,
-            player_id: playerId,
-            attendance_date: attendanceDate,
-            availability: 'pending',
-          },
-          {
-            onConflict: 'week_id,player_id,attendance_date',
-          },
-        );
-        ensureSuccess(response);
+        const entryKey = `${playerId}_${normalizeDateOnly(attendanceDate)}`;
+        if (existingKeys.has(entryKey)) {
+          continue;
+        }
+
+        missingEntries.push({
+          club_id: clubId,
+          week_id: week.id,
+          player_id: playerId,
+          attendance_date: attendanceDate,
+          availability: 'pending',
+        });
+        existingKeys.add(entryKey);
       }
     }
+
+    if (missingEntries.length === 0) {
+      return;
+    }
+
+    const response = await this.db.from('attendance_entries').insert(missingEntries);
+    ensureSuccess(response);
   }
 
   async archiveWeek(weekId: string | number, principal: RequestPrincipal): Promise<void> {
@@ -240,7 +318,9 @@ export class AttendanceService {
     }
 
     const response = await query;
-    const rows = ((optionalData(response) as AttendanceEntryRow[] | null) ?? []);
+    const rows = deduplicateAttendanceEntries(
+      ((optionalData(response) as AttendanceEntryRow[] | null) ?? []),
+    );
 
     return [...rows].sort((left, right) => {
       const leftPlayer = left.player;

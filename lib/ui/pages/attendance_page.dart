@@ -36,6 +36,7 @@ class _AttendancePageState extends State<AttendancePage> {
   bool isCaptainFiltersExpanded = false;
   String? errorMessage;
   final Set<String> savingEntryKeys = {};
+  final Map<String, AttendanceEntry> _localEntryOverrides = {};
   int lastHandledSyncRevision = 0;
   bool _isLoadingRequest = false;
   bool _reloadRequested = false;
@@ -99,8 +100,12 @@ class _AttendancePageState extends State<AttendancePage> {
     }
 
     final nomeQuery = captainNomeFilterController.text.trim().toLowerCase();
-    final cognomeQuery = captainCognomeFilterController.text.trim().toLowerCase();
-    final consoleIdQuery = captainConsoleIdFilterController.text.trim().toLowerCase();
+    final cognomeQuery = captainCognomeFilterController.text
+        .trim()
+        .toLowerCase();
+    final consoleIdQuery = captainConsoleIdFilterController.text
+        .trim()
+        .toLowerCase();
 
     if (nomeQuery.isEmpty && cognomeQuery.isEmpty && consoleIdQuery.isEmpty) {
       return source;
@@ -117,7 +122,8 @@ class _AttendancePageState extends State<AttendancePage> {
       final playerConsoleId = (player.idConsole ?? '').toLowerCase();
 
       final matchesNome = nomeQuery.isEmpty || playerNome.contains(nomeQuery);
-      final matchesCognome = cognomeQuery.isEmpty || playerCognome.contains(cognomeQuery);
+      final matchesCognome =
+          cognomeQuery.isEmpty || playerCognome.contains(cognomeQuery);
       final matchesConsoleId =
           consoleIdQuery.isEmpty || playerConsoleId.contains(consoleIdQuery);
 
@@ -160,7 +166,8 @@ class _AttendancePageState extends State<AttendancePage> {
     }
 
     _isLoadingRequest = true;
-    final showBlockingLoader = !silent || (entries.isEmpty && activeWeek == null);
+    final showBlockingLoader =
+        !silent || (entries.isEmpty && activeWeek == null);
 
     setState(() {
       if (showBlockingLoader) {
@@ -172,13 +179,14 @@ class _AttendancePageState extends State<AttendancePage> {
     try {
       final loadedWeek = await attendanceRepository.fetchActiveWeek();
       final loadedEntries = await _loadEntriesForWeek(loadedWeek);
+      final mergedEntries = _mergeEntriesWithLocalOverrides(loadedEntries);
 
       if (!mounted) {
         return;
       }
       setState(() {
         activeWeek = loadedWeek;
-        entries = loadedEntries;
+        entries = mergedEntries;
         isPendingSectionExpanded = false;
         isLoading = false;
       });
@@ -201,7 +209,9 @@ class _AttendancePageState extends State<AttendancePage> {
     }
   }
 
-  Future<List<AttendanceEntry>> _loadEntriesForWeek(AttendanceWeek? week) async {
+  Future<List<AttendanceEntry>> _loadEntriesForWeek(
+    AttendanceWeek? week,
+  ) async {
     if (week == null) {
       return [];
     }
@@ -215,6 +225,46 @@ class _AttendancePageState extends State<AttendancePage> {
     }
 
     return left.entryKey == right.entryKey;
+  }
+
+  bool _shouldPreferLocalEntry(AttendanceEntry server, AttendanceEntry local) {
+    if (local.isResolved && !server.isResolved) {
+      return true;
+    }
+
+    if (local.availability == server.availability &&
+        _sameId(local.updatedByPlayerId, server.updatedByPlayerId)) {
+      return false;
+    }
+
+    return local.recencyScore >= server.recencyScore;
+  }
+
+  List<AttendanceEntry> _mergeEntriesWithLocalOverrides(
+    List<AttendanceEntry> loadedEntries,
+  ) {
+    if (_localEntryOverrides.isEmpty) {
+      return loadedEntries;
+    }
+
+    final mergedByKey = <String, AttendanceEntry>{
+      for (final entry in loadedEntries) entry.entryKey: entry,
+    };
+
+    for (final overrideEntry in _localEntryOverrides.values.toList()) {
+      final serverEntry = mergedByKey[overrideEntry.entryKey];
+      if (serverEntry == null ||
+          _shouldPreferLocalEntry(serverEntry, overrideEntry)) {
+        mergedByKey[overrideEntry.entryKey] = overrideEntry;
+        continue;
+      }
+
+      _localEntryOverrides.remove(overrideEntry.entryKey);
+    }
+
+    return loadedEntries
+        .map((entry) => mergedByKey[entry.entryKey] ?? entry)
+        .toList();
   }
 
   Future<bool> _confirmAction({
@@ -255,12 +305,15 @@ class _AttendancePageState extends State<AttendancePage> {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Future<void> _updateAvailability(AttendanceEntry entry, String availability) async {
+  Future<void> _updateAvailability(
+    AttendanceEntry entry,
+    String availability,
+  ) async {
     final viewer = activeViewer;
     final week = activeWeek;
     if (viewer == null || week == null) {
@@ -272,8 +325,18 @@ class _AttendancePageState extends State<AttendancePage> {
       return;
     }
 
+    final optimisticEntry = entry.copyWith(
+      availability: availability,
+      updatedByPlayerId: viewer.id,
+      updatedAt: DateTime.now(),
+    );
+
     setState(() {
       savingEntryKeys.add(entry.entryKey);
+      _localEntryOverrides[entry.entryKey] = optimisticEntry;
+      entries = entries
+          .map((item) => _isSameEntry(item, entry) ? optimisticEntry : item)
+          .toList();
     });
 
     try {
@@ -285,35 +348,25 @@ class _AttendancePageState extends State<AttendancePage> {
         updatedByPlayerId: viewer.id,
       );
 
-      final updatedEntries = entries
-          .map(
-            (item) => _isSameEntry(item, entry)
-                ? item.copyWith(
-                    availability: availability,
-                    updatedByPlayerId: viewer.id,
-                    updatedAt: DateTime.now(),
-                  )
-                : item,
-          )
-          .toList();
-
       if (!mounted) {
         return;
       }
       setState(() {
-        entries = updatedEntries;
         savingEntryKeys.remove(entry.entryKey);
       });
-      AppDataSync.instance.notifyDataChanged(
-        {AppDataScope.attendance},
-        reason: 'attendance_updated',
-      );
+      AppDataSync.instance.notifyDataChanged({
+        AppDataScope.attendance,
+      }, reason: 'attendance_updated');
     } catch (e) {
       if (!mounted) {
         return;
       }
       setState(() {
         savingEntryKeys.remove(entry.entryKey);
+        _localEntryOverrides.remove(entry.entryKey);
+        entries = entries
+            .map((item) => _isSameEntry(item, optimisticEntry) ? entry : item)
+            .toList();
       });
       _showSnackBar('Errore nel salvataggio presenza: $e');
     }
@@ -328,16 +381,17 @@ class _AttendancePageState extends State<AttendancePage> {
     await Navigator.push<void>(
       context,
       MaterialPageRoute(
-        builder: (context) => AttendanceArchivePage(
-          excludingWeekId: activeWeek?.id,
-        ),
+        builder: (context) =>
+            AttendanceArchivePage(excludingWeekId: activeWeek?.id),
       ),
     );
   }
 
   Future<void> _openCreateWeekFlow() async {
     final viewer = activeViewer;
-    if (viewer == null || !viewer.canManageAttendanceAll || activeWeek != null) {
+    if (viewer == null ||
+        !viewer.canManageAttendanceAll ||
+        activeWeek != null) {
       return;
     }
 
@@ -357,7 +411,9 @@ class _AttendancePageState extends State<AttendancePage> {
 
   Future<void> _createWeek(AttendanceWeekDraft draft) async {
     final viewer = activeViewer;
-    if (viewer == null || !viewer.canManageAttendanceAll || isProcessingWeekAction) {
+    if (viewer == null ||
+        !viewer.canManageAttendanceAll ||
+        isProcessingWeekAction) {
       return;
     }
 
@@ -378,10 +434,9 @@ class _AttendancePageState extends State<AttendancePage> {
             ? 'Sondaggio presenze creato.'
             : '${createdWeek.title} creato con ${createdWeek.votingDates.length} giorni.',
       );
-      AppDataSync.instance.notifyDataChanged(
-        {AppDataScope.attendance},
-        reason: 'attendance_week_created',
-      );
+      AppDataSync.instance.notifyDataChanged({
+        AppDataScope.attendance,
+      }, reason: 'attendance_week_created');
     } catch (e) {
       _showSnackBar('Errore durante la creazione presenze: $e');
     } finally {
@@ -422,10 +477,9 @@ class _AttendancePageState extends State<AttendancePage> {
       await _loadData();
 
       _showSnackBar('Settimana presenze archiviata con successo.');
-      AppDataSync.instance.notifyDataChanged(
-        {AppDataScope.attendance},
-        reason: 'attendance_week_archived',
-      );
+      AppDataSync.instance.notifyDataChanged({
+        AppDataScope.attendance,
+      }, reason: 'attendance_week_archived');
     } catch (e) {
       _showSnackBar('Errore durante l archivio presenze: $e');
     } finally {
@@ -440,12 +494,8 @@ class _AttendancePageState extends State<AttendancePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Presenze'),
-      ),
-      body: AppPageBackground(
-        child: _buildBody(),
-      ),
+      appBar: AppBar(title: const Text('Presenze')),
+      body: AppPageBackground(child: _buildBody()),
     );
   }
 
@@ -533,8 +583,12 @@ class _AttendancePageState extends State<AttendancePage> {
             activeWeek: activeWeek,
             daySummaries: daySummaries,
             onOpenArchive: canManageAll ? _openArchive : null,
-            onCreateWeek: canManageAll && activeWeek == null ? _openCreateWeekFlow : null,
-            onArchiveWeek: canManageAll && activeWeek != null ? _archiveActiveWeek : null,
+            onCreateWeek: canManageAll && activeWeek == null
+                ? _openCreateWeekFlow
+                : null,
+            onArchiveWeek: canManageAll && activeWeek != null
+                ? _archiveActiveWeek
+                : null,
             isProcessingWeekAction: isProcessingWeekAction,
             showManagerSummary: canManageAll,
           ),
@@ -604,7 +658,8 @@ class _AttendancePageState extends State<AttendancePage> {
               AttendancePlayerCard(
                 playerEntries: playerEntries,
                 weekDates: weekDates,
-                canEdit: canManageAll || _sameId(playerEntries.playerId, viewer.id),
+                canEdit:
+                    canManageAll || _sameId(playerEntries.playerId, viewer.id),
                 savingEntryKeys: savingEntryKeys,
                 onSelectAvailability: _updateAvailability,
               ),
@@ -667,18 +722,14 @@ class _CaptainAttendanceFiltersCard extends StatelessWidget {
                     Expanded(
                       child: Text(
                         'Filtro presenza giocatore',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w800,
-                            ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w800),
                       ),
                     ),
                     if (hasActiveFilters)
                       const Padding(
                         padding: EdgeInsets.only(right: 10),
-                        child: AppCountPill(
-                          label: 'Attivi',
-                          emphasized: true,
-                        ),
+                        child: AppCountPill(label: 'Attivi', emphasized: true),
                       ),
                     Icon(
                       isExpanded
@@ -695,7 +746,10 @@ class _CaptainAttendanceFiltersCard extends StatelessWidget {
                 key: const Key('attendance-captain-filter-nome-input'),
                 controller: nomeController,
                 onChanged: (_) => onChanged(),
-                decoration: _inputDecoration('Filtra per nome', Icons.person_outline),
+                decoration: _inputDecoration(
+                  'Filtra per nome',
+                  Icons.person_outline,
+                ),
               ),
               const SizedBox(height: 12),
               TextField(

@@ -143,3 +143,92 @@ test('saveAvailability works when the club is resolved from the linked player pr
   assert.equal(entries[0]?.availability, 'yes');
   assert.equal(entries[0]?.updated_by_player_id, player.id);
 });
+
+test('syncWeekEntries preserves existing availability instead of resetting rows to pending', async () => {
+  const week = createWeek();
+  const player = createPlayerProfile();
+  const db = new FakeSupabaseClient({
+    attendance_weeks: [week],
+    player_profiles: [player],
+    attendance_entries: [
+      {
+        id: 10,
+        club_id: week.club_id,
+        week_id: week.id,
+        player_id: player.id,
+        attendance_date: '2026-04-22',
+        availability: 'yes',
+        updated_by_player_id: player.id,
+        updated_at: '2026-04-22T11:00:00.000Z',
+        created_at: '2026-04-22T10:00:00.000Z',
+      },
+    ],
+  });
+  const service = new AttendanceService(db as any);
+
+  await service.syncWeekEntries(week.id, week.club_id);
+
+  const entries = db.rows<AttendanceEntryRow>('attendance_entries');
+  const preservedEntry = entries.find((entry) => entry.attendance_date === '2026-04-22');
+  assert(preservedEntry);
+  assert.equal(preservedEntry.availability, 'yes');
+  assert.equal(entries.length, 2);
+});
+
+test('listEntriesForWeek collapses duplicate rows and keeps the resolved availability', async () => {
+  const week = createWeek();
+  const player = createPlayerProfile();
+  const db = new FakeSupabaseClient({
+    attendance_weeks: [week],
+    player_profiles: [player],
+    attendance_entries: [
+      {
+        id: 10,
+        club_id: week.club_id,
+        week_id: week.id,
+        player_id: player.id,
+        attendance_date: '2026-04-22',
+        availability: 'yes',
+        updated_by_player_id: player.id,
+        updated_at: '2026-04-22T11:00:00.000Z',
+        created_at: '2026-04-22T10:00:00.000Z',
+      },
+      {
+        id: 11,
+        club_id: week.club_id,
+        week_id: week.id,
+        player_id: player.id,
+        attendance_date: '2026-04-22',
+        availability: 'pending',
+        updated_by_player_id: null,
+        updated_at: '2026-04-22T12:00:00.000Z',
+        created_at: '2026-04-22T12:00:00.000Z',
+      },
+      {
+        id: 12,
+        club_id: week.club_id,
+        week_id: week.id,
+        player_id: player.id,
+        attendance_date: '2026-04-24',
+        availability: 'pending',
+        updated_by_player_id: null,
+        updated_at: '2026-04-22T10:00:00.000Z',
+        created_at: '2026-04-22T10:00:00.000Z',
+      },
+    ],
+  });
+  const service = new AttendanceService(db as any);
+
+  const rows = await service.listEntriesForWeek(
+    week.id,
+    buildPrincipal({
+      userId: 'player-1',
+      player,
+    }),
+  );
+
+  assert.equal(rows.length, 2);
+  const resolvedEntry = rows.find((entry) => entry.attendance_date === '2026-04-22');
+  assert(resolvedEntry);
+  assert.equal(resolvedEntry.availability, 'yes');
+});

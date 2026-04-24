@@ -8,6 +8,7 @@ type QueryResult<T = any> = {
 
 type UpsertOptions = {
   onConflict?: string;
+  ignoreDuplicates?: boolean;
 };
 
 function cloneValue<T>(value: T): T {
@@ -290,14 +291,23 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
     const tableRows = this.db.getMutableRows(this.table);
     const payloadRows = Array.isArray(this.payload) ? this.payload : [this.payload ?? {}];
     const affectedRows: Row[] = [];
+    const conflictColumns = conflictColumn
+      ?.split(',')
+      .map((column) => column.trim())
+      .filter(Boolean) ?? [];
 
     for (const payloadRow of payloadRows) {
-      if (conflictColumn) {
+      if (conflictColumns.length > 0) {
         const existingRow = tableRows.find((row) =>
-          valuesEqual(row[conflictColumn], payloadRow[conflictColumn]),
+          conflictColumns.every((column) => valuesEqual(row[column], payloadRow[column])),
         );
 
         if (existingRow) {
+          if (this.upsertOptions.ignoreDuplicates) {
+            affectedRows.push(cloneValue(existingRow));
+            continue;
+          }
+
           Object.assign(existingRow, cloneValue(payloadRow));
           if ('updated_at' in existingRow) {
             existingRow.updated_at = new Date().toISOString();
