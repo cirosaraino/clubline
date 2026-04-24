@@ -28,13 +28,13 @@ class _ClublineAppState extends State<ClublineApp> {
     super.initState();
     themeController = AppThemeController();
     sessionController = AppSessionController(
-      onTeamInfoChanged: (teamInfo) {
+      onClubInfoChanged: (clubInfo) {
         unawaited(
           themeController.syncWithClubTheme(
-            primaryColor: teamInfo.primaryColor,
-            accentColor: teamInfo.accentColor,
-            surfaceColor: teamInfo.surfaceColor,
-            logoUrl: teamInfo.crestUrl,
+            primaryColor: clubInfo.primaryColor,
+            accentColor: clubInfo.accentColor,
+            surfaceColor: clubInfo.surfaceColor,
+            logoUrl: clubInfo.crestUrl,
           ),
         );
       },

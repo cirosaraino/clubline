@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import type { ClubRow, RequestPrincipal, TeamInfoRow } from '../domain/types';
+import type { ClubInfoRow, ClubRow, RequestPrincipal } from '../domain/types';
 import { ConflictError, ForbiddenError } from '../lib/errors';
 import { optionalData, requiredData } from '../lib/supabase-result';
 
@@ -46,10 +46,10 @@ function normalizeHexColor(value: string | null | undefined): string | null {
   return hex.toUpperCase();
 }
 
-export class TeamInfoService {
+export class ClubInfoService {
   constructor(private readonly db: SupabaseClient) {}
 
-  async getTeamInfo(principal: RequestPrincipal): Promise<TeamInfoRow> {
+  async getClubInfo(principal: RequestPrincipal): Promise<ClubInfoRow> {
     if (!principal.membership || !principal.club) {
       throw new ForbiddenError('Devi appartenere a un club per vedere queste informazioni');
     }
@@ -74,7 +74,7 @@ export class TeamInfoService {
 
     return {
       id: principal.club.id,
-      team_name: principal.club.name,
+      club_name: principal.club.name,
       crest_url: principal.club.logo_url,
       website_url: settings?.website_url ?? null,
       youtube_url: settings?.youtube_url ?? null,
@@ -92,15 +92,15 @@ export class TeamInfoService {
     };
   }
 
-  async updateTeamInfo(teamInfo: TeamInfoRow, principal: RequestPrincipal): Promise<TeamInfoRow> {
+  async updateClubInfo(clubInfo: ClubInfoRow, principal: RequestPrincipal): Promise<ClubInfoRow> {
     if (!principal.membership || !principal.club) {
       throw new ForbiddenError('Devi appartenere a un club per modificare queste informazioni');
     }
-    if (!principal.canManageTeamInfo) {
+    if (!principal.canManageClubInfo) {
       throw new ForbiddenError('Non puoi modificare le info del club');
     }
 
-    const clubName = normalizeClubName(teamInfo.team_name);
+    const clubName = normalizeClubName(clubInfo.club_name);
     const normalizedName = normalizeClubKey(clubName);
     await this.ensureUniqueClubName(normalizedName, principal.club.id);
     const slug = await this.resolveUniqueSlug(principal.club, clubName);
@@ -111,10 +111,10 @@ export class TeamInfoService {
         name: clubName,
         normalized_name: normalizedName,
         slug,
-        logo_url: normalizeText(teamInfo.crest_url) ?? principal.club.logo_url,
-        primary_color: normalizeHexColor(teamInfo.primary_color) ?? principal.club.primary_color,
-        accent_color: normalizeHexColor(teamInfo.accent_color) ?? principal.club.accent_color,
-        surface_color: normalizeHexColor(teamInfo.surface_color) ?? principal.club.surface_color,
+        logo_url: normalizeText(clubInfo.crest_url) ?? principal.club.logo_url,
+        primary_color: normalizeHexColor(clubInfo.primary_color) ?? principal.club.primary_color,
+        accent_color: normalizeHexColor(clubInfo.accent_color) ?? principal.club.accent_color,
+        surface_color: normalizeHexColor(clubInfo.surface_color) ?? principal.club.surface_color,
       })
       .eq('id', principal.club.id)
       .select('*')
@@ -127,14 +127,14 @@ export class TeamInfoService {
       .upsert(
         {
           club_id: principal.club.id,
-          website_url: normalizeText(teamInfo.website_url),
-          youtube_url: normalizeText(teamInfo.youtube_url),
-          discord_url: normalizeText(teamInfo.discord_url),
-          facebook_url: normalizeText(teamInfo.facebook_url),
-          instagram_url: normalizeText(teamInfo.instagram_url),
-          twitch_url: normalizeText(teamInfo.twitch_url),
-          tiktok_url: normalizeText(teamInfo.tiktok_url),
-          additional_links: teamInfo.additional_links ?? [],
+          website_url: normalizeText(clubInfo.website_url),
+          youtube_url: normalizeText(clubInfo.youtube_url),
+          discord_url: normalizeText(clubInfo.discord_url),
+          facebook_url: normalizeText(clubInfo.facebook_url),
+          instagram_url: normalizeText(clubInfo.instagram_url),
+          twitch_url: normalizeText(clubInfo.twitch_url),
+          tiktok_url: normalizeText(clubInfo.tiktok_url),
+          additional_links: clubInfo.additional_links ?? [],
         },
         { onConflict: 'club_id' },
       )
@@ -155,7 +155,7 @@ export class TeamInfoService {
 
     return {
       id: club.id,
-      team_name: club.name,
+      club_name: club.name,
       crest_url: club.logo_url,
       website_url: settings.website_url,
       youtube_url: settings.youtube_url,

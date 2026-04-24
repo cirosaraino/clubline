@@ -195,9 +195,9 @@ class PlayerProfile {
     return false;
   }
 
-  bool get canManageTeamInfo {
+  bool get canManageClubInfo {
     if (isCaptain) return true;
-    if (isViceCaptain) return vicePermissions.manageTeamInfo;
+    if (isViceCaptain) return vicePermissions.manageClubInfo;
     return false;
   }
 
@@ -210,8 +210,11 @@ class PlayerProfile {
         canManageLineups ||
         canManageStreams ||
         canManageAttendanceAll ||
-        canManageTeamInfo;
+        canManageClubInfo;
   }
+
+  @Deprecated('Use canManageClubInfo instead.')
+  bool get canManageTeamInfo => canManageClubInfo;
 
   bool canEditPlayer(dynamic targetPlayerId) {
     return canManagePlayers || _sameEntityId(id, targetPlayerId);

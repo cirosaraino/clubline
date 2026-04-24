@@ -7,7 +7,7 @@ import type {
   MembershipRow,
   PlayerProfileRow,
   RequestPrincipal,
-  TeamInfoRow,
+  ClubInfoRow,
   VicePermissionsRow,
 } from '../domain/types';
 import { ConflictError, NotFoundError } from '../lib/errors';
@@ -100,7 +100,7 @@ export class AccessService {
     return this.getClubById(membership.club_id);
   }
 
-  async getTeamInfoForClub(clubId: string | number): Promise<TeamInfoRow> {
+  async getClubInfoForClub(clubId: string | number): Promise<ClubInfoRow> {
     const [club, settings] = await Promise.all([
       this.getClubById(clubId),
       this.getClubSettingsOrNull(clubId),
@@ -108,7 +108,7 @@ export class AccessService {
 
     return {
       id: club.id,
-      team_name: club.name,
+      club_name: club.name,
       crest_url: club.logo_url,
       website_url: settings?.website_url ?? null,
       youtube_url: settings?.youtube_url ?? null,

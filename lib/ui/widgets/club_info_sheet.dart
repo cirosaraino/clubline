@@ -5,22 +5,22 @@ import 'package:flutter/material.dart';
 import '../../core/app_data_sync.dart';
 import '../../core/app_session.dart';
 import '../../core/app_theme.dart';
-import '../../core/team_info_formatters.dart';
-import '../../data/team_info_repository.dart';
-import '../../models/team_info.dart';
+import '../../core/club_info_formatters.dart';
+import '../../data/club_info_repository.dart';
+import '../../models/club_info.dart';
 import 'app_chrome.dart';
 import 'club_logo_avatar.dart';
 
-class TeamInfoSheet extends StatefulWidget {
-  const TeamInfoSheet({super.key});
+class ClubInfoSheet extends StatefulWidget {
+  const ClubInfoSheet({super.key});
 
   @override
-  State<TeamInfoSheet> createState() => _TeamInfoSheetState();
+  State<ClubInfoSheet> createState() => _ClubInfoSheetState();
 }
 
-class _TeamInfoSheetState extends State<TeamInfoSheet> {
-  late final TeamInfoRepository repository;
-  final teamNameController = TextEditingController();
+class _ClubInfoSheetState extends State<ClubInfoSheet> {
+  late final ClubInfoRepository repository;
+  final clubNameController = TextEditingController();
   final crestUrlController = TextEditingController();
   final websiteUrlController = TextEditingController();
   final youtubeUrlController = TextEditingController();
@@ -38,7 +38,7 @@ class _TeamInfoSheetState extends State<TeamInfoSheet> {
   @override
   void initState() {
     super.initState();
-    repository = TeamInfoRepository();
+    repository = ClubInfoRepository();
   }
 
   @override
@@ -48,13 +48,13 @@ class _TeamInfoSheetState extends State<TeamInfoSheet> {
       return;
     }
 
-    _populate(AppSessionScope.read(context).teamInfo);
+    _populate(AppSessionScope.read(context).clubInfo);
     hasInitialized = true;
   }
 
   @override
   void dispose() {
-    teamNameController.dispose();
+    clubNameController.dispose();
     crestUrlController.dispose();
     websiteUrlController.dispose();
     youtubeUrlController.dispose();
@@ -69,16 +69,16 @@ class _TeamInfoSheetState extends State<TeamInfoSheet> {
     super.dispose();
   }
 
-  void _populate(TeamInfo teamInfo) {
-    teamNameController.text = teamInfo.displayTeamName;
-    crestUrlController.text = teamInfo.crestUrl ?? '';
-    websiteUrlController.text = teamInfo.websiteUrl ?? '';
-    youtubeUrlController.text = teamInfo.youtubeUrl ?? '';
-    discordUrlController.text = teamInfo.discordUrl ?? '';
-    facebookUrlController.text = teamInfo.facebookUrl ?? '';
-    instagramUrlController.text = teamInfo.instagramUrl ?? '';
-    twitchUrlController.text = teamInfo.twitchUrl ?? '';
-    tiktokUrlController.text = teamInfo.tiktokUrl ?? '';
+  void _populate(ClubInfo clubInfo) {
+    clubNameController.text = clubInfo.displayClubName;
+    crestUrlController.text = clubInfo.crestUrl ?? '';
+    websiteUrlController.text = clubInfo.websiteUrl ?? '';
+    youtubeUrlController.text = clubInfo.youtubeUrl ?? '';
+    discordUrlController.text = clubInfo.discordUrl ?? '';
+    facebookUrlController.text = clubInfo.facebookUrl ?? '';
+    instagramUrlController.text = clubInfo.instagramUrl ?? '';
+    twitchUrlController.text = clubInfo.twitchUrl ?? '';
+    tiktokUrlController.text = clubInfo.tiktokUrl ?? '';
 
     for (final customLink in customLinks) {
       customLink.dispose();
@@ -86,7 +86,7 @@ class _TeamInfoSheetState extends State<TeamInfoSheet> {
     customLinks
       ..clear()
       ..addAll(
-        teamInfo.customLinks.map(
+        clubInfo.customLinks.map(
           (link) => _EditableCustomLink(label: link.label, url: link.url),
         ),
       );
@@ -119,7 +119,7 @@ class _TeamInfoSheetState extends State<TeamInfoSheet> {
   }
 
   String? _normalizeFieldUrl(TextEditingController controller) {
-    return normalizeOptionalTeamUrl(controller.text);
+    return normalizeOptionalClubUrl(controller.text);
   }
 
   List<String> _collectInvalidFields() {
@@ -144,8 +144,8 @@ class _TeamInfoSheetState extends State<TeamInfoSheet> {
 
     for (var index = 0; index < customLinks.length; index += 1) {
       final entry = customLinks[index];
-      final label = normalizeTeamLinkLabel(entry.labelController.text);
-      final url = normalizeOptionalTeamUrl(entry.urlController.text);
+      final label = normalizeClubLinkLabel(entry.labelController.text);
+      final url = normalizeOptionalClubUrl(entry.urlController.text);
       final hasAnyValue =
           label.isNotEmpty || entry.urlController.text.trim().isNotEmpty;
 
@@ -157,9 +157,9 @@ class _TeamInfoSheetState extends State<TeamInfoSheet> {
     return invalidFields;
   }
 
-  TeamInfo _buildDraft() {
-    return TeamInfo(
-      teamName: normalizeTeamName(teamNameController.text),
+  ClubInfo _buildDraft() {
+    return ClubInfo(
+      clubName: normalizeClubName(clubNameController.text),
       crestUrl: _normalizeFieldUrl(crestUrlController),
       websiteUrl: _normalizeFieldUrl(websiteUrlController),
       youtubeUrl: _normalizeFieldUrl(youtubeUrlController),
@@ -170,9 +170,9 @@ class _TeamInfoSheetState extends State<TeamInfoSheet> {
       tiktokUrl: _normalizeFieldUrl(tiktokUrlController),
       customLinks: customLinks
           .map(
-            (entry) => TeamCustomLink(
-              label: normalizeTeamLinkLabel(entry.labelController.text),
-              url: normalizeOptionalTeamUrl(entry.urlController.text) ?? '',
+            (entry) => ClubCustomLink(
+              label: normalizeClubLinkLabel(entry.labelController.text),
+              url: normalizeOptionalClubUrl(entry.urlController.text) ?? '',
             ),
           )
           .where((link) => link.isValid)
@@ -184,7 +184,7 @@ class _TeamInfoSheetState extends State<TeamInfoSheet> {
     final session = AppSessionScope.read(context);
     final currentUser = session.currentUser;
 
-    if (currentUser?.canManageTeamInfo != true) {
+    if (currentUser?.canManageClubInfo != true) {
       setState(() {
         errorMessage =
             'Solo il capitano o un vice autorizzato possono modificare le info club.';
@@ -207,11 +207,11 @@ class _TeamInfoSheetState extends State<TeamInfoSheet> {
     });
 
     try {
-      await repository.saveTeamInfo(_buildDraft());
+      await repository.saveClubInfo(_buildDraft());
       unawaited(session.refresh(showLoadingState: false));
       AppDataSync.instance.notifyDataChanged({
-        AppDataScope.teamInfo,
-      }, reason: 'team_info_updated');
+        AppDataScope.clubInfo,
+      }, reason: 'club_info_updated');
 
       if (!mounted) {
         return;
@@ -236,9 +236,9 @@ class _TeamInfoSheetState extends State<TeamInfoSheet> {
   Widget build(BuildContext context) {
     final session = AppSessionScope.of(context);
     final currentUser = session.currentUser;
-    final canManage = currentUser?.canManageTeamInfo == true;
-    final teamNamePreview = normalizeTeamName(teamNameController.text);
-    final crestUrlPreview = normalizeOptionalTeamUrl(crestUrlController.text);
+    final canManage = currentUser?.canManageClubInfo == true;
+    final clubNamePreview = normalizeClubName(clubNameController.text);
+    final crestUrlPreview = normalizeOptionalClubUrl(crestUrlController.text);
     final compact = AppResponsive.isCompact(context);
     final horizontalPadding = AppResponsive.horizontalPadding(context) + 4;
 
@@ -271,17 +271,17 @@ class _TeamInfoSheetState extends State<TeamInfoSheet> {
               ],
             ),
             const SizedBox(height: 16),
-            _TeamPreviewCard(
-              teamName: teamNamePreview,
+            _ClubPreviewCard(
+              clubName: clubNamePreview,
               crestUrl: crestUrlPreview,
             ),
             const SizedBox(height: 18),
-            _TeamSectionCard(
+            _ClubSectionCard(
               title: 'Identità club',
               child: Column(
                 children: [
                   TextField(
-                    controller: teamNameController,
+                    controller: clubNameController,
                     enabled: canManage && !isSaving,
                     decoration: _inputDecoration(
                       'Nome club',
@@ -315,7 +315,7 @@ class _TeamInfoSheetState extends State<TeamInfoSheet> {
               ),
             ),
             const SizedBox(height: 16),
-            _TeamSectionCard(
+            _ClubSectionCard(
               title: 'Link utili principali',
               child: Column(
                 children: [
@@ -392,7 +392,7 @@ class _TeamInfoSheetState extends State<TeamInfoSheet> {
               ),
             ),
             const SizedBox(height: 16),
-            _TeamSectionCard(
+            _ClubSectionCard(
               title: 'Link extra',
               trailing: canManage
                   ? OutlinedButton.icon(
@@ -469,10 +469,10 @@ class _TeamInfoSheetState extends State<TeamInfoSheet> {
   }
 }
 
-class _TeamPreviewCard extends StatelessWidget {
-  const _TeamPreviewCard({required this.teamName, required this.crestUrl});
+class _ClubPreviewCard extends StatelessWidget {
+  const _ClubPreviewCard({required this.clubName, required this.crestUrl});
 
-  final String teamName;
+  final String clubName;
   final String? crestUrl;
 
   @override
@@ -489,10 +489,10 @@ class _TeamPreviewCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _TeamCrestPreview(crestUrl: crestUrl, size: compact ? 88 : 104),
+          _ClubCrestPreview(crestUrl: crestUrl, size: compact ? 88 : 104),
           const SizedBox(height: 14),
           Text(
-            teamName,
+            clubName,
             textAlign: TextAlign.center,
             style: Theme.of(
               context,
@@ -511,8 +511,8 @@ class _TeamPreviewCard extends StatelessWidget {
   }
 }
 
-class _TeamSectionCard extends StatelessWidget {
-  const _TeamSectionCard({
+class _ClubSectionCard extends StatelessWidget {
+  const _ClubSectionCard({
     required this.title,
     required this.child,
     this.trailing,
@@ -645,8 +645,8 @@ class _CustomLinkRow extends StatelessWidget {
   }
 }
 
-class _TeamCrestPreview extends StatelessWidget {
-  const _TeamCrestPreview({required this.crestUrl, required this.size});
+class _ClubCrestPreview extends StatelessWidget {
+  const _ClubCrestPreview({required this.crestUrl, required this.size});
 
   final String? crestUrl;
   final double size;
@@ -673,4 +673,9 @@ class _EditableCustomLink {
     labelController.dispose();
     urlController.dispose();
   }
+}
+
+@Deprecated('Use ClubInfoSheet instead.')
+class TeamInfoSheet extends ClubInfoSheet {
+  const TeamInfoSheet({super.key});
 }

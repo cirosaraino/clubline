@@ -82,7 +82,7 @@ clubsRouter.post(
       createClubSchema.parse(req.body),
       req.principal!,
     );
-    publishRealtimeChange(['clubs', 'players', 'teamInfo'], 'club_created');
+    publishRealtimeChange(['clubs', 'players', 'clubInfo'], 'club_created');
     sendCreated(res, result);
   }),
 );
@@ -95,7 +95,7 @@ clubsRouter.put(
       updateLogoSchema.parse(req.body),
       req.principal!,
     );
-    publishRealtimeChange(['clubs', 'teamInfo'], 'club_logo_updated');
+    publishRealtimeChange(['clubs', 'clubInfo'], 'club_logo_updated');
     sendOk(res, { club });
   }),
 );

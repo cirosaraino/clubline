@@ -6,6 +6,7 @@ export type LocalRealtimeScope =
   | 'streams'
   | 'lineups'
   | 'attendance'
+  | 'clubInfo'
   | 'teamInfo'
   | 'vicePermissions';
 

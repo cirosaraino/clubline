@@ -1,35 +1,32 @@
-import '../core/team_info_formatters.dart';
+import '../core/club_info_formatters.dart';
 
-class TeamCustomLink {
-  const TeamCustomLink({
-    required this.label,
-    required this.url,
-  });
+class ClubCustomLink {
+  const ClubCustomLink({required this.label, required this.url});
 
   final String label;
   final String url;
 
-  factory TeamCustomLink.fromMap(Map<String, dynamic> map) {
-    return TeamCustomLink(
-      label: normalizeTeamLinkLabel(map['label']?.toString() ?? ''),
-      url: normalizeOptionalTeamUrl(map['url']?.toString()) ?? '',
+  factory ClubCustomLink.fromMap(Map<String, dynamic> map) {
+    return ClubCustomLink(
+      label: normalizeClubLinkLabel(map['label']?.toString() ?? ''),
+      url: normalizeOptionalClubUrl(map['url']?.toString()) ?? '',
     );
   }
 
   Map<String, dynamic> toDatabaseMap() {
     return {
-      'label': normalizeTeamLinkLabel(label),
-      'url': normalizeOptionalTeamUrl(url),
+      'label': normalizeClubLinkLabel(label),
+      'url': normalizeOptionalClubUrl(url),
     };
   }
 
   bool get isValid {
-    return label.isNotEmpty && (normalizeOptionalTeamUrl(url) ?? '').isNotEmpty;
+    return label.isNotEmpty && (normalizeOptionalClubUrl(url) ?? '').isNotEmpty;
   }
 }
 
-class TeamInfoLinkItem {
-  const TeamInfoLinkItem({
+class ClubInfoLinkItem {
+  const ClubInfoLinkItem({
     required this.key,
     required this.label,
     required this.url,
@@ -42,10 +39,10 @@ class TeamInfoLinkItem {
   final bool isCustom;
 }
 
-class TeamInfo {
-  const TeamInfo({
+class ClubInfo {
+  const ClubInfo({
     this.id = 1,
-    this.teamName = kDefaultTeamName,
+    this.clubName = kDefaultClubName,
     this.crestUrl,
     this.slug,
     this.websiteUrl,
@@ -61,10 +58,10 @@ class TeamInfo {
     this.customLinks = const [],
   });
 
-  static const defaults = TeamInfo();
+  static const defaults = ClubInfo();
 
   final int id;
-  final String teamName;
+  final String clubName;
   final String? crestUrl;
   final String? slug;
   final String? websiteUrl;
@@ -77,23 +74,27 @@ class TeamInfo {
   final String? primaryColor;
   final String? accentColor;
   final String? surfaceColor;
-  final List<TeamCustomLink> customLinks;
+  final List<ClubCustomLink> customLinks;
 
-  factory TeamInfo.fromMap(Map<String, dynamic> map) {
+  factory ClubInfo.fromMap(Map<String, dynamic> map) {
     final rawCustomLinks = map['additional_links'];
+    final rawClubName =
+        map['club_name']?.toString() ??
+        map['team_name']?.toString() ??
+        kDefaultClubName;
 
-    return TeamInfo(
+    return ClubInfo(
       id: map['id'] is num ? (map['id'] as num).toInt() : 1,
-      teamName: normalizeTeamName(map['team_name']?.toString() ?? kDefaultTeamName),
-      crestUrl: normalizeOptionalTeamUrl(map['crest_url']?.toString()),
+      clubName: normalizeClubName(rawClubName),
+      crestUrl: normalizeOptionalClubUrl(map['crest_url']?.toString()),
       slug: map['slug']?.toString(),
-      websiteUrl: normalizeOptionalTeamUrl(map['website_url']?.toString()),
-      youtubeUrl: normalizeOptionalTeamUrl(map['youtube_url']?.toString()),
-      discordUrl: normalizeOptionalTeamUrl(map['discord_url']?.toString()),
-      facebookUrl: normalizeOptionalTeamUrl(map['facebook_url']?.toString()),
-      instagramUrl: normalizeOptionalTeamUrl(map['instagram_url']?.toString()),
-      twitchUrl: normalizeOptionalTeamUrl(map['twitch_url']?.toString()),
-      tiktokUrl: normalizeOptionalTeamUrl(map['tiktok_url']?.toString()),
+      websiteUrl: normalizeOptionalClubUrl(map['website_url']?.toString()),
+      youtubeUrl: normalizeOptionalClubUrl(map['youtube_url']?.toString()),
+      discordUrl: normalizeOptionalClubUrl(map['discord_url']?.toString()),
+      facebookUrl: normalizeOptionalClubUrl(map['facebook_url']?.toString()),
+      instagramUrl: normalizeOptionalClubUrl(map['instagram_url']?.toString()),
+      twitchUrl: normalizeOptionalClubUrl(map['twitch_url']?.toString()),
+      tiktokUrl: normalizeOptionalClubUrl(map['tiktok_url']?.toString()),
       primaryColor: map['primary_color']?.toString(),
       accentColor: map['accent_color']?.toString(),
       surfaceColor: map['surface_color']?.toString(),
@@ -101,14 +102,14 @@ class TeamInfo {
         if (rawCustomLinks is Iterable)
           for (final item in rawCustomLinks)
             if (item is Map)
-              TeamCustomLink.fromMap(Map<String, dynamic>.from(item)),
+              ClubCustomLink.fromMap(Map<String, dynamic>.from(item)),
       ].where((link) => link.isValid).toList(),
     );
   }
 
-  TeamInfo copyWith({
+  ClubInfo copyWith({
     int? id,
-    String? teamName,
+    String? clubName,
     String? crestUrl,
     String? slug,
     String? websiteUrl,
@@ -121,11 +122,11 @@ class TeamInfo {
     String? primaryColor,
     String? accentColor,
     String? surfaceColor,
-    List<TeamCustomLink>? customLinks,
+    List<ClubCustomLink>? customLinks,
   }) {
-    return TeamInfo(
+    return ClubInfo(
       id: id ?? this.id,
-      teamName: teamName ?? this.teamName,
+      clubName: clubName ?? this.clubName,
       crestUrl: crestUrl ?? this.crestUrl,
       slug: slug ?? this.slug,
       websiteUrl: websiteUrl ?? this.websiteUrl,
@@ -145,9 +146,9 @@ class TeamInfo {
   Map<String, dynamic> toDatabaseMap() {
     final normalizedCustomLinks = customLinks
         .map(
-          (link) => TeamCustomLink(
-            label: normalizeTeamLinkLabel(link.label),
-            url: normalizeOptionalTeamUrl(link.url) ?? '',
+          (link) => ClubCustomLink(
+            label: normalizeClubLinkLabel(link.label),
+            url: normalizeOptionalClubUrl(link.url) ?? '',
           ),
         )
         .where((link) => link.isValid)
@@ -156,16 +157,17 @@ class TeamInfo {
 
     return {
       'id': id,
-      'team_name': normalizeTeamName(teamName),
-      'crest_url': normalizeOptionalTeamUrl(crestUrl),
+      'club_name': normalizeClubName(clubName),
+      'team_name': normalizeClubName(clubName),
+      'crest_url': normalizeOptionalClubUrl(crestUrl),
       'slug': slug,
-      'website_url': normalizeOptionalTeamUrl(websiteUrl),
-      'youtube_url': normalizeOptionalTeamUrl(youtubeUrl),
-      'discord_url': normalizeOptionalTeamUrl(discordUrl),
-      'facebook_url': normalizeOptionalTeamUrl(facebookUrl),
-      'instagram_url': normalizeOptionalTeamUrl(instagramUrl),
-      'twitch_url': normalizeOptionalTeamUrl(twitchUrl),
-      'tiktok_url': normalizeOptionalTeamUrl(tiktokUrl),
+      'website_url': normalizeOptionalClubUrl(websiteUrl),
+      'youtube_url': normalizeOptionalClubUrl(youtubeUrl),
+      'discord_url': normalizeOptionalClubUrl(discordUrl),
+      'facebook_url': normalizeOptionalClubUrl(facebookUrl),
+      'instagram_url': normalizeOptionalClubUrl(instagramUrl),
+      'twitch_url': normalizeOptionalClubUrl(twitchUrl),
+      'tiktok_url': normalizeOptionalClubUrl(tiktokUrl),
       'primary_color': primaryColor,
       'accent_color': accentColor,
       'surface_color': surfaceColor,
@@ -173,58 +175,34 @@ class TeamInfo {
     };
   }
 
-  String get displayTeamName => normalizeTeamName(teamName);
+  String get displayClubName => normalizeClubName(clubName);
 
   bool get hasCustomCrest => (crestUrl ?? '').trim().isNotEmpty;
 
   bool get hasAnyLinks => allLinks.isNotEmpty;
 
-  List<TeamInfoLinkItem> get allLinks {
+  List<ClubInfoLinkItem> get allLinks {
     return [
       if (websiteUrl != null)
-        TeamInfoLinkItem(
-          key: 'website',
-          label: 'Sito',
-          url: websiteUrl!,
-        ),
+        ClubInfoLinkItem(key: 'website', label: 'Sito', url: websiteUrl!),
       if (youtubeUrl != null)
-        TeamInfoLinkItem(
-          key: 'youtube',
-          label: 'YouTube',
-          url: youtubeUrl!,
-        ),
+        ClubInfoLinkItem(key: 'youtube', label: 'YouTube', url: youtubeUrl!),
       if (discordUrl != null)
-        TeamInfoLinkItem(
-          key: 'discord',
-          label: 'Discord',
-          url: discordUrl!,
-        ),
+        ClubInfoLinkItem(key: 'discord', label: 'Discord', url: discordUrl!),
       if (facebookUrl != null)
-        TeamInfoLinkItem(
-          key: 'facebook',
-          label: 'Facebook',
-          url: facebookUrl!,
-        ),
+        ClubInfoLinkItem(key: 'facebook', label: 'Facebook', url: facebookUrl!),
       if (instagramUrl != null)
-        TeamInfoLinkItem(
+        ClubInfoLinkItem(
           key: 'instagram',
           label: 'Instagram',
           url: instagramUrl!,
         ),
       if (twitchUrl != null)
-        TeamInfoLinkItem(
-          key: 'twitch',
-          label: 'Twitch',
-          url: twitchUrl!,
-        ),
+        ClubInfoLinkItem(key: 'twitch', label: 'Twitch', url: twitchUrl!),
       if (tiktokUrl != null)
-        TeamInfoLinkItem(
-          key: 'tiktok',
-          label: 'TikTok',
-          url: tiktokUrl!,
-        ),
+        ClubInfoLinkItem(key: 'tiktok', label: 'TikTok', url: tiktokUrl!),
       for (final link in customLinks)
-        TeamInfoLinkItem(
+        ClubInfoLinkItem(
           key: 'custom_${link.label}',
           label: link.label,
           url: link.url,
@@ -233,3 +211,12 @@ class TeamInfo {
     ];
   }
 }
+
+@Deprecated('Use ClubCustomLink instead.')
+typedef TeamCustomLink = ClubCustomLink;
+
+@Deprecated('Use ClubInfoLinkItem instead.')
+typedef TeamInfoLinkItem = ClubInfoLinkItem;
+
+@Deprecated('Use ClubInfo instead.')
+typedef TeamInfo = ClubInfo;

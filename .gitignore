@@ -63,12 +63,3 @@ config/environments/backend/*.env.local
 # Tracked environment templates
 !backend/.env.example
 !config/environments/backend/*.env.example
--e 
-# Environment and credential files
-.env
-.env.*
-*.env
-credentials.json
-*.pem
-*.key
-.credentials

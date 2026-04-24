@@ -116,6 +116,30 @@ cp config/environments/backend/prod.env.example config/environments/backend/prod
 - `backend/.env`
 - qualunque file con service role key, DB password o secret operativi
 
+## Supabase Auth redirect URLs
+
+La web app costruisce i link di registrazione e recupero password usando l origin corrente della pagina, quindi in Supabase Auth devi autorizzare l URL root del frontend per ogni ambiente realmente usato.
+
+Configura almeno questi redirect URL:
+
+- local:
+  - `http://127.0.0.1:4100/`
+  - `http://127.0.0.1:4101/`
+  - `http://127.0.0.1:4102/`
+  - opzionale anche `http://localhost:4100/`, `http://localhost:4101/`, `http://localhost:4102/`
+- dev:
+  - se usi il frontend solo in locale contro Supabase dev, valgono gli stessi URL locali sopra
+  - se pubblichi un frontend dev, aggiungi anche la sua origin pubblica root, ad esempio `https://clubline-web-dev.example.com/`
+- prod:
+  - `https://clubline-web.onrender.com/`
+
+Imposta inoltre in Supabase Auth:
+
+- `Site URL`: la root del frontend principale dell ambiente corrente
+- `Redirect URLs`: tutte le origin root autorizzate sopra
+
+Non usare callback path custom nel backend: il flusso Clubline si aspetta il ritorno sulla root `/` della web app.
+
 ## Database Supabase
 
 Per bootstrap, hardening e verifica degli ambienti usa:

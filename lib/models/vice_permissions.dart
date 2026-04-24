@@ -4,7 +4,7 @@ class VicePermissions {
     this.manageLineups = false,
     this.manageStreams = false,
     this.manageAttendance = false,
-    this.manageTeamInfo = false,
+    this.manageClubInfo = false,
   });
 
   static const defaults = VicePermissions();
@@ -13,14 +13,14 @@ class VicePermissions {
     manageLineups: true,
     manageStreams: true,
     manageAttendance: true,
-    manageTeamInfo: true,
+    manageClubInfo: true,
   );
 
   final bool managePlayers;
   final bool manageLineups;
   final bool manageStreams;
   final bool manageAttendance;
-  final bool manageTeamInfo;
+  final bool manageClubInfo;
 
   factory VicePermissions.fromMap(Map<String, dynamic> map) {
     return VicePermissions(
@@ -28,7 +28,7 @@ class VicePermissions {
       manageLineups: map['vice_manage_lineups'] == true,
       manageStreams: map['vice_manage_streams'] == true,
       manageAttendance: map['vice_manage_attendance'] == true,
-      manageTeamInfo: map['vice_manage_team_info'] == true,
+      manageClubInfo: map['vice_manage_team_info'] == true,
     );
   }
 
@@ -37,14 +37,14 @@ class VicePermissions {
     bool? manageLineups,
     bool? manageStreams,
     bool? manageAttendance,
-    bool? manageTeamInfo,
+    bool? manageClubInfo,
   }) {
     return VicePermissions(
       managePlayers: managePlayers ?? this.managePlayers,
       manageLineups: manageLineups ?? this.manageLineups,
       manageStreams: manageStreams ?? this.manageStreams,
       manageAttendance: manageAttendance ?? this.manageAttendance,
-      manageTeamInfo: manageTeamInfo ?? this.manageTeamInfo,
+      manageClubInfo: manageClubInfo ?? this.manageClubInfo,
     );
   }
 
@@ -54,7 +54,7 @@ class VicePermissions {
       'vice_manage_lineups': manageLineups,
       'vice_manage_streams': manageStreams,
       'vice_manage_attendance': manageAttendance,
-      'vice_manage_team_info': manageTeamInfo,
+      'vice_manage_team_info': manageClubInfo,
     };
   }
 
@@ -63,7 +63,7 @@ class VicePermissions {
         manageLineups ||
         manageStreams ||
         manageAttendance ||
-        manageTeamInfo;
+        manageClubInfo;
   }
 
   bool get isFullAccess {
@@ -71,6 +71,9 @@ class VicePermissions {
         manageLineups &&
         manageStreams &&
         manageAttendance &&
-        manageTeamInfo;
+        manageClubInfo;
   }
+
+  @Deprecated('Use manageClubInfo instead.')
+  bool get manageTeamInfo => manageClubInfo;
 }

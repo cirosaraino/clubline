@@ -37,7 +37,7 @@ export interface PlayerProfileRow {
   updated_at?: string | null;
 }
 
-export interface TeamCustomLinkRow {
+export interface ClubCustomLinkRow {
   label: string;
   url: string;
 }
@@ -66,13 +66,13 @@ export interface ClubSettingsRow {
   instagram_url: string | null;
   twitch_url: string | null;
   tiktok_url: string | null;
-  additional_links: TeamCustomLinkRow[];
+  additional_links: ClubCustomLinkRow[];
   updated_at?: string | null;
 }
 
-export interface TeamInfoRow {
+export interface ClubInfoRow {
   id: number | string;
-  team_name: string;
+  club_name: string;
   crest_url: string | null;
   website_url: string | null;
   youtube_url: string | null;
@@ -81,7 +81,7 @@ export interface TeamInfoRow {
   instagram_url: string | null;
   twitch_url: string | null;
   tiktok_url: string | null;
-  additional_links: TeamCustomLinkRow[];
+  additional_links: ClubCustomLinkRow[];
   primary_color: string | null;
   accent_color: string | null;
   surface_color: string | null;
@@ -230,7 +230,7 @@ export interface RequestPrincipal {
   canManageLineups: boolean;
   canManageStreams: boolean;
   canManageAttendance: boolean;
-  canManageTeamInfo: boolean;
+  canManageClubInfo: boolean;
 }
 
 export interface AuthenticatedRequest extends Request {

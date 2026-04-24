@@ -59,19 +59,18 @@ class _VicePermissionsSheetState extends State<VicePermissionsSheet> {
 
     try {
       await repository.savePermissions(draftPermissions);
-      AppDataSync.instance.notifyDataChanged(
-        {AppDataScope.vicePermissions},
-        reason: 'vice_permissions_updated',
-      );
+      AppDataSync.instance.notifyDataChanged({
+        AppDataScope.vicePermissions,
+      }, reason: 'vice_permissions_updated');
       unawaited(session.refresh(showLoadingState: false));
 
       if (!mounted) {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Permessi vice aggiornati')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Permessi vice aggiornati')));
       Navigator.pop(context);
     } catch (error) {
       if (!mounted) {
@@ -95,7 +94,9 @@ class _VicePermissionsSheetState extends State<VicePermissionsSheet> {
   Widget build(BuildContext context) {
     final session = AppSessionScope.of(context);
     final currentUser = session.currentUser;
-    final vicePlayers = session.players.where((player) => player.isViceCaptain).toList();
+    final vicePlayers = session.players
+        .where((player) => player.isViceCaptain)
+        .toList();
 
     final isCaptain = currentUser?.canConfigureVicePermissions == true;
     final compact = AppResponsive.isCompact(context);
@@ -117,8 +118,8 @@ class _VicePermissionsSheetState extends State<VicePermissionsSheet> {
                   child: Text(
                     'Permessi vice capitani',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
                 IconButton(
@@ -166,8 +167,7 @@ class _VicePermissionsSheetState extends State<VicePermissionsSheet> {
             const SizedBox(height: 12),
             _PermissionSwitchCard(
               title: 'Live',
-              description:
-                  'Creare, modificare e cancellare le live del club.',
+              description: 'Creare, modificare e cancellare le live del club.',
               value: draftPermissions.manageStreams,
               enabled: isCaptain && !isSaving,
               onChanged: (value) {
@@ -198,12 +198,12 @@ class _VicePermissionsSheetState extends State<VicePermissionsSheet> {
               title: 'Info club',
               description:
                   'Aggiornare nome club, logo e link utili della Home.',
-              value: draftPermissions.manageTeamInfo,
+              value: draftPermissions.manageClubInfo,
               enabled: isCaptain && !isSaving,
               onChanged: (value) {
                 setState(() {
                   draftPermissions = draftPermissions.copyWith(
-                    manageTeamInfo: value,
+                    manageClubInfo: value,
                   );
                 });
               },
@@ -215,9 +215,9 @@ class _VicePermissionsSheetState extends State<VicePermissionsSheet> {
                 child: Text(
                   errorMessage!,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.error,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    color: Theme.of(context).colorScheme.error,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             Wrap(
@@ -229,7 +229,9 @@ class _VicePermissionsSheetState extends State<VicePermissionsSheet> {
                   child: ElevatedButton.icon(
                     onPressed: isCaptain && !isSaving ? _save : null,
                     icon: Icon(
-                      isSaving ? Icons.hourglass_top_outlined : Icons.save_outlined,
+                      isSaving
+                          ? Icons.hourglass_top_outlined
+                          : Icons.save_outlined,
                     ),
                     label: Text(isSaving ? 'Salvataggio...' : 'Salva permessi'),
                   ),
@@ -237,7 +239,9 @@ class _VicePermissionsSheetState extends State<VicePermissionsSheet> {
                 SizedBox(
                   width: compact ? double.infinity : null,
                   child: OutlinedButton.icon(
-                    onPressed: isCaptain && !isSaving ? _resetToFullAccess : null,
+                    onPressed: isCaptain && !isSaving
+                        ? _resetToFullAccess
+                        : null,
                     icon: const Icon(Icons.restart_alt_outlined),
                     label: const Text('Abilita tutto'),
                   ),
@@ -288,11 +292,11 @@ class _ViceScopeSummaryCard extends StatelessWidget {
             vicePlayers.isEmpty
                 ? 'Nessun vice capitano assegnato'
                 : vicePlayers.length == 1
-                    ? 'Vice attuale'
-                    : 'Vice attuali',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+                ? 'Vice attuale'
+                : 'Vice attuali',
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 6),
           Text(
@@ -300,9 +304,9 @@ class _ViceScopeSummaryCard extends StatelessWidget {
                 ? 'Quando assegnerai uno o piu vice, i permessi qui sotto varranno per tutti loro.'
                 : viceNames.join(' • '),
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: ClublineAppTheme.textMuted,
-                  height: 1.35,
-                ),
+              color: ClublineAppTheme.textMuted,
+              height: 1.35,
+            ),
           ),
           const SizedBox(height: 12),
           Wrap(
@@ -327,7 +331,7 @@ class _ViceScopeSummaryCard extends StatelessWidget {
               ),
               _PermissionPill(
                 label: 'Info club',
-                enabled: permissions.manageTeamInfo,
+                enabled: permissions.manageClubInfo,
               ),
             ],
           ),
@@ -367,16 +371,16 @@ class _PermissionSwitchCard extends StatelessWidget {
                   Text(
                     title,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   const SizedBox(height: 6),
                   Text(
                     description,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: ClublineAppTheme.textMuted,
-                          height: 1.35,
-                        ),
+                      color: ClublineAppTheme.textMuted,
+                      height: 1.35,
+                    ),
                   ),
                 ],
               ),
@@ -394,10 +398,7 @@ class _PermissionSwitchCard extends StatelessWidget {
 }
 
 class _PermissionPill extends StatelessWidget {
-  const _PermissionPill({
-    required this.label,
-    required this.enabled,
-  });
+  const _PermissionPill({required this.label, required this.enabled});
 
   final String label;
   final bool enabled;
@@ -433,9 +434,9 @@ class _PermissionPill extends StatelessWidget {
           Text(
             label,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: foregroundColor,
-                  fontWeight: FontWeight.w800,
-                ),
+              color: foregroundColor,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ],
       ),

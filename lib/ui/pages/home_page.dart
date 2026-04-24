@@ -6,7 +6,7 @@ import '../../core/app_session.dart';
 import '../../core/app_theme.dart';
 import '../../data/club_repository.dart';
 import '../../models/player_profile.dart';
-import '../../models/team_info.dart';
+import '../../models/club_info.dart';
 import '../widgets/app_chrome.dart';
 import '../widgets/clubline_brand_logo.dart';
 import '../widgets/club_logo_avatar.dart';
@@ -35,7 +35,7 @@ class HomePage extends StatelessWidget {
     required this.onOpenClubManagement,
     required this.onOpenThemeSettings,
     required this.onOpenVicePermissionsSettings,
-    required this.onOpenTeamInfoSettings,
+    required this.onOpenClubInfoSettings,
     required this.onDeleteAccount,
   });
 
@@ -48,7 +48,7 @@ class HomePage extends StatelessWidget {
   final VoidCallback onOpenClubManagement;
   final VoidCallback onOpenThemeSettings;
   final VoidCallback onOpenVicePermissionsSettings;
-  final VoidCallback onOpenTeamInfoSettings;
+  final VoidCallback onOpenClubInfoSettings;
   final Future<void> Function() onDeleteAccount;
 
   static final ClubRepository _clubRepository = ClubRepository();
@@ -156,7 +156,7 @@ class HomePage extends StatelessWidget {
     final currentUser = session.currentUser;
     final currentUserEmail = session.currentUserEmail;
     final needsProfileSetup = session.needsProfileSetup;
-    final teamInfo = session.teamInfo;
+    final clubInfo = session.clubInfo;
     final canShowProfileMenu = isAuthenticated;
     final canManageVicePermissions =
         currentUser?.isCaptain == true && !needsProfileSetup;
@@ -165,7 +165,7 @@ class HomePage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          isPersonalizedExperience ? teamInfo.displayTeamName : 'Clubline',
+          isPersonalizedExperience ? clubInfo.displayClubName : 'Clubline',
         ),
         actions: [
           if (canShowProfileMenu)
@@ -306,7 +306,7 @@ class HomePage extends StatelessWidget {
                   flex: const [3, 2],
                   children: [
                     _HomeWelcomeCard(
-                      teamInfo: teamInfo,
+                      clubInfo: clubInfo,
                       currentUser: currentUser,
                       isAuthenticated: isAuthenticated,
                       isPersonalizedExperience: isPersonalizedExperience,
@@ -316,10 +316,10 @@ class HomePage extends StatelessWidget {
                           isPersonalizedExperience && !needsProfileSetup
                           ? onOpenThemeSettings
                           : null,
-                      onOpenTeamInfoSettings:
-                          currentUser?.canManageTeamInfo == true &&
+                      onOpenClubInfoSettings:
+                          currentUser?.canManageClubInfo == true &&
                               !needsProfileSetup
-                          ? onOpenTeamInfoSettings
+                          ? onOpenClubInfoSettings
                           : null,
                       onOpenLink: (url) => _openExternalLink(context, url),
                     ),
@@ -430,25 +430,25 @@ class _ClubPulseCard extends StatelessWidget {
 
 class _HomeWelcomeCard extends StatelessWidget {
   const _HomeWelcomeCard({
-    required this.teamInfo,
+    required this.clubInfo,
     required this.currentUser,
     required this.isAuthenticated,
     required this.isPersonalizedExperience,
     required this.currentUserEmail,
     required this.needsProfileSetup,
     required this.onOpenThemeSettings,
-    required this.onOpenTeamInfoSettings,
+    required this.onOpenClubInfoSettings,
     required this.onOpenLink,
   });
 
-  final TeamInfo teamInfo;
+  final ClubInfo clubInfo;
   final PlayerProfile? currentUser;
   final bool isAuthenticated;
   final bool isPersonalizedExperience;
   final String? currentUserEmail;
   final bool needsProfileSetup;
   final VoidCallback? onOpenThemeSettings;
-  final VoidCallback? onOpenTeamInfoSettings;
+  final VoidCallback? onOpenClubInfoSettings;
   final ValueChanged<String> onOpenLink;
 
   String _welcomeText() {
@@ -479,12 +479,12 @@ class _HomeWelcomeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final compact = AppResponsive.isCompact(context);
-    final heroCrestUrl = isPersonalizedExperience ? teamInfo.crestUrl : null;
-    final showUsefulLinks = isPersonalizedExperience && teamInfo.hasAnyLinks;
+    final heroCrestUrl = isPersonalizedExperience ? clubInfo.crestUrl : null;
+    final showUsefulLinks = isPersonalizedExperience && clubInfo.hasAnyLinks;
     return AppHeroPanel(
       centered: true,
       eyebrow: isPersonalizedExperience ? 'Club attivo' : 'Clubline',
-      title: isPersonalizedExperience ? teamInfo.displayTeamName : 'Clubline',
+      title: isPersonalizedExperience ? clubInfo.displayClubName : 'Clubline',
       subtitle: _welcomeText(),
       media: isPersonalizedExperience
           ? ClubLogoAvatar(
@@ -501,11 +501,11 @@ class _HomeWelcomeCard extends StatelessWidget {
             variant: AppButtonVariant.secondary,
             onPressed: onOpenThemeSettings,
           ),
-        if (onOpenTeamInfoSettings != null)
+        if (onOpenClubInfoSettings != null)
           AppActionButton(
             label: 'Info club',
             icon: Icons.edit_note_outlined,
-            onPressed: onOpenTeamInfoSettings,
+            onPressed: onOpenClubInfoSettings,
           ),
       ],
       footer: showUsefulLinks
@@ -514,7 +514,7 @@ class _HomeWelcomeCard extends StatelessWidget {
               spacing: compact ? 8 : 10,
               runSpacing: compact ? 8 : 10,
               children: [
-                for (final link in teamInfo.allLinks)
+                for (final link in clubInfo.allLinks)
                   _UsefulLinkChip(
                     link: link,
                     onTap: () => onOpenLink(link.url),
@@ -574,7 +574,7 @@ class _AccessCard extends StatelessWidget {
             : 'Presenze personali',
       ),
       AppCountPill(
-        label: user.canManageTeamInfo ? 'Info club' : 'Info club sola lettura',
+        label: user.canManageClubInfo ? 'Info club' : 'Info club sola lettura',
       ),
     ];
   }
@@ -913,7 +913,7 @@ class _CompleteProfileCtaButtonState extends State<_CompleteProfileCtaButton>
 class _UsefulLinkChip extends StatelessWidget {
   const _UsefulLinkChip({required this.link, required this.onTap});
 
-  final TeamInfoLinkItem link;
+  final ClubInfoLinkItem link;
   final VoidCallback onTap;
 
   IconData _iconForLink(String key) {

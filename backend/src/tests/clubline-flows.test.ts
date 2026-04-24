@@ -123,7 +123,8 @@ function buildPrincipal(options: {
     canManageLineups: isCaptain || (isViceCaptain && permissions.vice_manage_lineups),
     canManageStreams: isCaptain || (isViceCaptain && permissions.vice_manage_streams),
     canManageAttendance: isCaptain || (isViceCaptain && permissions.vice_manage_attendance),
-    canManageTeamInfo: isCaptain || (isViceCaptain && permissions.vice_manage_team_info),
+    canManageClubInfo:
+      isCaptain || (isViceCaptain && permissions.vice_manage_team_info),
   };
 }
 

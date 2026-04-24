@@ -4,38 +4,38 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../data/auth_repository.dart';
+import '../data/club_info_repository.dart';
 import '../data/club_repository.dart';
 import '../data/player_repository.dart';
 import '../data/profile_setup_draft_store.dart';
-import '../data/team_info_repository.dart';
 import '../data/vice_permissions_repository.dart';
 import '../models/authenticated_user.dart';
+import '../models/club_info.dart';
 import '../models/club.dart';
 import '../models/join_request.dart';
 import '../models/leave_request.dart';
 import '../models/membership.dart';
 import '../models/player_profile.dart';
-import '../models/team_info.dart';
 import '../models/vice_permissions.dart';
 import 'app_data_sync.dart';
 import 'player_formatters.dart';
 
 class AppSessionController extends ChangeNotifier {
-  AppSessionController({this.onTeamInfoChanged})
+  AppSessionController({this.onClubInfoChanged})
     : _authRepository = AuthRepository(),
       _clubRepository = ClubRepository(),
       _playerRepository = PlayerRepository(),
-      _teamInfoRepository = TeamInfoRepository(),
+      _clubInfoRepository = ClubInfoRepository(),
       _vicePermissionsRepository = VicePermissionsRepository() {
     AppDataSync.instance.addListener(_handleAppDataSync);
     refresh();
   }
 
-  final void Function(TeamInfo teamInfo)? onTeamInfoChanged;
+  final void Function(ClubInfo clubInfo)? onClubInfoChanged;
   final AuthRepository _authRepository;
   final ClubRepository _clubRepository;
   final PlayerRepository _playerRepository;
-  final TeamInfoRepository _teamInfoRepository;
+  final ClubInfoRepository _clubInfoRepository;
   final VicePermissionsRepository _vicePermissionsRepository;
 
   AuthenticatedUser? _authUser;
@@ -47,7 +47,7 @@ class AppSessionController extends ChangeNotifier {
   List<LeaveRequest> _captainPendingLeaveRequests = const [];
   List<PlayerProfile> _players = const [];
   ProfileSetupDraft? _profileSetupDraft;
-  TeamInfo _teamInfo = TeamInfo.defaults;
+  ClubInfo _clubInfo = ClubInfo.defaults;
   VicePermissions _vicePermissions = VicePermissions.defaults;
   bool _isLoading = true;
   bool _isRefreshing = false;
@@ -59,7 +59,7 @@ class AppSessionController extends ChangeNotifier {
 
   List<PlayerProfile> get players => _players;
   ProfileSetupDraft? get profileSetupDraft => _profileSetupDraft;
-  TeamInfo get teamInfo => _teamInfo;
+  ClubInfo get clubInfo => _clubInfo;
   VicePermissions get vicePermissions => _vicePermissions;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
@@ -213,20 +213,20 @@ class AppSessionController extends ChangeNotifier {
         _captainPendingLeaveRequests = const [];
         _players = const [];
         _vicePermissions = VicePermissions.defaults;
-        _teamInfo = TeamInfo.defaults;
+        _clubInfo = ClubInfo.defaults;
         _hasResolvedCurrentUserProfile = true;
         _isLoading = false;
-        onTeamInfoChanged?.call(_teamInfo);
+        onClubInfoChanged?.call(_clubInfo);
         _notifyIfMounted();
         return;
       }
 
-      _teamInfo = _fallbackTeamInfoForClub(currentClub!);
+      _clubInfo = _fallbackClubInfoForClub(currentClub!);
       final loadedPlayersFuture = _playerRepository.fetchPlayers();
-      final loadedTeamInfoFuture = _loadOptionalData<TeamInfo>(
-        _teamInfoRepository.fetchTeamInfo(),
-        fallback: _teamInfo,
-        label: 'team_info',
+      final loadedClubInfoFuture = _loadOptionalData<ClubInfo>(
+        _clubInfoRepository.fetchClubInfo(),
+        fallback: _clubInfo,
+        label: 'club_info',
       );
       final loadedVicePermissionsFuture = _loadOptionalData<VicePermissions>(
         _vicePermissionsRepository.fetchPermissions(),
@@ -254,7 +254,7 @@ class AppSessionController extends ChangeNotifier {
           : Future<List<LeaveRequest>>.value(const []);
 
       final loadedPlayers = await loadedPlayersFuture;
-      final loadedTeamInfo = await loadedTeamInfoFuture;
+      final loadedClubInfo = await loadedClubInfoFuture;
       final loadedVicePermissions = await loadedVicePermissionsFuture;
       final pendingLeaveRequest = await pendingLeaveRequestFuture;
       final captainJoinRequests = await captainJoinRequestsFuture;
@@ -263,7 +263,7 @@ class AppSessionController extends ChangeNotifier {
       _pendingLeaveRequest = pendingLeaveRequest;
       _captainPendingJoinRequests = captainJoinRequests;
       _captainPendingLeaveRequests = captainLeaveRequests;
-      _teamInfo = loadedTeamInfo;
+      _clubInfo = loadedClubInfo;
       _vicePermissions = loadedVicePermissions;
       _players = loadedPlayers
           .map(
@@ -274,7 +274,7 @@ class AppSessionController extends ChangeNotifier {
       _hasResolvedCurrentUserProfile = true;
       _isLoading = false;
       _errorMessage = null;
-      onTeamInfoChanged?.call(_teamInfo);
+      onClubInfoChanged?.call(_clubInfo);
       _notifyIfMounted();
     } catch (e) {
       _hasResolvedCurrentUserProfile = false;
@@ -360,10 +360,10 @@ class AppSessionController extends ChangeNotifier {
     }
   }
 
-  TeamInfo _fallbackTeamInfoForClub(Club club) {
-    return TeamInfo(
+  ClubInfo _fallbackClubInfoForClub(Club club) {
+    return ClubInfo(
       id: club.id is num ? (club.id as num).toInt() : 1,
-      teamName: club.name,
+      clubName: club.name,
       crestUrl: club.logoUrl,
       slug: club.slug,
       primaryColor: club.primaryColor,
@@ -382,12 +382,12 @@ class AppSessionController extends ChangeNotifier {
     _captainPendingLeaveRequests = const [];
     _players = const [];
     _profileSetupDraft = null;
-    _teamInfo = TeamInfo.defaults;
+    _clubInfo = ClubInfo.defaults;
     _vicePermissions = VicePermissions.defaults;
     _hasResolvedCurrentUserProfile = false;
     _isLoading = false;
     _errorMessage = null;
-    onTeamInfoChanged?.call(_teamInfo);
+    onClubInfoChanged?.call(_clubInfo);
     _notifyIfMounted();
   }
 
@@ -405,7 +405,7 @@ class AppSessionController extends ChangeNotifier {
     if (!change.affects({
       AppDataScope.clubs,
       AppDataScope.players,
-      AppDataScope.teamInfo,
+      AppDataScope.clubInfo,
       AppDataScope.vicePermissions,
     })) {
       return;

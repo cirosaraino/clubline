@@ -6,7 +6,7 @@ enum AppDataScope {
   streams,
   lineups,
   attendance,
-  teamInfo,
+  clubInfo,
   vicePermissions,
 }
 
@@ -40,10 +40,7 @@ class AppDataSync extends ChangeNotifier {
 
   AppDataChange? get latestChange => _latestChange;
 
-  void notifyDataChanged(
-    Set<AppDataScope> scopes, {
-    String reason = '',
-  }) {
+  void notifyDataChanged(Set<AppDataScope> scopes, {String reason = ''}) {
     _revision += 1;
     _latestChange = AppDataChange(
       revision: _revision,

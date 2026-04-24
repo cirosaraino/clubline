@@ -18,7 +18,7 @@ import '../widgets/biometric_unlock_sheet.dart';
 import '../widgets/auth_password_sheet.dart';
 import '../widgets/clubline_brand_logo.dart';
 import '../widgets/theme_palette_sheet.dart';
-import '../widgets/team_info_sheet.dart';
+import '../widgets/club_info_sheet.dart';
 import '../widgets/vice_permissions_sheet.dart';
 
 class AppShellPage extends StatefulWidget {
@@ -422,11 +422,11 @@ class _AppShellPageState extends State<AppShellPage> {
     );
   }
 
-  Future<void> _openTeamInfoSettings() async {
+  Future<void> _openClubInfoSettings() async {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      builder: (context) => const TeamInfoSheet(),
+      builder: (context) => const ClubInfoSheet(),
     );
   }
 
@@ -521,7 +521,7 @@ class _AppShellPageState extends State<AppShellPage> {
         onOpenClubManagement: _openClubManagement,
         onOpenThemeSettings: _openThemeSettings,
         onOpenVicePermissionsSettings: _openVicePermissionsSettings,
-        onOpenTeamInfoSettings: _openTeamInfoSettings,
+        onOpenClubInfoSettings: _openClubInfoSettings,
         onDeleteAccount: _deleteAccount,
       ),
       const PlayersPage(),
@@ -593,7 +593,7 @@ class _AppShellPageState extends State<AppShellPage> {
                           const ClublineBrandLogo(width: 76),
                           const SizedBox(height: AppSpacing.sm),
                           Text(
-                            session.teamInfo.displayTeamName,
+                            session.clubInfo.displayClubName,
                             textAlign: TextAlign.center,
                             style: Theme.of(context).textTheme.titleSmall
                                 ?.copyWith(fontWeight: FontWeight.w800),

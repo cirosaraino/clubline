@@ -767,7 +767,7 @@ export class ClubsService {
     principal: RequestPrincipal,
   ): Promise<ClubRow> {
     const membership = ensureHasClub(principal);
-    if (!principal.canManageTeamInfo) {
+    if (!principal.canManageClubInfo) {
       throw new ForbiddenError('Non hai i permessi per aggiornare il logo del club');
     }
 

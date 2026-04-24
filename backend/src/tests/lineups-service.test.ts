@@ -85,7 +85,7 @@ function buildPrincipal(options: {
     canManageLineups: options.canManageLineups ?? true,
     canManageStreams: false,
     canManageAttendance: false,
-    canManageTeamInfo: false,
+    canManageClubInfo: false,
   };
 }
 

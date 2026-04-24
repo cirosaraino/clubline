@@ -414,13 +414,13 @@ class _AppRealtimeSyncHostState extends State<AppRealtimeSyncHost>
           _binding(
             table: 'clubs',
             filter: _eqFilter('id', clubId),
-            scopes: {AppDataScope.clubs, AppDataScope.teamInfo},
+            scopes: {AppDataScope.clubs, AppDataScope.clubInfo},
             reason: 'club',
           ),
           _binding(
             table: 'club_settings',
             filter: _eqFilter('club_id', clubId),
-            scopes: {AppDataScope.teamInfo},
+            scopes: {AppDataScope.clubInfo},
             reason: 'club_settings',
           ),
           _binding(
@@ -654,8 +654,9 @@ class _AppRealtimeSyncHostState extends State<AppRealtimeSyncHost>
         return AppDataScope.lineups;
       case 'attendance':
         return AppDataScope.attendance;
+      case 'clubInfo':
       case 'teamInfo':
-        return AppDataScope.teamInfo;
+        return AppDataScope.clubInfo;
       case 'vicePermissions':
         return AppDataScope.vicePermissions;
       default:

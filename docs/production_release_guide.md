@@ -103,12 +103,58 @@ Variabile frontend Render:
 ./scripts/flutter/run-local.sh
 ./scripts/flutter/run-dev.sh
 ./scripts/flutter/build-web-dev.sh
+./scripts/flutter/build-web-beta.sh
 ./scripts/flutter/build-web-prod.sh
 ./scripts/flutter/build-android-prod.sh
 ./scripts/flutter/build-ios-prod.sh
 ```
 
-## 7. Checklist prima del go-live
+Se vuoi produrre una build web `dev` destinata a un backend dev remoto, passa esplicitamente l URL del backend:
+
+```bash
+API_BASE_URL=https://clubline-backend-dev.example.com/api ./scripts/flutter/build-web-dev.sh
+```
+
+Il file `config/environments/flutter/dev.json` resta intenzionalmente orientato al workflow standard `backend locale + Supabase dev`.
+
+Per il primo beta web con backend remoto `dev`, usa invece:
+
+```bash
+API_BASE_URL=https://<beta-backend-origin>/api ./scripts/flutter/build-web-beta.sh
+```
+
+La checklist completa e in [docs/web_beta_deployment_checklist.md](/Users/ciro.saraino/clubline/docs/web_beta_deployment_checklist.md).
+
+## 7. Supabase Auth redirect URLs
+
+Clubline usa l origin corrente della web app come `redirectTo` per:
+
+- registrazione
+- recupero password
+
+Quindi in Supabase Auth devi configurare, per ogni ambiente, la root del frontend realmente usato.
+
+Redirect URLs minimi consigliati:
+
+- local:
+  - `http://127.0.0.1:4100/`
+  - `http://127.0.0.1:4101/`
+  - `http://127.0.0.1:4102/`
+  - opzionali anche le varianti `localhost`
+- dev:
+  - se lavori solo in locale contro Supabase dev, usa gli stessi URL locali
+  - se esiste un frontend dev pubblico, aggiungi anche la sua origin root
+- prod:
+  - `https://clubline-web.onrender.com/`
+
+Valori da allineare in Supabase:
+
+- `Site URL`: origin principale dell ambiente
+- `Redirect URLs`: tutte le root autorizzate
+
+Il progetto oggi si aspetta il ritorno alla root `/` del frontend, non a callback path dedicate.
+
+## 8. Checklist prima del go-live
 
 1. `npm run typecheck` in `backend/`
 2. `npm run test` in `backend/`

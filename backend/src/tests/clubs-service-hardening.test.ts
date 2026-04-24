@@ -34,7 +34,7 @@ function buildPrincipal(userId: string): RequestPrincipal {
     canManageLineups: false,
     canManageStreams: false,
     canManageAttendance: false,
-    canManageTeamInfo: false,
+    canManageClubInfo: false,
   };
 }
 

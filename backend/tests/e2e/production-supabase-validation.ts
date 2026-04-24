@@ -1196,7 +1196,7 @@ async function main(): Promise<void> {
       expectedStatus: 403,
     });
 
-    logStep('Validating club logo upload, storage retrieval and team-info permissions');
+    logStep('Validating club logo upload, storage retrieval and club-info permissions');
     const playerAClubCapture = await subscribeToChanges(context, playerA.client, 'player-a-club', [
       { table: 'clubs', filter: `id=eq.${stringifyId(clubA.id)}` },
     ]);

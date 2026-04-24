@@ -24,7 +24,7 @@ Nel frontend questi flussi ora passano dal layer REST:
 - [`lib/data/api_client.dart`](/Users/ciro.saraino/clubline/lib/data/api_client.dart)
 - [`lib/data/auth_repository.dart`](/Users/ciro.saraino/clubline/lib/data/auth_repository.dart)
 - [`lib/data/player_repository.dart`](/Users/ciro.saraino/clubline/lib/data/player_repository.dart)
-- [`lib/data/team_info_repository.dart`](/Users/ciro.saraino/clubline/lib/data/team_info_repository.dart)
+- [`lib/data/club_info_repository.dart`](/Users/ciro.saraino/clubline/lib/data/club_info_repository.dart)
 - [`lib/data/vice_permissions_repository.dart`](/Users/ciro.saraino/clubline/lib/data/vice_permissions_repository.dart)
 
 Il backend dedicato è in:

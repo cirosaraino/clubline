@@ -21,6 +21,20 @@ Backend REST TypeScript/Express per autenticazione, flussi multi-club, gestione 
 - un giocatore attivo non puo risultare collegato a piu club contemporaneamente
 - uscita dal club e svincolo staccano il profilo dalla membership; se il profilo ha un account collegato resta disponibile come identita standalone
 
+## Naming legacy mantenuto per compatibilita
+
+La codebase applicativa usa ormai il lessico `club`, ma alcuni nomi restano legacy nel database o nei payload compatibili:
+
+- `team_settings` / `team_permission_settings`: tabelle legacy del vecchio bootstrap singleton, mantenute solo per compatibilita con il percorso SQL storico e con il refactor multi-club
+- `team_role`: colonna legacy di `player_profiles`, ancora attiva nello schema per evitare una migration dati ad alto impatto
+- `vice_manage_team_info`: flag DB legacy ancora mappato nel codice come permesso `club info`
+- `/team-info` e `teamInfo`: alias compatibili che puntano al nuovo blocco `club-info`
+
+Regola pratica:
+
+- nei nuovi moduli applicativi usa sempre `club`
+- i nomi `team_*` vanno toccati solo dentro migration DB pianificate e con backfill esplicito
+
 ## Sicurezza e consistenza
 
 - mutazioni critiche club/join/leave/captain sono pensate come `RPC-only` con funzioni SQL `security definer`

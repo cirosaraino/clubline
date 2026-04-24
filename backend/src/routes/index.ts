@@ -8,7 +8,7 @@ import { lineupsRouter } from './lineups.routes';
 import { playersRouter } from './players.routes';
 import { realtimeRouter } from './realtime.routes';
 import { streamsRouter } from './streams.routes';
-import { teamInfoRouter } from './team-info.routes';
+import { clubInfoRouter } from './club-info.routes';
 import { vicePermissionsRouter } from './vice-permissions.routes';
 
 export const apiRouter = Router();
@@ -21,5 +21,6 @@ apiRouter.use('/players', playersRouter);
 apiRouter.use('/lineups', lineupsRouter);
 apiRouter.use('/streams', streamsRouter);
 apiRouter.use('/attendance', attendanceRouter);
-apiRouter.use('/team-info', teamInfoRouter);
+apiRouter.use('/club-info', clubInfoRouter);
+apiRouter.use('/team-info', clubInfoRouter);
 apiRouter.use('/vice-permissions', vicePermissionsRouter);
