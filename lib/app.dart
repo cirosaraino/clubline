@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'core/app_localization.dart';
 import 'core/biometric_auth/biometric_unlock_controller.dart';
 import 'core/app_session.dart';
 import 'core/app_theme.dart';
@@ -63,6 +64,9 @@ class _ClublineAppState extends State<ClublineApp> {
         return MaterialApp(
           title: 'Clubline',
           debugShowCheckedModeBanner: false,
+          locale: ClublineLocalization.italian,
+          supportedLocales: ClublineLocalization.supportedLocales,
+          localizationsDelegates: ClublineLocalization.localizationsDelegates,
           theme: ClublineAppTheme.buildTheme(activePalette),
           builder: (context, child) {
             return AppThemeScope(

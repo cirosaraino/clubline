@@ -1,12 +1,57 @@
+const List<String> _kLineupWeekdayLabels = [
+  'Lunedì',
+  'Martedì',
+  'Mercoledì',
+  'Giovedì',
+  'Venerdì',
+  'Sabato',
+  'Domenica',
+];
+
+const List<String> _kLineupMonthLabels = [
+  'gennaio',
+  'febbraio',
+  'marzo',
+  'aprile',
+  'maggio',
+  'giugno',
+  'luglio',
+  'agosto',
+  'settembre',
+  'ottobre',
+  'novembre',
+  'dicembre',
+];
+
 String formatMatchDateTime(DateTime value) {
   final localValue = value.toLocal();
-  final day = localValue.day.toString().padLeft(2, '0');
-  final month = localValue.month.toString().padLeft(2, '0');
-  final year = localValue.year.toString();
-  final hour = localValue.hour.toString().padLeft(2, '0');
-  final minute = localValue.minute.toString().padLeft(2, '0');
+  final hours = localValue.hour.toString().padLeft(2, '0');
+  final minutes = localValue.minute.toString().padLeft(2, '0');
 
-  return '$day/$month/$year $hour:$minute';
+  return '${formatMatchDayLabel(localValue, includeYear: true)} • $hours:$minutes';
+}
+
+String formatMatchDayLabel(DateTime value, {bool includeYear = false}) {
+  final localValue = value.toLocal();
+  final weekday = _kLineupWeekdayLabels[localValue.weekday - 1];
+  final month = _kLineupMonthLabels[localValue.month - 1];
+  final yearSuffix = includeYear ? ' ${localValue.year}' : '';
+
+  return '$weekday ${localValue.day} $month$yearSuffix';
+}
+
+DateTime normalizeMatchCalendarDate(DateTime value) {
+  final localValue = value.toLocal();
+  return DateTime(localValue.year, localValue.month, localValue.day);
+}
+
+DateTime lineupCalendarWeekStart(DateTime value) {
+  final localValue = normalizeMatchCalendarDate(value);
+  return localValue.subtract(Duration(days: localValue.weekday - 1));
+}
+
+DateTime lineupCalendarWeekEnd(DateTime value) {
+  return lineupCalendarWeekStart(value).add(const Duration(days: 6));
 }
 
 String normalizeCompetitionName(String value) {

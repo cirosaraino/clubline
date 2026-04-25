@@ -9,9 +9,10 @@ class AppSpacing {
   static const double xs = 8;
   static const double sm = 12;
   static const double md = 16;
-  static const double lg = 24;
-  static const double xl = 32;
-  static const double xxl = 40;
+  static const double lg = 20;
+  static const double xl = 24;
+  static const double xxl = 32;
+  static const double xxxl = 40;
 }
 
 class AppResponsive {
@@ -45,19 +46,19 @@ class AppResponsive {
   }
 
   static double horizontalPadding(BuildContext context) {
-    if (isUltraCompact(context)) return 12;
-    if (isCompact(context)) return 14;
-    if (isTablet(context)) return 24;
-    if (isDesktop(context)) return 28;
-    return 18;
+    if (isUltraCompact(context)) return AppSpacing.sm;
+    if (isCompact(context)) return AppSpacing.md;
+    if (isTablet(context)) return AppSpacing.lg;
+    if (isDesktop(context)) return AppSpacing.xl;
+    return AppSpacing.md;
   }
 
   static double cardPadding(BuildContext context) {
-    if (isUltraCompact(context)) return 14;
-    if (isCompact(context)) return 16;
-    if (isTablet(context)) return 20;
-    if (isDesktop(context)) return 22;
-    return 18;
+    if (isUltraCompact(context)) return AppSpacing.sm;
+    if (isCompact(context)) return AppSpacing.md;
+    if (isTablet(context)) return AppSpacing.lg;
+    if (isDesktop(context)) return AppSpacing.lg;
+    return AppSpacing.md;
   }
 
   static double cardRadius(BuildContext context) {
@@ -68,15 +69,37 @@ class AppResponsive {
   }
 
   static double sectionGap(BuildContext context) {
-    if (isDesktop(context)) return AppSpacing.lg;
-    if (isTablet(context)) return 20;
+    if (isDesktop(context)) return AppSpacing.xl;
+    if (isTablet(context)) return AppSpacing.lg;
     return AppSpacing.md;
+  }
+
+  static double bottomSafeInset(BuildContext context) {
+    return MediaQuery.viewPaddingOf(context).bottom;
+  }
+
+  static EdgeInsets bottomActionBarPadding(
+    BuildContext context, {
+    double top = AppSpacing.sm,
+    double bottom = AppSpacing.md,
+  }) {
+    final horizontal = horizontalPadding(context);
+    return EdgeInsets.fromLTRB(horizontal, top, horizontal, bottom);
+  }
+
+  static double bottomActionBarReservedSpace(
+    BuildContext context, {
+    double actionHeight = 56,
+    double top = AppSpacing.sm,
+    double bottom = AppSpacing.md,
+  }) {
+    return actionHeight + top + bottom + bottomSafeInset(context);
   }
 
   static EdgeInsets pagePadding(
     BuildContext context, {
-    double top = 12,
-    double bottom = 96,
+    double top = AppSpacing.xs,
+    double bottom = AppSpacing.xxl,
   }) {
     final horizontal = horizontalPadding(context);
     return EdgeInsets.fromLTRB(horizontal, top, horizontal, bottom);
@@ -258,13 +281,21 @@ class AppPageScaffold extends StatelessWidget {
           ? SingleChildScrollView(
               padding:
                   padding ??
-                  AppResponsive.pagePadding(context, top: 16, bottom: 28),
+                  AppResponsive.pagePadding(
+                    context,
+                    top: AppSpacing.sm,
+                    bottom: AppSpacing.xl,
+                  ),
               child: child,
             )
           : Padding(
               padding:
                   padding ??
-                  AppResponsive.pagePadding(context, top: 16, bottom: 28),
+                  AppResponsive.pagePadding(
+                    context,
+                    top: AppSpacing.sm,
+                    bottom: AppSpacing.xl,
+                  ),
               child: child,
             ),
     );
@@ -277,8 +308,42 @@ class AppPageScaffold extends StatelessWidget {
       body: Stack(
         children: [
           const AppPageBackground(child: SizedBox.expand()),
-          SafeArea(child: content),
+          SafeArea(maintainBottomViewPadding: true, child: content),
         ],
+      ),
+    );
+  }
+}
+
+class AppBottomSafeAreaBar extends StatelessWidget {
+  const AppBottomSafeAreaBar({
+    super.key,
+    required this.child,
+    this.padding,
+    this.backgroundColor,
+    this.maintainBottomViewPadding = true,
+  });
+
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+  final Color? backgroundColor;
+  final bool maintainBottomViewPadding;
+
+  @override
+  Widget build(BuildContext context) {
+    final resolvedPadding =
+        padding ?? AppResponsive.bottomActionBarPadding(context);
+    final resolvedBackground =
+        backgroundColor ?? Theme.of(context).colorScheme.surface;
+
+    return ColoredBox(
+      color: resolvedBackground,
+      child: SafeArea(
+        top: false,
+        left: false,
+        right: false,
+        maintainBottomViewPadding: maintainBottomViewPadding,
+        child: Padding(padding: resolvedPadding, child: child),
       ),
     );
   }
@@ -455,7 +520,7 @@ class AppHeroPanel extends StatelessWidget {
 
     final padding = EdgeInsets.all(
       AppResponsive.isDesktop(context)
-          ? 28
+          ? AppSpacing.xl
           : AppResponsive.cardPadding(context),
     );
 
@@ -516,7 +581,7 @@ class AppMetricCard extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: ClublineAppTheme.surfaceAlt.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: emphasized
               ? ClublineAppTheme.outlineStrong
@@ -531,7 +596,7 @@ class AppMetricCard extends StatelessWidget {
             backgroundColor: accentColor.withValues(alpha: 0.16),
             iconColor: accentColor,
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
           Text(
             value,
             style: Theme.of(
@@ -704,7 +769,7 @@ class AppSurfaceCard extends StatelessWidget {
                   ],
                 ],
               ),
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.sm),
             ],
             child,
           ],
@@ -789,7 +854,7 @@ class AppFeatureCard extends StatelessWidget {
                 ],
               ),
               if (actionLabel != null && onAction != null) ...[
-                const SizedBox(height: AppSpacing.md),
+                const SizedBox(height: AppSpacing.sm),
                 AppActionButton(
                   label: actionLabel!,
                   icon: actionIcon ?? Icons.arrow_forward_outlined,
@@ -841,10 +906,10 @@ class AppBanner extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
         color: toneColor.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: toneColor.withValues(alpha: 0.28)),
       ),
       child: Row(
@@ -895,16 +960,16 @@ class AppStatusCard extends StatelessWidget {
 
     return AppSurfaceCard(
       child: Padding(
-        padding: EdgeInsets.all(compact ? 0 : 6),
+        padding: EdgeInsets.zero,
         child: Column(
           children: [
             AppIconBadge(
               icon: icon,
-              size: compact ? 58 : 68,
+              size: compact ? 52 : 60,
               borderRadius: 999,
             ),
             if (eyebrow != null) ...[
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.sm),
               Text(
                 eyebrow!,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -932,7 +997,7 @@ class AppStatusCard extends StatelessWidget {
               ),
             ),
             if (actionLabel != null && onAction != null) ...[
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.sm),
               AppActionButton(
                 label: actionLoading ? 'Attivazione...' : actionLabel!,
                 icon: actionLoading
@@ -1186,7 +1251,7 @@ class AppStatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.sm,
-        vertical: AppSpacing.xs,
+        vertical: AppSpacing.xxs,
       ),
       decoration: BoxDecoration(
         color: foreground.withValues(alpha: 0.12),
@@ -1239,8 +1304,8 @@ class AppCountPill extends StatelessWidget {
 
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: compact ? 10 : 12,
-        vertical: compact ? 8 : 9,
+        horizontal: compact ? AppSpacing.xs + 2 : AppSpacing.sm,
+        vertical: compact ? AppSpacing.xxs + 2 : AppSpacing.xs,
       ),
       decoration: BoxDecoration(
         color: backgroundColor,
@@ -1252,7 +1317,7 @@ class AppCountPill extends StatelessWidget {
         children: [
           if (icon != null) ...[
             Icon(icon, size: 16, color: tone),
-            const SizedBox(width: 8),
+            const SizedBox(width: AppSpacing.xs),
           ],
           Text(
             value == null ? label : '$label $value',
@@ -1293,7 +1358,7 @@ class AppSectionHeader extends StatelessWidget {
           Row(
             children: [
               AppIconBadge(icon: icon),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
                   title,
@@ -1306,7 +1371,7 @@ class AppSectionHeader extends StatelessWidget {
             ],
           ),
           if (showCount) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: AppSpacing.xs),
             AppCountPill(label: '$count', emphasized: true),
           ],
         ],

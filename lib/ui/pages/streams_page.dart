@@ -502,7 +502,6 @@ class _StreamsPageState extends State<StreamsPage> {
 
     if (errorMessage != null) {
       return _buildScrollableBody([
-        const SizedBox(height: 12),
         _StreamsStatusCard(
           icon: Icons.error_outline,
           eyebrow: 'ERRORE',
@@ -516,10 +515,15 @@ class _StreamsPageState extends State<StreamsPage> {
       return _buildScrollableBody([
         _StreamsStatusCard(
           icon: Icons.smart_display_outlined,
-          eyebrow: 'ARCHIVIO VUOTO',
-          title: 'Nessuna live caricata',
-          message:
-              'Ancora nessuna live. In un app mobile la via piu veloce resta il pulsante + in basso.',
+          eyebrow: 'LIVE',
+          title: canManageStreams
+              ? 'Aggiungi la prima live'
+              : 'Nessuna live disponibile',
+          message: canManageStreams
+              ? 'Salva subito il link della prossima live del club.'
+              : 'Il club non ha ancora pubblicato una live.',
+          actionLabel: canManageStreams ? 'Aggiungi live' : null,
+          onAction: canManageStreams ? () => _openStreamForm() : null,
         ),
       ]);
     }
@@ -976,12 +980,16 @@ class _StreamsStatusCard extends StatelessWidget {
     required this.eyebrow,
     required this.title,
     required this.message,
+    this.actionLabel,
+    this.onAction,
   });
 
   final IconData icon;
   final String eyebrow;
   final String title;
   final String message;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -990,6 +998,9 @@ class _StreamsStatusCard extends StatelessWidget {
       eyebrow: eyebrow,
       title: title,
       message: message,
+      actionLabel: actionLabel,
+      actionIcon: Icons.add_circle_outline,
+      onAction: onAction,
     );
   }
 }

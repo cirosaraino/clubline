@@ -132,8 +132,8 @@ class _AddLineupPageState extends State<AddLineupPage> {
                     Text(
                       'Seleziona orario',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     const Spacer(),
                     TextButton(
@@ -175,9 +175,11 @@ class _AddLineupPageState extends State<AddLineupPage> {
   }
 
   Future<void> _saveLineup() async {
+    FocusScope.of(context).unfocus();
     if (AppSessionScope.read(context).currentUser?.canManageLineups != true) {
       setState(() {
-        errorMessage = 'Solo il capitano o un vice autorizzato possono salvare le formazioni';
+        errorMessage =
+            'Solo il capitano o un vice autorizzato possono salvare le formazioni';
       });
       return;
     }
@@ -238,17 +240,18 @@ class _AddLineupPageState extends State<AddLineupPage> {
           : await repository.createLineup(lineup);
 
       if (!mounted) return;
-      AppDataSync.instance.notifyDataChanged(
-        {AppDataScope.lineups},
-        reason: isEditing ? 'lineup_updated' : 'lineup_created',
-      );
+      AppDataSync.instance.notifyDataChanged({
+        AppDataScope.lineups,
+      }, reason: isEditing ? 'lineup_updated' : 'lineup_created');
 
       await Navigator.push<bool>(
         context,
         MaterialPageRoute(
           builder: (context) => LineupPlayersPage(
             lineup: savedLineup,
-            initialAssignments: isEditing ? const [] : widget.initialAssignments,
+            initialAssignments: isEditing
+                ? const []
+                : widget.initialAssignments,
           ),
         ),
       );
@@ -273,23 +276,46 @@ class _AddLineupPageState extends State<AddLineupPage> {
 
   @override
   Widget build(BuildContext context) {
-    final canManageLineups = AppSessionScope.of(context).currentUser?.canManageLineups ?? false;
+    final canManageLineups =
+        AppSessionScope.of(context).currentUser?.canManageLineups ?? false;
+    final pageTitle = isEditing
+        ? 'Modifica formazione'
+        : isDuplicating
+        ? 'Copia formazione'
+        : 'Nuova formazione';
+    final pageSubtitle = isEditing
+        ? 'Aggiorna partita, modulo e note.'
+        : isDuplicating
+        ? 'Controlla i dati prima di creare la copia.'
+        : 'Inserisci i dati della partita e continua.';
+    final saveLabel = isSaving
+        ? 'Salvataggio...'
+        : isEditing
+        ? 'Salva e gestisci giocatori'
+        : isDuplicating
+        ? 'Crea copia e gestisci giocatori'
+        : 'Crea e gestisci giocatori';
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          isEditing
-              ? 'Modifica formazione'
-              : isDuplicating
-                  ? 'Copia formazione'
-                  : 'Nuova formazione',
-        ),
-      ),
+      appBar: AppBar(title: Text(pageTitle)),
+      bottomNavigationBar: canManageLineups
+          ? AppBottomSafeAreaBar(
+              child: AppActionButton(
+                label: saveLabel,
+                icon: Icons.arrow_forward_outlined,
+                expand: true,
+                isLoading: isSaving,
+                onPressed: isSaving ? null : _saveLineup,
+              ),
+            )
+          : null,
       body: !canManageLineups
           ? AppPageBackground(
               child: Center(
                 child: Padding(
-                  padding: EdgeInsets.all(AppResponsive.cardPadding(context) + 8),
+                  padding: EdgeInsets.all(
+                    AppResponsive.cardPadding(context) + 8,
+                  ),
                   child: Text(
                     'Solo il capitano o un vice autorizzato possono creare o modificare le formazioni.',
                     textAlign: TextAlign.center,
@@ -300,116 +326,144 @@ class _AddLineupPageState extends State<AddLineupPage> {
             )
           : AppPageBackground(
               child: SingleChildScrollView(
-                padding: AppResponsive.pagePadding(context, bottom: 32),
+                padding: AppResponsive.pagePadding(
+                  context,
+                  top: AppSpacing.sm,
+                  bottom: AppResponsive.bottomActionBarReservedSpace(context),
+                ),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    TextField(
-                      controller: competitionNameController,
-                      decoration: _inputDecoration(
-                        'Competizione',
-                        errorText: competitionNameError,
-                      ),
-                      onChanged: (value) {
-                        final normalized = normalizeCompetitionName(value);
-                        if (value != normalized) {
-                          competitionNameController.value = TextEditingValue(
-                            text: normalized,
-                            selection: TextSelection.collapsed(
-                              offset: normalized.length,
+                    AppPageHeader(
+                      eyebrow: isEditing
+                          ? 'Lineup editor'
+                          : isDuplicating
+                          ? 'Copia formazione'
+                          : 'Nuova formazione',
+                      title: pageTitle,
+                      subtitle: pageSubtitle,
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    AppSurfaceCard(
+                      icon: Icons.event_outlined,
+                      title: '1. Partita',
+                      subtitle: 'Competizione, avversario, data e ora',
+                      child: Column(
+                        children: [
+                          TextField(
+                            controller: competitionNameController,
+                            textInputAction: TextInputAction.next,
+                            textCapitalization: TextCapitalization.characters,
+                            decoration: _inputDecoration(
+                              'Competizione',
+                              errorText: competitionNameError,
                             ),
-                          );
-                        }
+                            onChanged: (value) {
+                              final normalized = normalizeCompetitionName(
+                                value,
+                              );
+                              if (value != normalized) {
+                                competitionNameController.value =
+                                    TextEditingValue(
+                                      text: normalized,
+                                      selection: TextSelection.collapsed(
+                                        offset: normalized.length,
+                                      ),
+                                    );
+                              }
 
-                        if (competitionNameError == null) return;
-                        setState(() {
-                          competitionNameError = null;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    InkWell(
-                      onTap: isSaving ? null : _pickMatchDateTime,
-                      child: InputDecorator(
-                        decoration: _inputDecoration(
-                          'Data e ora partita',
-                          errorText: matchDateTimeError,
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                selectedMatchDateTime == null
-                                    ? 'Seleziona data e ora'
-                                    : formatMatchDateTime(selectedMatchDateTime!),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            const Icon(Icons.calendar_today_outlined),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: opponentNameController,
-                      decoration: _inputDecoration('Avversario'),
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedFormationModule,
-                      decoration: _inputDecoration(
-                        'Modulo',
-                        errorText: formationModuleError,
-                      ),
-                      items: kFormationModules
-                          .map(
-                            (module) => DropdownMenuItem<String>(
-                              value: module,
-                              child: Text(module),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: isSaving
-                          ? null
-                          : (value) {
+                              if (competitionNameError == null) return;
                               setState(() {
-                                selectedFormationModule = value;
-                                formationModuleError = null;
+                                competitionNameError = null;
                               });
                             },
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: notesController,
-                      minLines: 3,
-                      maxLines: 5,
-                      decoration: _inputDecoration('Note'),
-                    ),
-                    const SizedBox(height: 16),
-                    if (errorMessage != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Text(
-                          errorMessage!,
-                          style: const TextStyle(color: Colors.red),
-                        ),
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          InkWell(
+                            onTap: isSaving ? null : _pickMatchDateTime,
+                            child: InputDecorator(
+                              decoration: _inputDecoration(
+                                'Data e ora partita',
+                                errorText: matchDateTimeError,
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      selectedMatchDateTime == null
+                                          ? 'Seleziona data e ora'
+                                          : formatMatchDateTime(
+                                              selectedMatchDateTime!,
+                                            ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  const Icon(Icons.calendar_today_outlined),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          TextField(
+                            controller: opponentNameController,
+                            textInputAction: TextInputAction.next,
+                            textCapitalization: TextCapitalization.words,
+                            decoration: _inputDecoration('Avversario'),
+                          ),
+                        ],
                       ),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: isSaving ? null : _saveLineup,
-                        child: Text(
-                          isSaving
-                              ? 'Salvataggio...'
-                              : isEditing
-                                  ? 'Salva e gestisci giocatori'
-                                  : isDuplicating
-                                      ? 'Crea copia e gestisci giocatori'
-                                      : 'Crea e gestisci giocatori',
-                        ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    AppSurfaceCard(
+                      icon: Icons.grid_view_rounded,
+                      title: '2. Modulo',
+                      subtitle: 'Schema e note',
+                      child: Column(
+                        children: [
+                          DropdownButtonFormField<String>(
+                            initialValue: selectedFormationModule,
+                            decoration: _inputDecoration(
+                              'Modulo',
+                              errorText: formationModuleError,
+                            ),
+                            items: kFormationModules
+                                .map(
+                                  (module) => DropdownMenuItem<String>(
+                                    value: module,
+                                    child: Text(module),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: isSaving
+                                ? null
+                                : (value) {
+                                    setState(() {
+                                      selectedFormationModule = value;
+                                      formationModuleError = null;
+                                    });
+                                  },
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          TextField(
+                            controller: notesController,
+                            minLines: 3,
+                            maxLines: 5,
+                            textInputAction: TextInputAction.newline,
+                            decoration: _inputDecoration('Note'),
+                          ),
+                        ],
                       ),
                     ),
+                    if (errorMessage != null) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      AppBanner(
+                        message: errorMessage!,
+                        tone: AppStatusTone.error,
+                        icon: Icons.error_outline,
+                      ),
+                    ],
                   ],
                 ),
               ),

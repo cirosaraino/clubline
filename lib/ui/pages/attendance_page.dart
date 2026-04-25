@@ -131,6 +131,56 @@ class _AttendancePageState extends State<AttendancePage> {
     }).toList();
   }
 
+  List<AttendancePlayerEntries> _sortedGroupedEntries(
+    List<AttendancePlayerEntries> source,
+  ) {
+    final sorted = [...source];
+    sorted.sort((first, second) {
+      final firstPending = weekDatesPendingCount(
+        first,
+        activeWeek?.votingDates ?? const [],
+      );
+      final secondPending = weekDatesPendingCount(
+        second,
+        activeWeek?.votingDates ?? const [],
+      );
+      if (firstPending != secondPending) {
+        return secondPending.compareTo(firstPending);
+      }
+
+      final firstName = first.player?.fullName ?? '';
+      final secondName = second.player?.fullName ?? '';
+      return firstName.compareTo(secondName);
+    });
+    return sorted;
+  }
+
+  int weekDatesPendingCount(
+    AttendancePlayerEntries playerEntries,
+    List<DateTime> dates,
+  ) {
+    return dates
+        .where((date) => playerEntries.entryForDate(date)?.isPending ?? true)
+        .length;
+  }
+
+  AttendancePlayerEntries? _viewerEntriesFor(
+    List<AttendancePlayerEntries> groupedEntries,
+    PlayerProfile? viewer,
+  ) {
+    if (viewer == null) {
+      return null;
+    }
+
+    for (final playerEntries in groupedEntries) {
+      if (_sameId(playerEntries.playerId, viewer.id)) {
+        return playerEntries;
+      }
+    }
+
+    return null;
+  }
+
   void _clearCaptainFilters() {
     setState(() {
       captainNomeFilterController.clear();
@@ -567,10 +617,13 @@ class _AttendancePageState extends State<AttendancePage> {
 
     final weekDates = activeWeek?.votingDates ?? const <DateTime>[];
     final groupedEntries = AttendancePlayerEntries.groupEntries(visibleEntries);
-    final filteredGroupedEntries = _applyCaptainFilters(groupedEntries);
+    final filteredGroupedEntries = _sortedGroupedEntries(
+      _applyCaptainFilters(groupedEntries),
+    );
     final daySummaries = canManageAll
         ? AttendanceDaySummary.buildForDates(weekDates, entries)
         : const <AttendanceDaySummary>[];
+    final viewerEntries = _viewerEntriesFor(groupedEntries, viewer);
 
     return RefreshIndicator(
       onRefresh: _loadData,
@@ -593,6 +646,15 @@ class _AttendancePageState extends State<AttendancePage> {
             showManagerSummary: canManageAll,
           ),
           const SizedBox(height: 16),
+          if (!canManageAll && activeWeek != null && viewerEntries != null) ...[
+            AttendanceMyActionCard(
+              playerEntries: viewerEntries,
+              weekDates: weekDates,
+              savingEntryKeys: savingEntryKeys,
+              onSelectAvailability: _updateAvailability,
+            ),
+            const SizedBox(height: 16),
+          ],
           if (canUseCaptainFilters && activeWeek != null) ...[
             _CaptainAttendanceFiltersCard(
               isExpanded: isCaptainFiltersExpanded,
@@ -615,10 +677,10 @@ class _AttendancePageState extends State<AttendancePage> {
           if (activeWeek == null)
             AttendanceStatusCard(
               icon: Icons.schedule_outlined,
-              title: 'Nessun sondaggio attivo in questo momento',
+              title: 'Nessun sondaggio attivo',
               message: canManageAll
-                  ? 'Il sondaggio presenze viene aperto manualmente dal capitano o da un vice autorizzato, scegliendo i giorni della settimana da mettere a voto.'
-                  : 'Attendi che il capitano o un vice autorizzato apra il nuovo sondaggio presenze.',
+                  ? 'Apri la settimana e scegli i giorni da mettere a voto.'
+                  : 'Attendi che il capitano o un vice apra il sondaggio.',
               actionLabel: canManageAll ? 'Crea sondaggio' : null,
               actionIcon: Icons.add_circle_outline,
               actionLoading: isProcessingWeekAction,
@@ -629,7 +691,7 @@ class _AttendancePageState extends State<AttendancePage> {
               icon: Icons.event_busy_outlined,
               title: 'Nessuna presenza disponibile',
               message:
-                  'Le presenze giornaliere di questa settimana non sono ancora disponibili. Aggiorna la pagina dopo la migrazione del database o dopo la sincronizzazione.',
+                  'Le presenze di questa settimana non sono ancora pronte. Aggiorna tra poco.',
             ),
           ] else if (filteredGroupedEntries.isEmpty) ...[
             AttendanceStatusCard(
@@ -660,6 +722,7 @@ class _AttendancePageState extends State<AttendancePage> {
                 weekDates: weekDates,
                 canEdit:
                     canManageAll || _sameId(playerEntries.playerId, viewer.id),
+                isCurrentViewer: _sameId(playerEntries.playerId, viewer.id),
                 savingEntryKeys: savingEntryKeys,
                 onSelectAvailability: _updateAvailability,
               ),

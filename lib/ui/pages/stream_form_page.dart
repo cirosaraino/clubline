@@ -8,6 +8,7 @@ import '../../data/stream_link_repository.dart';
 import '../../data/stream_metadata_service.dart';
 import '../../models/stream_link.dart';
 import '../../models/stream_link_metadata.dart';
+import '../widgets/app_chrome.dart';
 
 class StreamFormPage extends StatefulWidget {
   const StreamFormPage({super.key, this.streamLink});
@@ -141,6 +142,7 @@ class _StreamFormPageState extends State<StreamFormPage> {
   }
 
   Future<void> _fetchMetadata() async {
+    FocusScope.of(context).unfocus();
     final streamUrl = normalizeStreamUrl(streamUrlController.text);
 
     if (streamUrl.isEmpty) {
@@ -189,7 +191,9 @@ class _StreamFormPageState extends State<StreamFormPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Dati automatici non disponibili: puoi completare manualmente.'),
+          content: Text(
+            'Dati automatici non disponibili: puoi completare manualmente.',
+          ),
         ),
       );
     }
@@ -223,7 +227,9 @@ class _StreamFormPageState extends State<StreamFormPage> {
   }
 
   void _applyMetadata(StreamLinkMetadata metadata) {
-    final normalizedPlayedOn = normalizePlayedOnDate(metadata.suggestedPlayedOn);
+    final normalizedPlayedOn = normalizePlayedOnDate(
+      metadata.suggestedPlayedOn,
+    );
 
     setState(() {
       streamTitleController.text = metadata.title;
@@ -241,9 +247,11 @@ class _StreamFormPageState extends State<StreamFormPage> {
   }
 
   Future<void> _saveStreamLink() async {
+    FocusScope.of(context).unfocus();
     if (AppSessionScope.read(context).currentUser?.canManageStreams != true) {
       setState(() {
-        errorMessage = 'Solo il capitano o un vice autorizzato possono salvare le live';
+        errorMessage =
+            'Solo il capitano o un vice autorizzato possono salvare le live';
       });
       return;
     }
@@ -316,10 +324,9 @@ class _StreamFormPageState extends State<StreamFormPage> {
       if (isEditing) {
         await repository.updateStreamLink(streamLink);
         if (!mounted) return;
-        AppDataSync.instance.notifyDataChanged(
-          {AppDataScope.streams},
-          reason: 'stream_updated',
-        );
+        AppDataSync.instance.notifyDataChanged({
+          AppDataScope.streams,
+        }, reason: 'stream_updated');
         Navigator.pop(context, true);
         return;
       }
@@ -327,15 +334,12 @@ class _StreamFormPageState extends State<StreamFormPage> {
       await repository.createStreamLink(streamLink);
 
       if (!mounted) return;
-      AppDataSync.instance.notifyDataChanged(
-        {AppDataScope.streams},
-        reason: 'stream_created',
-      );
+      AppDataSync.instance.notifyDataChanged({
+        AppDataScope.streams,
+      }, reason: 'stream_created');
       _resetFormAfterCreate();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Live salvata. Puoi inserirne un'altra."),
-        ),
+        const SnackBar(content: Text("Live salvata. Puoi inserirne un'altra.")),
       );
     } catch (e) {
       setState(() {
@@ -345,60 +349,23 @@ class _StreamFormPageState extends State<StreamFormPage> {
     }
   }
 
-  Widget _buildIntroCard(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        gradient: ClublineAppTheme.heroGradient,
-        border: Border.all(color: ClublineAppTheme.outlineStrong),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: ClublineAppTheme.gold.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                isEditing ? 'MODIFICA LIVE' : 'NUOVA LIVE',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: ClublineAppTheme.goldSoft,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.8,
-                    ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              isEditing ? 'Aggiorna i dettagli in modo ordinato' : 'Aggiungi una live in pochi passaggi',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildLinkSection(BuildContext context) {
     final metadataLoaded = selectedStreamStatus != null;
 
     return _FormSectionCard(
       icon: Icons.link_outlined,
-      title: 'Link e recupero dati',
+      title: '1. Link live',
       child: Column(
         children: [
           TextField(
             controller: streamUrlController,
             keyboardType: TextInputType.url,
+            textInputAction: TextInputAction.next,
             decoration: _inputDecoration(
               'Link streaming',
               errorText: streamUrlError,
               hintText: 'https://...',
-              helperText: 'Incolla un link YouTube o Twitch della live da salvare.',
+              helperText: 'Incolla un link YouTube o Twitch.',
               prefixIcon: Icons.language_outlined,
             ),
             onChanged: (value) {
@@ -426,7 +393,9 @@ class _StreamFormPageState extends State<StreamFormPage> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: (isFetchingMetadata || isSaving) ? null : _fetchMetadata,
+              onPressed: (isFetchingMetadata || isSaving)
+                  ? null
+                  : _fetchMetadata,
               icon: Icon(
                 isFetchingMetadata
                     ? Icons.downloading_outlined
@@ -458,7 +427,7 @@ class _StreamFormPageState extends State<StreamFormPage> {
 
     return _FormSectionCard(
       icon: Icons.edit_note_outlined,
-      title: 'Dettagli da salvare',
+      title: '2. Dettagli live',
       child: Column(
         children: [
           if (!metadataLoaded)
@@ -481,11 +450,11 @@ class _StreamFormPageState extends State<StreamFormPage> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Recupera prima i dati dal link: titolo, stato e giorno live verranno compilati in automatico da YouTube o Twitch.',
+                      'Recupera prima i dati dal link per compilare automaticamente i campi principali.',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: ClublineAppTheme.textMuted,
-                            height: 1.35,
-                          ),
+                        color: ClublineAppTheme.textMuted,
+                        height: 1.35,
+                      ),
                     ),
                   ),
                 ],
@@ -494,11 +463,12 @@ class _StreamFormPageState extends State<StreamFormPage> {
           if (!metadataLoaded) const SizedBox(height: 12),
           TextField(
             controller: streamTitleController,
+            textInputAction: TextInputAction.next,
             decoration: _inputDecoration(
               'Nome live',
               errorText: streamTitleError,
               hintText: 'Titolo della live',
-              helperText: 'Puoi correggerlo se vuoi un nome piu chiaro.',
+              helperText: 'Puoi modificarlo se serve.',
               prefixIcon: Icons.title_outlined,
             ),
             onChanged: (_) {
@@ -511,10 +481,12 @@ class _StreamFormPageState extends State<StreamFormPage> {
           const SizedBox(height: 12),
           TextField(
             controller: competitionNameController,
+            textInputAction: TextInputAction.next,
+            textCapitalization: TextCapitalization.characters,
             decoration: _inputDecoration(
               'Competizione',
               hintText: 'Es. LEGA / TORNEO',
-              helperText: 'Campo opzionale, utile per ordinare meglio le live.',
+              helperText: 'Opzionale.',
               prefixIcon: Icons.emoji_events_outlined,
             ),
             onChanged: (value) {
@@ -522,9 +494,7 @@ class _StreamFormPageState extends State<StreamFormPage> {
               if (value != normalized) {
                 competitionNameController.value = TextEditingValue(
                   text: normalized,
-                  selection: TextSelection.collapsed(
-                    offset: normalized.length,
-                  ),
+                  selection: TextSelection.collapsed(offset: normalized.length),
                 );
               }
             },
@@ -557,6 +527,7 @@ class _StreamFormPageState extends State<StreamFormPage> {
           const SizedBox(height: 12),
           TextField(
             controller: resultController,
+            textInputAction: TextInputAction.done,
             decoration: _inputDecoration(
               'Risultato',
               hintText: 'Es. 2-1',
@@ -570,54 +541,14 @@ class _StreamFormPageState extends State<StreamFormPage> {
     );
   }
 
-  Widget _buildSaveSection(BuildContext context) {
-    final title = isEditing ? 'Salva le modifiche' : 'Salva e continua';
-    final description = isEditing
-        ? 'Aggiorni subito questa live e torni alla lista.'
-        : "Dopo il salvataggio resti qui e puoi inserire subito un'altra live.";
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              description,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: ClublineAppTheme.textMuted,
-                    height: 1.35,
-                  ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: (isSaving || isFetchingMetadata) ? null : _saveStreamLink,
-                icon: Icon(
-                  isSaving ? Icons.hourglass_top_outlined : Icons.save_outlined,
-                ),
-                label: Text(
-                  isSaving ? 'Salvataggio...' : 'Salva live',
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final canManageStreams = AppSessionScope.of(context).currentUser?.canManageStreams ?? false;
+    final canManageStreams =
+        AppSessionScope.of(context).currentUser?.canManageStreams ?? false;
+    final pageTitle = isEditing ? 'Modifica live' : 'Aggiungi live';
+    final pageSubtitle = isEditing
+        ? 'Aggiorna i dettagli principali.'
+        : 'Incolla il link e salva la live.';
 
     return PopScope(
       canPop: false,
@@ -626,9 +557,20 @@ class _StreamFormPageState extends State<StreamFormPage> {
         _handleBackNavigation();
       },
       child: Scaffold(
-        appBar: AppBar(
-          title: Text(isEditing ? 'Modifica live' : 'Aggiungi live'),
-        ),
+        appBar: AppBar(title: Text(pageTitle)),
+        bottomNavigationBar: canManageStreams
+            ? AppBottomSafeAreaBar(
+                child: AppActionButton(
+                  label: isSaving ? 'Salvataggio...' : 'Salva live',
+                  icon: Icons.save_outlined,
+                  expand: true,
+                  isLoading: isSaving,
+                  onPressed: (isSaving || isFetchingMetadata)
+                      ? null
+                      : _saveStreamLink,
+                ),
+              )
+            : null,
         body: !canManageStreams
             ? Center(
                 child: Padding(
@@ -641,29 +583,35 @@ class _StreamFormPageState extends State<StreamFormPage> {
                 ),
               )
             : Container(
-          decoration: BoxDecoration(
-            gradient: ClublineAppTheme.pageGradient,
-          ),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildIntroCard(context),
-                const SizedBox(height: 18),
-                _buildLinkSection(context),
-                const SizedBox(height: 16),
-                _buildDetailsSection(context),
-                if (errorMessage != null) ...[
-                  const SizedBox(height: 16),
-                  _InlineErrorCard(message: errorMessage!),
-                ],
-                const SizedBox(height: 16),
-                _buildSaveSection(context),
-              ],
-            ),
-          ),
-        ),
+                decoration: BoxDecoration(
+                  gradient: ClublineAppTheme.pageGradient,
+                ),
+                child: SingleChildScrollView(
+                  padding: AppResponsive.pagePadding(
+                    context,
+                    top: AppSpacing.sm,
+                    bottom: AppResponsive.bottomActionBarReservedSpace(context),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      AppPageHeader(
+                        eyebrow: isEditing ? 'Live editor' : 'Nuova live',
+                        title: pageTitle,
+                        subtitle: pageSubtitle,
+                      ),
+                      SizedBox(height: AppSpacing.md),
+                      _buildLinkSection(context),
+                      SizedBox(height: AppSpacing.md),
+                      _buildDetailsSection(context),
+                      if (errorMessage != null) ...[
+                        SizedBox(height: AppSpacing.md),
+                        _InlineErrorCard(message: errorMessage!),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
       ),
     );
   }
@@ -705,8 +653,8 @@ class _FormSectionCard extends StatelessWidget {
                   child: Text(
                     title,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
               ],
@@ -746,14 +694,16 @@ class _MetadataPreviewCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: ClublineAppTheme.danger.withValues(alpha: 0.14),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: ClublineAppTheme.danger.withValues(alpha: 0.35)),
+          border: Border.all(
+            color: ClublineAppTheme.danger.withValues(alpha: 0.35),
+          ),
         ),
         child: Text(
           metadataError!,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: ClublineAppTheme.dangerSoft,
-                fontWeight: FontWeight.w600,
-              ),
+            color: ClublineAppTheme.dangerSoft,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       );
     }
@@ -770,9 +720,9 @@ class _MetadataPreviewCard extends StatelessWidget {
         child: Text(
           'Quando recuperi i dati dal link, qui vedrai subito provider, stato e giorno live.',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: ClublineAppTheme.textMuted,
-                height: 1.35,
-              ),
+            color: ClublineAppTheme.textMuted,
+            height: 1.35,
+          ),
         ),
       );
     }
@@ -780,8 +730,8 @@ class _MetadataPreviewCard extends StatelessWidget {
     final statusValue = streamStatus == 'live'
         ? 'LIVE'
         : endedAt == null
-            ? 'CONCLUSA'
-            : formatStreamDateTime(endedAt!);
+        ? 'CONCLUSA'
+        : formatStreamDateTime(endedAt!);
 
     return Container(
       width: double.infinity,
@@ -796,9 +746,9 @@ class _MetadataPreviewCard extends StatelessWidget {
         children: [
           Text(
             'Anteprima dati recuperati',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 12),
           Wrap(
@@ -830,10 +780,7 @@ class _MetadataPreviewCard extends StatelessWidget {
 }
 
 class _MetadataBadge extends StatelessWidget {
-  const _MetadataBadge({
-    required this.icon,
-    required this.label,
-  });
+  const _MetadataBadge({required this.icon, required this.label});
 
   final IconData icon;
   final String label;
@@ -845,7 +792,9 @@ class _MetadataBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: ClublineAppTheme.surface.withValues(alpha: 0.45),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: ClublineAppTheme.outlineSoft.withValues(alpha: 0.8)),
+        border: Border.all(
+          color: ClublineAppTheme.outlineSoft.withValues(alpha: 0.8),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -855,9 +804,9 @@ class _MetadataBadge extends StatelessWidget {
           Text(
             label,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: ClublineAppTheme.textPrimary,
-                  fontWeight: FontWeight.w700,
-                ),
+              color: ClublineAppTheme.textPrimary,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
       ),
@@ -878,7 +827,9 @@ class _InlineErrorCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: ClublineAppTheme.danger.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: ClublineAppTheme.danger.withValues(alpha: 0.35)),
+        border: Border.all(
+          color: ClublineAppTheme.danger.withValues(alpha: 0.35),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -889,10 +840,10 @@ class _InlineErrorCard extends StatelessWidget {
             child: Text(
               message,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: ClublineAppTheme.dangerSoft,
-                    fontWeight: FontWeight.w600,
-                    height: 1.35,
-                  ),
+                color: ClublineAppTheme.dangerSoft,
+                fontWeight: FontWeight.w600,
+                height: 1.35,
+              ),
             ),
           ),
         ],

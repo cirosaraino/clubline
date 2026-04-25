@@ -3,9 +3,12 @@ import 'package:flutter/material.dart';
 import '../../../core/app_theme.dart';
 import '../../../core/attendance_formatters.dart';
 import '../../../models/attendance_day_summary.dart';
+import '../../../models/attendance_entry.dart';
+import '../../../models/attendance_player_entries.dart';
 import '../../../models/attendance_week.dart';
 import '../../../models/player_profile.dart';
 import '../app_chrome.dart';
+import 'attendance_player_cards.dart';
 
 class AttendanceHeroCard extends StatelessWidget {
   const AttendanceHeroCard({
@@ -33,6 +36,16 @@ class AttendanceHeroCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final title = activeWeek?.title ?? 'Settimana non ancora aperta';
     final compact = AppResponsive.isCompact(context);
+    final focusSummary = [...daySummaries]
+      ..sort((a, b) => a.date.compareTo(b.date));
+    final nextSummary = focusSummary.isEmpty
+        ? null
+        : focusSummary.firstWhere(
+            (summary) => !summary.date.isBefore(
+              DateTime.now().toLocal().subtract(const Duration(days: 1)),
+            ),
+            orElse: () => focusSummary.first,
+          );
 
     return Card(
       child: Padding(
@@ -54,12 +67,22 @@ class AttendanceHeroCard extends StatelessWidget {
                   child: Text(
                     title,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
               ],
             ),
+            if (activeWeek != null) ...[
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                activeWeek!.selectedDatesSummary,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: ClublineAppTheme.textMuted,
+                  height: 1.35,
+                ),
+              ),
+            ],
             const SizedBox(height: 14),
             Wrap(
               spacing: 10,
@@ -87,7 +110,9 @@ class AttendanceHeroCard extends StatelessWidget {
                             )
                           : const Icon(Icons.add_circle_outline),
                       label: Text(
-                        isProcessingWeekAction ? 'Creazione...' : 'Crea sondaggio',
+                        isProcessingWeekAction
+                            ? 'Creazione...'
+                            : 'Crea sondaggio',
                       ),
                     ),
                   ),
@@ -104,28 +129,35 @@ class AttendanceHeroCard extends StatelessWidget {
                             )
                           : const Icon(Icons.inventory_2_outlined),
                       label: Text(
-                        isProcessingWeekAction ? 'Archiviazione...' : 'Archivia settimana',
+                        isProcessingWeekAction
+                            ? 'Archiviazione...'
+                            : 'Archivia settimana',
                       ),
                     ),
                   ),
               ],
             ),
+            if (nextSummary != null && showManagerSummary) ...[
+              const SizedBox(height: AppSpacing.md),
+              _AttendanceFocusCard(summary: nextSummary),
+            ],
             if (activeWeek != null && showManagerSummary) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.md),
               Text(
-                'Riepilogo per giorno',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
+                'Panoramica settimana',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.sm),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
                   children: [
                     for (final summary in daySummaries) ...[
                       AttendanceDaySummaryCard(summary: summary),
-                      if (summary != daySummaries.last) const SizedBox(width: 12),
+                      if (summary != daySummaries.last)
+                        const SizedBox(width: 12),
                     ],
                   ],
                 ),
@@ -139,10 +171,7 @@ class AttendanceHeroCard extends StatelessWidget {
 }
 
 class AttendanceDaySummaryCard extends StatelessWidget {
-  const AttendanceDaySummaryCard({
-    super.key,
-    required this.summary,
-  });
+  const AttendanceDaySummaryCard({super.key, required this.summary});
 
   final AttendanceDaySummary summary;
 
@@ -150,11 +179,12 @@ class AttendanceDaySummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final compact = AppResponsive.isCompact(context);
     final isComplete =
-        summary.totalPlayers > 0 && summary.answeredCount >= summary.totalPlayers;
+        summary.totalPlayers > 0 &&
+        summary.answeredCount >= summary.totalPlayers;
 
     return Container(
-      width: compact ? 164 : 180,
-      padding: EdgeInsets.all(compact ? 12 : 14),
+      width: compact ? 156 : 172,
+      padding: EdgeInsets.all(compact ? 10 : 12),
       decoration: BoxDecoration(
         color: ClublineAppTheme.surfaceAlt.withValues(alpha: 0.58),
         borderRadius: BorderRadius.circular(20),
@@ -165,18 +195,18 @@ class AttendanceDaySummaryCard extends StatelessWidget {
         children: [
           Text(
             formatAttendanceDayWithDate(summary.date),
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Text(
             formatAttendanceDayLabel(summary.date),
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: ClublineAppTheme.textMuted,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: ClublineAppTheme.textMuted),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -184,7 +214,9 @@ class AttendanceDaySummaryCard extends StatelessWidget {
               AppCountPill(
                 label: 'Risposte',
                 value: '${summary.answeredCount}/${summary.totalPlayers}',
-                color: isComplete ? ClublineAppTheme.success : ClublineAppTheme.warning,
+                color: isComplete
+                    ? ClublineAppTheme.success
+                    : ClublineAppTheme.warning,
                 emphasized: true,
               ),
               AppCountPill(
@@ -225,6 +257,10 @@ class AttendancePendingSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final compact = AppResponsive.isCompact(context);
+    final totalPending = daySummaries.fold<int>(
+      0,
+      (sum, summary) => sum + summary.pendingCount,
+    );
 
     return Card(
       child: Padding(
@@ -243,15 +279,29 @@ class AttendancePendingSection extends StatelessWidget {
                         children: [
                           Text(
                             'Chi manca ancora',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                ),
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w800),
                           ),
-                          const SizedBox(height: 8),
-                          Icon(
-                            isExpanded
-                                ? Icons.keyboard_arrow_up_rounded
-                                : Icons.keyboard_arrow_down_rounded,
+                          const SizedBox(height: AppSpacing.xs),
+                          Wrap(
+                            spacing: AppSpacing.xs,
+                            runSpacing: AppSpacing.xs,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              AppCountPill(
+                                label: 'In attesa',
+                                value: '$totalPending',
+                                color: totalPending == 0
+                                    ? ClublineAppTheme.success
+                                    : ClublineAppTheme.warning,
+                                emphasized: totalPending > 0,
+                              ),
+                              Icon(
+                                isExpanded
+                                    ? Icons.keyboard_arrow_up_rounded
+                                    : Icons.keyboard_arrow_down_rounded,
+                              ),
+                            ],
                           ),
                         ],
                       )
@@ -260,10 +310,17 @@ class AttendancePendingSection extends StatelessWidget {
                           Expanded(
                             child: Text(
                               'Chi manca ancora',
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                  ),
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w800),
                             ),
+                          ),
+                          AppCountPill(
+                            label: 'In attesa',
+                            value: '$totalPending',
+                            color: totalPending == 0
+                                ? ClublineAppTheme.success
+                                : ClublineAppTheme.warning,
+                            emphasized: totalPending > 0,
                           ),
                           const SizedBox(width: 8),
                           Icon(
@@ -289,11 +346,239 @@ class AttendancePendingSection extends StatelessWidget {
   }
 }
 
-class AttendancePendingDayCard extends StatelessWidget {
-  const AttendancePendingDayCard({
+class AttendanceMyActionCard extends StatelessWidget {
+  const AttendanceMyActionCard({
     super.key,
-    required this.summary,
+    required this.playerEntries,
+    required this.weekDates,
+    required this.savingEntryKeys,
+    required this.onSelectAvailability,
   });
+
+  final AttendancePlayerEntries playerEntries;
+  final List<DateTime> weekDates;
+  final Set<String> savingEntryKeys;
+  final void Function(AttendanceEntry entry, String availability)
+  onSelectAvailability;
+
+  AttendanceEntry? _nextRelevantEntry() {
+    final now = DateTime.now().toLocal();
+    final today = DateTime(now.year, now.month, now.day);
+
+    for (final date in weekDates) {
+      final localDate = date.toLocal();
+      final normalized = DateTime(
+        localDate.year,
+        localDate.month,
+        localDate.day,
+      );
+      final entry = playerEntries.entryForDate(date);
+      if (entry == null) {
+        continue;
+      }
+      if (!normalized.isBefore(today) && entry.isPending) {
+        return entry;
+      }
+    }
+
+    for (final date in weekDates) {
+      final entry = playerEntries.entryForDate(date);
+      if (entry != null) {
+        return entry;
+      }
+    }
+
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final nextEntry = _nextRelevantEntry();
+    final presentCount = weekDates
+        .where((date) => playerEntries.entryForDate(date)?.isPresent ?? false)
+        .length;
+    final absentCount = weekDates
+        .where((date) => playerEntries.entryForDate(date)?.isAbsent ?? false)
+        .length;
+    final pendingCount = weekDates
+        .where((date) => playerEntries.entryForDate(date)?.isPending ?? true)
+        .length;
+    final currentStatus = nextEntry?.availabilityLabel ?? 'In attesa';
+    final statusColor = nextEntry == null
+        ? ClublineAppTheme.warning
+        : nextEntry.isPresent
+        ? ClublineAppTheme.success
+        : nextEntry.isAbsent
+        ? ClublineAppTheme.danger
+        : ClublineAppTheme.warning;
+    final isSaving =
+        nextEntry != null && savingEntryKeys.contains(nextEntry.entryKey);
+
+    return Card(
+      child: Padding(
+        padding: EdgeInsets.all(AppResponsive.cardPadding(context)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'La tua disponibilità',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              nextEntry == null
+                  ? 'Nessun giorno disponibile in questa settimana.'
+                  : 'Prossimo giorno: ${nextEntry.attendanceDayWithDateLabel}',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: ClublineAppTheme.textMuted,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Wrap(
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xs,
+              children: [
+                AppCountPill(
+                  label: 'Stato',
+                  value: currentStatus,
+                  color: statusColor,
+                  emphasized: true,
+                ),
+                AppCountPill(
+                  label: 'Si',
+                  value: '$presentCount',
+                  color: ClublineAppTheme.success,
+                ),
+                AppCountPill(
+                  label: 'No',
+                  value: '$absentCount',
+                  color: ClublineAppTheme.danger,
+                ),
+                AppCountPill(
+                  label: 'Attesa',
+                  value: '$pendingCount',
+                  color: ClublineAppTheme.warning,
+                ),
+              ],
+            ),
+            if (nextEntry != null) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Row(
+                children: [
+                  Expanded(
+                    child: AttendanceAvailabilityChip(
+                      label: 'Presente',
+                      selected: nextEntry.isPresent,
+                      color: ClublineAppTheme.success,
+                      enabled: !isSaving,
+                      onTap: () => onSelectAvailability(nextEntry, 'yes'),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(
+                    child: AttendanceAvailabilityChip(
+                      label: 'Assente',
+                      selected: nextEntry.isAbsent,
+                      color: ClublineAppTheme.danger,
+                      enabled: !isSaving,
+                      onTap: () => onSelectAvailability(nextEntry, 'no'),
+                    ),
+                  ),
+                ],
+              ),
+              if (isSaving) ...[
+                const SizedBox(height: AppSpacing.xs),
+                Row(
+                  children: [
+                    const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    Text(
+                      'Salvataggio in corso...',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: ClublineAppTheme.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AttendanceFocusCard extends StatelessWidget {
+  const _AttendanceFocusCard({required this.summary});
+
+  final AttendanceDaySummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: ClublineAppTheme.surfaceAlt.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: ClublineAppTheme.outlineSoft),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Prossimo giorno utile',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: ClublineAppTheme.goldSoft,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            formatAttendanceDayWithDate(summary.date),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            children: [
+              AppCountPill(
+                label: 'Si',
+                value: '${summary.presentCount}',
+                color: ClublineAppTheme.success,
+              ),
+              AppCountPill(
+                label: 'No',
+                value: '${summary.absentCount}',
+                color: ClublineAppTheme.danger,
+              ),
+              AppCountPill(
+                label: 'Attesa',
+                value: '${summary.pendingCount}',
+                color: ClublineAppTheme.warning,
+                emphasized: summary.pendingCount > 0,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class AttendancePendingDayCard extends StatelessWidget {
+  const AttendancePendingDayCard({super.key, required this.summary});
 
   final AttendanceDaySummary summary;
 
@@ -320,16 +605,16 @@ class AttendancePendingDayCard extends StatelessWidget {
                     Text(
                       formatAttendanceDayWithDate(summary.date),
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'Risposte ${summary.answeredCount}/${summary.totalPlayers}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: ClublineAppTheme.textMuted,
-                            fontWeight: FontWeight.w700,
-                          ),
+                        color: ClublineAppTheme.textMuted,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ],
                 ),
@@ -348,9 +633,9 @@ class AttendancePendingDayCard extends StatelessWidget {
             Text(
               'Tutti hanno gia votato per questo giorno.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: ClublineAppTheme.successSoft,
-                    fontWeight: FontWeight.w700,
-                  ),
+                color: ClublineAppTheme.successSoft,
+                fontWeight: FontWeight.w700,
+              ),
             )
           else
             Wrap(
@@ -371,10 +656,7 @@ class AttendancePendingDayCard extends StatelessWidget {
 }
 
 class AttendancePermissionsCard extends StatelessWidget {
-  const AttendancePermissionsCard({
-    super.key,
-    required this.viewer,
-  });
+  const AttendancePermissionsCard({super.key, required this.viewer});
 
   final PlayerProfile viewer;
 
@@ -383,8 +665,8 @@ class AttendancePermissionsCard extends StatelessWidget {
     final icon = viewer.isCaptain
         ? Icons.workspace_premium_outlined
         : viewer.isViceCaptain
-            ? Icons.shield_outlined
-            : Icons.person_outline;
+        ? Icons.shield_outlined
+        : Icons.person_outline;
 
     final title = viewer.canManageAttendanceAll
         ? 'Permessi estesi attivi'
@@ -408,16 +690,16 @@ class AttendancePermissionsCard extends StatelessWidget {
                   Text(
                     title,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     message,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: ClublineAppTheme.textMuted,
-                          height: 1.35,
-                        ),
+                      color: ClublineAppTheme.textMuted,
+                      height: 1.35,
+                    ),
                   ),
                 ],
               ),
@@ -430,10 +712,7 @@ class AttendancePermissionsCard extends StatelessWidget {
 }
 
 class AttendanceWeekInfoCard extends StatelessWidget {
-  const AttendanceWeekInfoCard({
-    super.key,
-    required this.week,
-  });
+  const AttendanceWeekInfoCard({super.key, required this.week});
 
   final AttendanceWeek week;
 
@@ -458,16 +737,16 @@ class AttendanceWeekInfoCard extends StatelessWidget {
                   Text(
                     week.title,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     '${week.subtitle}. Giorni attivi: ${week.selectedDatesSummary}.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: ClublineAppTheme.textMuted,
-                          height: 1.35,
-                        ),
+                      color: ClublineAppTheme.textMuted,
+                      height: 1.35,
+                    ),
                   ),
                 ],
               ),

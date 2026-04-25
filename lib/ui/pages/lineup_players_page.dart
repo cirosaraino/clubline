@@ -119,7 +119,8 @@ class _LineupPlayersPageState extends State<LineupPlayersPage> {
       for (final assignment in assignmentsToApply) {
         if (selectedValues.containsKey(assignment.positionCode)) {
           if (unavailablePlayerIds.contains(assignment.playerId)) {
-            final removedPlayer = assignment.player ??
+            final removedPlayer =
+                assignment.player ??
                 _playerByIdFromList(loadedPlayers, assignment.playerId);
             if (removedPlayer != null) {
               removedPlayers.add(removedPlayer);
@@ -175,7 +176,8 @@ class _LineupPlayersPageState extends State<LineupPlayersPage> {
 
     if (selectedPlayerIds.length != selectedPlayerIds.toSet().length) {
       setState(() {
-        errorMessage = 'Lo stesso giocatore non puo essere selezionato due volte';
+        errorMessage =
+            'Lo stesso giocatore non puo essere selezionato due volte';
       });
       return;
     }
@@ -204,13 +206,15 @@ class _LineupPlayersPageState extends State<LineupPlayersPage> {
         .toList();
 
     try {
-      await lineupRepository.replaceLineupPlayers(widget.lineup.id, assignments);
+      await lineupRepository.replaceLineupPlayers(
+        widget.lineup.id,
+        assignments,
+      );
 
       if (!mounted) return;
-      AppDataSync.instance.notifyDataChanged(
-        {AppDataScope.lineups},
-        reason: 'lineup_players_updated',
-      );
+      AppDataSync.instance.notifyDataChanged({
+        AppDataScope.lineups,
+      }, reason: 'lineup_players_updated');
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Giocatori formazione salvati')),
@@ -250,7 +254,9 @@ class _LineupPlayersPageState extends State<LineupPlayersPage> {
     final preferredMacroRole = roleCategoryLabel(preferredRole);
     final availablePlayers = players
         .where(
-          (player) => !usedPlayerIds.contains(player.id) || player.id == currentPlayerId,
+          (player) =>
+              !usedPlayerIds.contains(player.id) ||
+              player.id == currentPlayerId,
         )
         .toList();
 
@@ -271,7 +277,9 @@ class _LineupPlayersPageState extends State<LineupPlayersPage> {
         return a.fullName.compareTo(b.fullName);
       }
 
-      final primaryRoleOrder = a.primaryRoleSortIndex.compareTo(b.primaryRoleSortIndex);
+      final primaryRoleOrder = a.primaryRoleSortIndex.compareTo(
+        b.primaryRoleSortIndex,
+      );
       if (primaryRoleOrder != 0) return primaryRoleOrder;
 
       return a.fullName.compareTo(b.fullName);
@@ -288,7 +296,8 @@ class _LineupPlayersPageState extends State<LineupPlayersPage> {
     if (player.roleCodes.contains(preferredRole)) {
       return 0;
     }
-    final matchesMacroRole = preferredMacroRole != null &&
+    final matchesMacroRole =
+        preferredMacroRole != null &&
         player.roleCodes.any(
           (role) => roleCategoryLabel(role) == preferredMacroRole,
         );
@@ -306,6 +315,7 @@ class _LineupPlayersPageState extends State<LineupPlayersPage> {
     final preferredRole = preferredRoleForPositionCode(positionCode);
     final preferredMacroRole = roleCategoryLabel(preferredRole);
     final availablePlayers = _sortedPlayersForPosition(positionCode);
+    final currentPlayer = _playerById(currentPlayerId);
     final clearSelectionToken = Object();
 
     final result = await showModalBottomSheet<Object?>(
@@ -315,7 +325,8 @@ class _LineupPlayersPageState extends State<LineupPlayersPage> {
       builder: (context) {
         return SafeArea(
           child: SizedBox(
-            height: MediaQuery.of(context).size.height *
+            height:
+                MediaQuery.of(context).size.height *
                 (AppResponsive.isCompact(context) ? 0.86 : 0.78),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -329,7 +340,9 @@ class _LineupPlayersPageState extends State<LineupPlayersPage> {
                   ),
                   child: Text(
                     'Seleziona giocatore per $positionCode',
-                    style: Theme.of(context).textTheme.titleMedium,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
                 Padding(
@@ -337,18 +350,46 @@ class _LineupPlayersPageState extends State<LineupPlayersPage> {
                     AppResponsive.horizontalPadding(context) + 4,
                     0,
                     AppResponsive.horizontalPadding(context) + 4,
-                    12,
+                    8,
                   ),
-                  child: Text(
-                    preferredMacroRole == null
-                        ? 'Ruolo consigliato: $preferredRole'
-                        : 'Ruolo consigliato: $preferredRole • Macroruolo: $preferredMacroRole',
+                  child: Wrap(
+                    spacing: AppSpacing.xs,
+                    runSpacing: AppSpacing.xs,
+                    children: [
+                      AppCountPill(
+                        label: 'Disponibili',
+                        value: '${availablePlayers.length}',
+                      ),
+                      AppCountPill(
+                        label: 'Ruolo',
+                        value: preferredRole,
+                        emphasized: true,
+                      ),
+                      if (preferredMacroRole != null)
+                        AppCountPill(label: 'Area', value: preferredMacroRole),
+                    ],
                   ),
                 ),
+                if (currentPlayer != null)
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      AppResponsive.horizontalPadding(context) + 4,
+                      0,
+                      AppResponsive.horizontalPadding(context) + 4,
+                      8,
+                    ),
+                    child: Text(
+                      'Attuale: ${currentPlayer.fullName}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: ClublineAppTheme.textMuted,
+                      ),
+                    ),
+                  ),
                 if (currentPlayerId != null)
                   ListTile(
                     leading: const Icon(Icons.clear),
                     title: const Text('Rimuovi assegnazione'),
+                    subtitle: const Text('Lascia libero questo slot'),
                     onTap: () => Navigator.pop(context, clearSelectionToken),
                   ),
                 if (availablePlayers.isEmpty)
@@ -362,7 +403,9 @@ class _LineupPlayersPageState extends State<LineupPlayersPage> {
                       itemCount: availablePlayers.length,
                       itemBuilder: (context, index) {
                         final player = availablePlayers[index];
-                        final isRecommended = player.roleCodes.contains(preferredRole);
+                        final isRecommended = player.roleCodes.contains(
+                          preferredRole,
+                        );
                         final isSelected = player.id == currentPlayerId;
 
                         return LineupPlayerPickerTile(
@@ -402,30 +445,31 @@ class _LineupPlayersPageState extends State<LineupPlayersPage> {
     final compact = AppResponsive.isCompact(context);
     final horizontalPadding = AppResponsive.horizontalPadding(context);
     final headerCardPadding = compact ? 10.0 : 12.0;
-    final isViewerIncluded = currentUser != null &&
-        selectedPlayerIdsByPosition.values.any((playerId) => playerId == currentUser.id);
+    final assignedPlayersCount = selectedPlayerIdsByPosition.values
+        .where((playerId) => playerId != null)
+        .length;
+    final totalSlots = positionCodes.length;
+    final isViewerIncluded =
+        currentUser != null &&
+        selectedPlayerIdsByPosition.values.any(
+          (playerId) => playerId == currentUser.id,
+        );
     final readOnlyDescription = currentUser == null
-        ? 'Vista sola lettura della formazione.'
+        ? 'Vista in sola lettura.'
         : isViewerIncluded
-            ? 'Vista sola lettura della formazione. Sei presente in questa formazione.'
-            : 'Vista sola lettura della formazione. Non sei presente in questa formazione.';
+        ? 'Vista in sola lettura. Sei presente in questa formazione.'
+        : 'Vista in sola lettura. Non sei presente in questa formazione.';
 
     if (isLoading) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('Giocatori formazione'),
-        ),
-        body: const Center(
-          child: CircularProgressIndicator(),
-        ),
+        appBar: AppBar(title: const Text('Giocatori formazione')),
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (positionCodes.isEmpty) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('Giocatori formazione'),
-        ),
+        appBar: AppBar(title: const Text('Giocatori formazione')),
         body: const Center(
           child: Padding(
             padding: EdgeInsets.all(16),
@@ -437,7 +481,9 @@ class _LineupPlayersPageState extends State<LineupPlayersPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isReadOnly ? 'Dettaglio formazione' : 'Giocatori formazione'),
+        title: Text(
+          isReadOnly ? 'Dettaglio formazione' : 'Giocatori formazione',
+        ),
       ),
       body: AppPageBackground(
         child: SafeArea(
@@ -445,7 +491,12 @@ class _LineupPlayersPageState extends State<LineupPlayersPage> {
           child: Column(
             children: [
               Card(
-                margin: EdgeInsets.fromLTRB(horizontalPadding, 8, horizontalPadding, 8),
+                margin: EdgeInsets.fromLTRB(
+                  horizontalPadding,
+                  8,
+                  horizontalPadding,
+                  8,
+                ),
                 child: Padding(
                   padding: EdgeInsets.all(headerCardPadding),
                   child: Column(
@@ -453,9 +504,8 @@ class _LineupPlayersPageState extends State<LineupPlayersPage> {
                     children: [
                       Text(
                         widget.lineup.competitionName,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w800,
-                            ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w800),
                       ),
                       const SizedBox(height: 6),
                       Wrap(
@@ -472,17 +522,23 @@ class _LineupPlayersPageState extends State<LineupPlayersPage> {
                             label: widget.lineup.matchDateTimeDisplay,
                             icon: Icons.schedule_outlined,
                           ),
+                          if (!isReadOnly)
+                            AppCountPill(
+                              label: 'Slot',
+                              value: '$assignedPlayersCount/$totalSlots',
+                              emphasized: assignedPlayersCount > 0,
+                            ),
                         ],
                       ),
                       const SizedBox(height: 8),
                       Text(
                         isReadOnly
                             ? readOnlyDescription
-                            : 'Tocca uno slot sul campo per assegnare il giocatore.',
+                            : 'Tocca uno slot sul campo e scegli il giocatore.',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: ClublineAppTheme.textMuted,
-                              height: 1.35,
-                            ),
+                          color: ClublineAppTheme.textMuted,
+                          height: 1.35,
+                        ),
                       ),
                       if (currentUser != null) ...[
                         const SizedBox(height: 8),
@@ -512,15 +568,26 @@ class _LineupPlayersPageState extends State<LineupPlayersPage> {
               ),
               if (errorMessage != null)
                 Padding(
-                  padding: EdgeInsets.fromLTRB(horizontalPadding, 0, horizontalPadding, 8),
-                  child: Text(
-                    errorMessage!,
-                    style: const TextStyle(color: Colors.red),
+                  padding: EdgeInsets.fromLTRB(
+                    horizontalPadding,
+                    0,
+                    horizontalPadding,
+                    8,
+                  ),
+                  child: AppBanner(
+                    message: errorMessage!,
+                    tone: AppStatusTone.error,
+                    icon: Icons.error_outline,
                   ),
                 ),
               Expanded(
                 child: Padding(
-                  padding: EdgeInsets.fromLTRB(horizontalPadding, 0, horizontalPadding, 8),
+                  padding: EdgeInsets.fromLTRB(
+                    horizontalPadding,
+                    0,
+                    horizontalPadding,
+                    8,
+                  ),
                   child: LineupPitchView(
                     formationModule: widget.lineup.formationModule,
                     selectedPlayersByPosition: _selectedPlayersByPosition(),
@@ -530,22 +597,38 @@ class _LineupPlayersPageState extends State<LineupPlayersPage> {
                 ),
               ),
               if (!isReadOnly)
-                SafeArea(
-                  top: false,
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      horizontalPadding,
-                      compact ? 8 : 12,
-                      horizontalPadding,
-                      16,
-                    ),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: isSaving ? null : _saveAssignments,
-                        child: Text(isSaving ? 'Salvataggio...' : 'Salva giocatori'),
+                AppBottomSafeAreaBar(
+                  backgroundColor: Theme.of(
+                    context,
+                  ).colorScheme.surface.withValues(alpha: 0.96),
+                  padding: EdgeInsets.fromLTRB(
+                    horizontalPadding,
+                    compact ? 8 : 12,
+                    horizontalPadding,
+                    16,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        '$assignedPlayersCount di $totalSlots slot assegnati',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: ClublineAppTheme.textMuted,
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: AppSpacing.xs),
+                      AppActionButton(
+                        label: isSaving
+                            ? 'Salvataggio...'
+                            : 'Conferma formazione',
+                        icon: Icons.save_outlined,
+                        expand: true,
+                        isLoading: isSaving,
+                        onPressed: isSaving ? null : _saveAssignments,
+                      ),
+                    ],
                   ),
                 ),
             ],
@@ -557,9 +640,7 @@ class _LineupPlayersPageState extends State<LineupPlayersPage> {
 }
 
 class _ViewerPresenceBanner extends StatelessWidget {
-  const _ViewerPresenceBanner({
-    required this.isIncluded,
-  });
+  const _ViewerPresenceBanner({required this.isIncluded});
 
   final bool isIncluded;
 
@@ -572,7 +653,9 @@ class _ViewerPresenceBanner extends StatelessWidget {
         ? ClublineAppTheme.success.withValues(alpha: 0.3)
         : ClublineAppTheme.danger;
     final contentColor = isIncluded ? ClublineAppTheme.success : Colors.white;
-    final icon = isIncluded ? Icons.check_circle_outline : Icons.cancel_outlined;
+    final icon = isIncluded
+        ? Icons.check_circle_outline
+        : Icons.cancel_outlined;
 
     return Container(
       width: double.infinity,
@@ -592,10 +675,10 @@ class _ViewerPresenceBanner extends StatelessWidget {
                   ? 'Sei gia inserito in questa formazione.'
                   : 'In questa formazione non sei stato inserito.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: contentColor,
-                    fontWeight: FontWeight.w700,
-                    height: 1.2,
-                  ),
+                color: contentColor,
+                fontWeight: FontWeight.w700,
+                height: 1.2,
+              ),
             ),
           ),
         ],
@@ -670,18 +753,14 @@ class _AttendanceFilterNotice extends StatelessWidget {
                       children: [
                         Text(
                           'Disponibilita filtrate',
-                          style:
-                              Theme.of(context).textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                  ),
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           formatMatchDateTime(matchDateTime),
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: ClublineAppTheme.textMuted,
-                                  ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: ClublineAppTheme.textMuted),
                         ),
                         const SizedBox(height: 6),
                         Wrap(
@@ -715,11 +794,11 @@ class _AttendanceFilterNotice extends StatelessWidget {
                           const SizedBox(height: 6),
                           Text(
                             'Tocca per vedere chi e stato filtrato.',
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: ClublineAppTheme.textMuted,
-                                      height: 1.3,
-                                    ),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: ClublineAppTheme.textMuted,
+                                  height: 1.3,
+                                ),
                           ),
                         ],
                       ],
@@ -751,18 +830,18 @@ class _AttendanceFilterNotice extends StatelessWidget {
                   Text(
                     subtitle,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: ClublineAppTheme.textMuted,
-                          height: 1.35,
-                        ),
+                      color: ClublineAppTheme.textMuted,
+                      height: 1.35,
+                    ),
                   ),
                   if (absentPlayers.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     Text(
                       'Assenti filtrati',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: ClublineAppTheme.dangerSoft,
-                            fontWeight: FontWeight.w800,
-                          ),
+                        color: ClublineAppTheme.dangerSoft,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Wrap(
@@ -785,9 +864,9 @@ class _AttendanceFilterNotice extends StatelessWidget {
                     Text(
                       'In attesa filtrati',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: ClublineAppTheme.warningSoft,
-                            fontWeight: FontWeight.w800,
-                          ),
+                        color: ClublineAppTheme.warningSoft,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Wrap(
@@ -837,9 +916,9 @@ class _SummaryPill extends StatelessWidget {
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: textColor,
-              fontWeight: FontWeight.w700,
-            ),
+          color: textColor,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -868,9 +947,9 @@ class _FilteredPlayerChip extends StatelessWidget {
       child: Text(
         label,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: textColor,
-              fontWeight: FontWeight.w700,
-            ),
+          color: textColor,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }

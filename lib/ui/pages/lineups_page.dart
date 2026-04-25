@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../core/app_data_sync.dart';
 import '../../core/app_session.dart';
 import '../../data/lineup_repository.dart';
+import '../../core/lineup_formatters.dart';
 import '../../models/lineup.dart';
 import '../../models/lineup_player_assignment.dart';
 import '../../models/player_profile.dart';
@@ -121,11 +122,7 @@ class _LineupsPageState extends State<LineupsPage> {
   }
 
   String _formatDayLabel(DateTime value) {
-    final local = value.toLocal();
-    final day = local.day.toString().padLeft(2, '0');
-    final month = local.month.toString().padLeft(2, '0');
-    final year = local.year.toString();
-    return '$day/$month/$year';
+    return formatMatchDayLabel(value, includeYear: true);
   }
 
   void _syncCollapsedDayKeys(List<Lineup> nextLineups) {
@@ -481,21 +478,26 @@ class _LineupsPageState extends State<LineupsPage> {
             message: errorMessage!,
           ),
         ],
-        padding: AppResponsive.pagePadding(context, top: 24),
+        padding: AppResponsive.pagePadding(context, top: AppSpacing.sm),
       );
     }
 
     if (lineups.isEmpty) {
       return _buildScrollableBody(
-        const [
+        [
           _LineupsStatusCard(
             icon: Icons.stadium_outlined,
-            title: 'Nessuna formazione trovata',
-            message:
-                'Crea la prima formazione e assegna subito i titolari direttamente sul campo.',
+            title: canManageLineups
+                ? 'Crea la prima formazione'
+                : 'Nessuna formazione disponibile',
+            message: canManageLineups
+                ? 'Imposta modulo e partita, poi assegna i giocatori.'
+                : 'Il club non ha ancora pubblicato una formazione.',
+            actionLabel: canManageLineups ? 'Crea formazione' : null,
+            onAction: canManageLineups ? () => _openLineupForm() : null,
           ),
         ],
-        padding: AppResponsive.pagePadding(context, top: 24),
+        padding: AppResponsive.pagePadding(context, top: AppSpacing.sm),
       );
     }
 
@@ -624,11 +626,15 @@ class _LineupsStatusCard extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.message,
+    this.actionLabel,
+    this.onAction,
   });
 
   final IconData icon;
   final String title;
   final String message;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -636,6 +642,9 @@ class _LineupsStatusCard extends StatelessWidget {
       icon: icon,
       title: title,
       message: message,
+      actionLabel: actionLabel,
+      actionIcon: Icons.add_circle_outline,
+      onAction: onAction,
     );
   }
 }

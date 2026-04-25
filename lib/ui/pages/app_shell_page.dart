@@ -508,21 +508,16 @@ class _AppShellPageState extends State<AppShellPage> {
     final navigationBackground =
         theme.navigationBarTheme.backgroundColor ?? theme.colorScheme.surface;
 
-    return ColoredBox(
-      color: navigationBackground,
-      child: SafeArea(
-        top: false,
-        left: false,
-        right: false,
-        maintainBottomViewPadding: true,
-        child: NavigationBar(
-          height: AppResponsive.isCompact(context) ? 74 : null,
-          selectedIndex: selectedIndex,
-          onDestinationSelected: (index) {
-            unawaited(_handleDestinationSelected(index));
-          },
-          destinations: _bottomDestinations(),
-        ),
+    return AppBottomSafeAreaBar(
+      backgroundColor: navigationBackground,
+      padding: EdgeInsets.zero,
+      child: NavigationBar(
+        height: AppResponsive.isCompact(context) ? 74 : null,
+        selectedIndex: selectedIndex,
+        onDestinationSelected: (index) {
+          unawaited(_handleDestinationSelected(index));
+        },
+        destinations: _bottomDestinations(),
       ),
     );
   }
@@ -542,6 +537,9 @@ class _AppShellPageState extends State<AppShellPage> {
           isRecoveryFlow: session.requiresPasswordRecovery,
         ),
         onOpenBiometricSettings: _openBiometricSettings,
+        onOpenAttendanceTab: () {
+          unawaited(_handleDestinationSelected(4));
+        },
         onOpenClubManagement: _openClubManagement,
         onOpenThemeSettings: _openThemeSettings,
         onOpenVicePermissionsSettings: _openVicePermissionsSettings,

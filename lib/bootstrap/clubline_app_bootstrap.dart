@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app.dart';
+import '../core/app_localization.dart';
 import '../core/config/app_runtime_config.dart';
 
 Future<void> bootstrapClublineApp() async {
@@ -24,6 +25,9 @@ class _StartupConfigurationErrorApp extends StatelessWidget {
     return MaterialApp(
       title: 'Clubline',
       debugShowCheckedModeBanner: false,
+      locale: ClublineLocalization.italian,
+      supportedLocales: ClublineLocalization.supportedLocales,
+      localizationsDelegates: ClublineLocalization.localizationsDelegates,
       home: Scaffold(
         backgroundColor: const Color(0xFF08111F),
         body: Center(

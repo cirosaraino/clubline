@@ -81,21 +81,54 @@ class _AuthSheetState extends State<AuthSheet> {
     return message;
   }
 
+  bool _isValidEmail(String email) {
+    final trimmed = email.trim();
+    return trimmed.contains('@') && trimmed.contains('.');
+  }
+
+  String? _validateInputs({
+    required String email,
+    required String password,
+    required String confirmPassword,
+  }) {
+    if (email.isEmpty) {
+      return 'Inserisci l email';
+    }
+
+    if (!_isValidEmail(email)) {
+      return 'Inserisci un email valida';
+    }
+
+    if (password.isEmpty) {
+      return 'Inserisci la password';
+    }
+
+    if (selectedMode == AuthSheetMode.signUp && confirmPassword.isEmpty) {
+      return 'Conferma la password';
+    }
+
+    if (selectedMode == AuthSheetMode.signUp && password != confirmPassword) {
+      return 'Le password non coincidono';
+    }
+
+    return null;
+  }
+
   Future<void> _submit() async {
     final email = emailController.text.trim();
     final password = passwordController.text;
     final confirmPassword = confirmPasswordController.text;
 
-    if (email.isEmpty || password.isEmpty) {
-      setState(() {
-        errorMessage = 'Compila email e password';
-      });
-      return;
-    }
+    FocusScope.of(context).unfocus();
 
-    if (selectedMode == AuthSheetMode.signUp && password != confirmPassword) {
+    final validationError = _validateInputs(
+      email: email,
+      password: password,
+      confirmPassword: confirmPassword,
+    );
+    if (validationError != null) {
       setState(() {
-        errorMessage = 'Le password non coincidono';
+        errorMessage = validationError;
       });
       return;
     }
@@ -132,228 +165,249 @@ class _AuthSheetState extends State<AuthSheet> {
     }
   }
 
+  Widget _buildDragHandle() {
+    return Center(
+      child: Container(
+        width: 42,
+        height: 5,
+        decoration: BoxDecoration(
+          color: ClublineAppTheme.outlineStrong,
+          borderRadius: BorderRadius.circular(999),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompactHeader(BuildContext context, bool isSignIn) {
+    return Column(
+      children: [
+        ClublineBrandLogo(width: 106),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          isSignIn ? 'Accedi' : 'Registrati',
+          textAlign: TextAlign.center,
+          style: Theme.of(
+            context,
+          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          isSignIn ? 'Entra nel tuo account.' : 'Crea il tuo account.',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: ClublineAppTheme.textMuted,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDesktopIntro(BuildContext context, bool isSignIn) {
+    return AppSurfaceCard(
+      icon: Icons.shield_outlined,
+      title: 'Clubline',
+      subtitle: isSignIn
+          ? 'Accedi e torna subito al tuo club.'
+          : 'Registrati e inizia dal tuo giocatore.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(child: ClublineBrandLogo(width: 170)),
+          const SizedBox(height: AppSpacing.md),
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
+            children: [
+              AppStatusBadge(
+                label: isSignIn ? 'Accesso rapido' : 'Partenza rapida',
+                tone: AppStatusTone.success,
+              ),
+              const AppStatusBadge(
+                label: 'Web • iPhone • Android',
+                tone: AppStatusTone.info,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildModeToggle(BuildContext context, bool compact) {
+    return SizedBox(
+      width: double.infinity,
+      child: SegmentedButton<AuthSheetMode>(
+        segments: const [
+          ButtonSegment<AuthSheetMode>(
+            value: AuthSheetMode.signIn,
+            label: Text('Accedi'),
+            icon: Icon(Icons.login_outlined),
+          ),
+          ButtonSegment<AuthSheetMode>(
+            value: AuthSheetMode.signUp,
+            label: Text('Registrati'),
+            icon: Icon(Icons.person_add_alt_1_outlined),
+          ),
+        ],
+        selected: {selectedMode},
+        onSelectionChanged: isSubmitting
+            ? null
+            : (selection) {
+                setState(() {
+                  selectedMode = selection.first;
+                  errorMessage = null;
+                });
+              },
+        style: compact
+            ? ButtonStyle(
+                visualDensity: const VisualDensity(
+                  horizontal: -1,
+                  vertical: -1,
+                ),
+              )
+            : null,
+      ),
+    );
+  }
+
+  Widget _buildFormCard(BuildContext context, bool isSignIn, bool compact) {
+    return AppSurfaceCard(
+      icon: isSignIn ? Icons.login_outlined : Icons.person_add_alt_1_outlined,
+      title: isSignIn ? 'Accedi' : 'Registrati',
+      subtitle: isSignIn ? 'Email e password' : 'Crea il tuo accesso',
+      child: AutofillGroup(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildModeToggle(context, compact),
+            const SizedBox(height: AppSpacing.md),
+            TextField(
+              controller: emailController,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.username, AutofillHints.email],
+              autocorrect: false,
+              enableSuggestions: false,
+              decoration: _decoration(
+                'Email',
+                icon: Icons.alternate_email_outlined,
+              ),
+              enabled: !isSubmitting,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            TextField(
+              controller: passwordController,
+              obscureText: true,
+              textInputAction: isSignIn
+                  ? TextInputAction.done
+                  : TextInputAction.next,
+              autofillHints: isSignIn
+                  ? const [AutofillHints.password]
+                  : const [AutofillHints.newPassword],
+              decoration: _decoration(
+                'Password',
+                icon: Icons.lock_outline,
+              ),
+              enabled: !isSubmitting,
+              onSubmitted: isSignIn && !isSubmitting ? (_) => _submit() : null,
+            ),
+            if (isSignIn) ...[
+              const SizedBox(height: 4),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: isSubmitting ? null : _openPasswordResetSheet,
+                  child: const Text('Password dimenticata?'),
+                ),
+              ),
+            ],
+            if (!isSignIn) ...[
+              const SizedBox(height: AppSpacing.sm),
+              TextField(
+                controller: confirmPasswordController,
+                obscureText: true,
+                textInputAction: TextInputAction.done,
+                autofillHints: const [AutofillHints.newPassword],
+                decoration: _decoration(
+                  'Conferma password',
+                  icon: Icons.lock_reset_outlined,
+                ),
+                enabled: !isSubmitting,
+                onSubmitted: isSubmitting ? null : (_) => _submit(),
+              ),
+            ],
+            if (errorMessage != null) ...[
+              const SizedBox(height: AppSpacing.sm),
+              AppBanner(
+                message: errorMessage!,
+                tone: _isEmailRateLimitMessage(errorMessage!)
+                    ? AppStatusTone.info
+                    : AppStatusTone.error,
+                icon: _isEmailRateLimitMessage(errorMessage!)
+                    ? Icons.schedule_outlined
+                    : Icons.error_outline,
+              ),
+            ],
+            const SizedBox(height: AppSpacing.md),
+            AppActionButton(
+              label: isSubmitting
+                  ? 'Attendi...'
+                  : isSignIn
+                  ? 'Accedi'
+                  : 'Crea account',
+              icon: isSignIn
+                  ? Icons.arrow_forward_outlined
+                  : Icons.person_add_alt_1_outlined,
+              expand: true,
+              isLoading: isSubmitting,
+              onPressed: isSubmitting ? null : _submit,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final compact = AppResponsive.isCompact(context);
-    final horizontalPadding = AppResponsive.horizontalPadding(context) + 4;
+    final horizontalPadding = AppResponsive.horizontalPadding(context);
     final isSignIn = selectedMode == AuthSheetMode.signIn;
+    final content = compact
+        ? Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildDragHandle(),
+              const SizedBox(height: AppSpacing.md),
+              _buildCompactHeader(context, isSignIn),
+              const SizedBox(height: AppSpacing.md),
+              _buildFormCard(context, isSignIn, compact),
+            ],
+          )
+        : AppAdaptiveColumns(
+            breakpoint: 760,
+            gap: AppResponsive.sectionGap(context),
+            flex: const [4, 5],
+            children: [
+              _buildDesktopIntro(context, isSignIn),
+              _buildFormCard(context, isSignIn, compact),
+            ],
+          );
 
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.only(
           left: horizontalPadding,
           right: horizontalPadding,
-          top: 10,
-          bottom: 18 + MediaQuery.of(context).viewInsets.bottom,
+          top: compact ? 8 : 12,
+          bottom: 14 + MediaQuery.of(context).viewInsets.bottom,
         ),
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 920),
+            constraints: BoxConstraints(maxWidth: compact ? 440 : 860),
             child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 42,
-                      height: 5,
-                      decoration: BoxDecoration(
-                        color: ClublineAppTheme.outlineStrong,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  AppAdaptiveColumns(
-                    breakpoint: 760,
-                    gap: AppResponsive.sectionGap(context),
-                    flex: const [5, 4],
-                    children: [
-                      AppHeroPanel(
-                        eyebrow: isSignIn ? 'Bentornato' : 'Nuovo account',
-                        title: isSignIn
-                            ? 'Entra in Clubline'
-                            : 'Crea il tuo accesso',
-                        subtitle: isSignIn
-                            ? 'Accedi e riprendi subito il flusso del tuo club su web, iPhone e Android.'
-                            : 'Registrati, crea il tuo giocatore e poi scegli se fondare un club o unirti a una squadra esistente.',
-                        media: Center(
-                          child: ClublineBrandLogo(width: compact ? 170 : 210),
-                        ),
-                        badges: [
-                          const AppStatusBadge(
-                            label: 'Multi-club',
-                            tone: AppStatusTone.info,
-                          ),
-                          AppStatusBadge(
-                            label: isSignIn
-                                ? 'Login sicuro'
-                                : 'Accesso immediato',
-                            tone: AppStatusTone.success,
-                          ),
-                        ],
-                        footer: AppResponsiveGrid(
-                          minChildWidth: 170,
-                          gap: AppSpacing.sm,
-                          children: const [
-                            AppMetricCard(
-                              label: 'Flusso account',
-                              value: '1 accesso',
-                              icon: Icons.login_outlined,
-                              caption: 'Email e password',
-                            ),
-                            AppMetricCard(
-                              label: 'Onboarding',
-                              value: '1 giocatore',
-                              icon: Icons.badge_outlined,
-                              caption: 'Profilo unico riusabile',
-                            ),
-                            AppMetricCard(
-                              label: 'Prossimo step',
-                              value: 'Club',
-                              icon: Icons.shield_outlined,
-                              caption: 'Crea o richiedi ingresso',
-                              emphasized: true,
-                            ),
-                          ],
-                        ),
-                      ),
-                      AppSurfaceCard(
-                        icon: isSignIn
-                            ? Icons.login_outlined
-                            : Icons.person_add_alt_1_outlined,
-                        title: isSignIn
-                            ? 'Accesso account'
-                            : 'Registrazione account',
-                        subtitle: isSignIn
-                            ? 'Usa le tue credenziali per entrare nel progetto Clubline.'
-                            : 'Completa i dati essenziali. Il resto del flusso avviene dentro l app.',
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            SizedBox(
-                              width: double.infinity,
-                              child: SegmentedButton<AuthSheetMode>(
-                                segments: const [
-                                  ButtonSegment<AuthSheetMode>(
-                                    value: AuthSheetMode.signIn,
-                                    label: Text('Accedi'),
-                                    icon: Icon(Icons.login_outlined),
-                                  ),
-                                  ButtonSegment<AuthSheetMode>(
-                                    value: AuthSheetMode.signUp,
-                                    label: Text('Registrati'),
-                                    icon: Icon(Icons.person_add_alt_1_outlined),
-                                  ),
-                                ],
-                                selected: {selectedMode},
-                                onSelectionChanged: isSubmitting
-                                    ? null
-                                    : (selection) {
-                                        setState(() {
-                                          selectedMode = selection.first;
-                                          errorMessage = null;
-                                        });
-                                      },
-                                style: compact
-                                    ? ButtonStyle(
-                                        visualDensity: const VisualDensity(
-                                          horizontal: -1,
-                                          vertical: -1,
-                                        ),
-                                      )
-                                    : null,
-                              ),
-                            ),
-                            if (!isSignIn) ...[
-                              const SizedBox(height: AppSpacing.md),
-                              const AppBanner(
-                                message:
-                                    'Con la configurazione attuale, dopo la registrazione entrerai direttamente nell app.',
-                                tone: AppStatusTone.info,
-                                icon: Icons.info_outline,
-                              ),
-                            ],
-                            const SizedBox(height: AppSpacing.lg),
-                            TextField(
-                              controller: emailController,
-                              keyboardType: TextInputType.emailAddress,
-                              autocorrect: false,
-                              enableSuggestions: false,
-                              decoration: _decoration(
-                                'Email',
-                                icon: Icons.alternate_email_outlined,
-                              ),
-                              enabled: !isSubmitting,
-                            ),
-                            const SizedBox(height: 12),
-                            TextField(
-                              controller: passwordController,
-                              obscureText: true,
-                              decoration: _decoration(
-                                'Password',
-                                icon: Icons.lock_outline,
-                              ),
-                              enabled: !isSubmitting,
-                            ),
-                            if (isSignIn) ...[
-                              const SizedBox(height: 6),
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: TextButton(
-                                  onPressed: isSubmitting
-                                      ? null
-                                      : _openPasswordResetSheet,
-                                  child: const Text('Password dimenticata?'),
-                                ),
-                              ),
-                            ],
-                            if (!isSignIn) ...[
-                              const SizedBox(height: 12),
-                              TextField(
-                                controller: confirmPasswordController,
-                                obscureText: true,
-                                decoration: _decoration(
-                                  'Conferma password',
-                                  icon: Icons.lock_reset_outlined,
-                                ),
-                                enabled: !isSubmitting,
-                              ),
-                            ],
-                            if (errorMessage != null) ...[
-                              const SizedBox(height: 14),
-                              AppBanner(
-                                message: errorMessage!,
-                                tone: _isEmailRateLimitMessage(errorMessage!)
-                                    ? AppStatusTone.info
-                                    : AppStatusTone.error,
-                                icon: _isEmailRateLimitMessage(errorMessage!)
-                                    ? Icons.schedule_outlined
-                                    : Icons.error_outline,
-                              ),
-                            ],
-                            const SizedBox(height: AppSpacing.lg),
-                            AppActionButton(
-                              label: isSubmitting
-                                  ? 'Attendi...'
-                                  : isSignIn
-                                  ? 'Accedi'
-                                  : 'Crea account',
-                              icon: isSignIn
-                                  ? Icons.arrow_forward_outlined
-                                  : Icons.person_add_alt_1_outlined,
-                              expand: true,
-                              isLoading: isSubmitting,
-                              onPressed: isSubmitting ? null : _submit,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+              child: content,
             ),
           ),
         ),
