@@ -296,9 +296,9 @@ class HomePage extends StatelessWidget {
               child: SingleChildScrollView(
                 padding: EdgeInsets.fromLTRB(
                   AppResponsive.horizontalPadding(context),
-                  12,
+                  AppResponsive.isCompact(context) ? 8 : 12,
                   AppResponsive.horizontalPadding(context),
-                  28,
+                  AppResponsive.isCompact(context) ? 18 : 28,
                 ),
                 child: AppAdaptiveColumns(
                   breakpoint: 1080,
@@ -312,6 +312,8 @@ class HomePage extends StatelessWidget {
                       isPersonalizedExperience: isPersonalizedExperience,
                       currentUserEmail: currentUserEmail,
                       needsProfileSetup: needsProfileSetup,
+                      onOpenCreateProfile: onOpenCreateProfile,
+                      onOpenClubManagement: onOpenClubManagement,
                       onOpenThemeSettings:
                           isPersonalizedExperience && !needsProfileSetup
                           ? onOpenThemeSettings
@@ -405,25 +407,88 @@ class _ClubPulseCard extends StatelessWidget {
     final pendingJoin = session.captainPendingJoinRequests.length;
     final pendingLeave = session.captainPendingLeaveRequests.length;
     final isCaptain = currentUser.isCaptain;
+    final compact = AppResponsive.isCompact(context);
+    final pendingTotal = pendingJoin + pendingLeave;
 
     final title = isCaptain
-        ? 'Dashboard capitano pronta'
+        ? pendingTotal == 0
+              ? 'Dashboard capitano'
+              : '$pendingTotal richieste da gestire'
         : session.hasPendingLeaveRequest
-        ? 'Richiesta di uscita in attesa'
+        ? 'Uscita inviata'
         : 'Club attivo';
     final message = isCaptain
-        ? 'Hai $pendingJoin richieste di ingresso e $pendingLeave richieste di uscita da gestire.'
-        : 'La tua richiesta di uscita è stata inviata e resta in attesa della decisione del capitano.';
+        ? pendingTotal == 0
+              ? 'Hai tutto sotto controllo. Apri la dashboard per richieste, vice e impostazioni club.'
+              : '$pendingJoin ingressi e $pendingLeave uscite aspettano la tua decisione.'
+        : 'La richiesta di uscita e in attesa della decisione del capitano.';
 
-    return AppStatusCard(
-      icon: isCaptain
-          ? Icons.admin_panel_settings_outlined
-          : Icons.hourglass_top_outlined,
-      title: title,
-      message: message,
-      actionLabel: isCaptain ? 'Apri dashboard capitano' : null,
-      actionIcon: Icons.arrow_forward_outlined,
-      onAction: isCaptain ? onOpenClubManagement : null,
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: EdgeInsets.all(
+          compact
+              ? AppResponsive.cardPadding(context) - 2
+              : AppResponsive.cardPadding(context),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AppIconBadge(
+                  icon: isCaptain
+                      ? Icons.admin_panel_settings_outlined
+                      : Icons.hourglass_top_outlined,
+                  size: compact ? 52 : 58,
+                  iconSize: compact ? 20 : 22,
+                  borderRadius: 18,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (isCaptain && pendingTotal > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                          child: AppStatusBadge(
+                            label: 'Da approvare',
+                            tone: AppStatusTone.warning,
+                          ),
+                        ),
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        message,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: ClublineAppTheme.textMuted,
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (isCaptain) ...[
+              const SizedBox(height: AppSpacing.sm),
+              AppActionButton(
+                label: 'Vai alla dashboard capitano',
+                icon: Icons.arrow_forward_outlined,
+                variant: AppButtonVariant.primary,
+                expand: true,
+                onPressed: onOpenClubManagement,
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
@@ -436,6 +501,8 @@ class _HomeWelcomeCard extends StatelessWidget {
     required this.isPersonalizedExperience,
     required this.currentUserEmail,
     required this.needsProfileSetup,
+    required this.onOpenCreateProfile,
+    required this.onOpenClubManagement,
     required this.onOpenThemeSettings,
     required this.onOpenClubInfoSettings,
     required this.onOpenLink,
@@ -447,33 +514,83 @@ class _HomeWelcomeCard extends StatelessWidget {
   final bool isPersonalizedExperience;
   final String? currentUserEmail;
   final bool needsProfileSetup;
+  final VoidCallback onOpenCreateProfile;
+  final VoidCallback onOpenClubManagement;
   final VoidCallback? onOpenThemeSettings;
   final VoidCallback? onOpenClubInfoSettings;
   final ValueChanged<String> onOpenLink;
 
-  String _welcomeText() {
+  String _welcomeText(bool compact) {
     if (!isAuthenticated) {
-      return 'Crea il tuo account oppure accedi con le tue credenziali. Dopo il login creerai prima il tuo giocatore, poi sceglierai il club. La grafica personalizzata comparira solo dopo l ingresso in squadra.';
+      return compact
+          ? 'Accedi o registrati, crea il tuo giocatore e poi scegli il club.'
+          : 'Crea il tuo account oppure accedi con le tue credenziali. Dopo il login creerai prima il tuo giocatore, poi sceglierai il club. La grafica personalizzata comparira solo dopo l ingresso in squadra.';
     }
 
     if (needsProfileSetup) {
       if (currentUser != null) {
-        return 'Benvenuto ${currentUser!.fullName}. Sei gia dentro il club, ma per sbloccare Clubline devi completare subito il profilo giocatore.';
+        return compact
+            ? 'Sei gia nel club. Completa il profilo per sbloccare tutte le funzioni.'
+            : 'Benvenuto ${currentUser!.fullName}. Sei gia dentro il club, ma per sbloccare Clubline devi completare subito il profilo giocatore.';
       }
 
       final email = currentUserEmail;
       if (email == null) {
-        return 'Sei autenticato, ma manca ancora il profilo club collegato.';
+        return compact
+            ? 'Sei autenticato, ma manca ancora il profilo collegato.'
+            : 'Sei autenticato, ma manca ancora il profilo club collegato.';
       }
 
-      return 'Benvenuto $email. Prima di usare il club devi completare il profilo giocatore.';
+      return compact
+          ? 'Benvenuto $email. Completa il profilo giocatore per entrare davvero nel club.'
+          : 'Benvenuto $email. Prima di usare il club devi completare il profilo giocatore.';
     }
 
     if (currentUser == null) {
-      return 'Accesso completato. Il profilo club verrà sincronizzato appena disponibile.';
+      return compact
+          ? 'Accesso completato. Stiamo sincronizzando il profilo club.'
+          : 'Accesso completato. Il profilo club verra sincronizzato appena disponibile.';
     }
 
-    return 'Benvenuto ${currentUser!.fullName}. In questo momento stai usando Clubline come ${currentUser!.teamRoleDisplay.toLowerCase()}.';
+    return compact
+        ? 'Bentornato ${currentUser!.fullName}. ${currentUser!.teamRoleDisplay} attivo.'
+        : 'Benvenuto ${currentUser!.fullName}. In questo momento stai usando Clubline come ${currentUser!.teamRoleDisplay.toLowerCase()}.';
+  }
+
+  (String, IconData, VoidCallback)? _primaryAction() {
+    if (needsProfileSetup) {
+      return (
+        'Completa profilo',
+        Icons.person_add_alt_1_outlined,
+        onOpenCreateProfile,
+      );
+    }
+
+    if (currentUser?.isCaptain == true) {
+      return (
+        'Vai alla dashboard',
+        Icons.admin_panel_settings_outlined,
+        onOpenClubManagement,
+      );
+    }
+
+    return null;
+  }
+
+  AppStatusTone _roleTone() {
+    if (needsProfileSetup) {
+      return AppStatusTone.warning;
+    }
+
+    if (currentUser?.isCaptain == true) {
+      return AppStatusTone.info;
+    }
+
+    if (currentUser?.isViceCaptain == true) {
+      return AppStatusTone.success;
+    }
+
+    return AppStatusTone.neutral;
   }
 
   @override
@@ -481,30 +598,57 @@ class _HomeWelcomeCard extends StatelessWidget {
     final compact = AppResponsive.isCompact(context);
     final heroCrestUrl = isPersonalizedExperience ? clubInfo.crestUrl : null;
     final showUsefulLinks = isPersonalizedExperience && clubInfo.hasAnyLinks;
+    final primaryAction = _primaryAction();
+    final visibleLinks = compact
+        ? clubInfo.allLinks.take(3).toList(growable: false)
+        : clubInfo.allLinks;
+    final badges = <Widget>[
+      if (isAuthenticated && currentUser != null)
+        AppStatusBadge(
+          label: currentUser!.teamRoleDisplay,
+          tone: _roleTone(),
+        ),
+      if (needsProfileSetup)
+        const AppStatusBadge(
+          label: 'Profilo da completare',
+          tone: AppStatusTone.warning,
+        ),
+    ];
+
     return AppHeroPanel(
       centered: true,
       eyebrow: isPersonalizedExperience ? 'Club attivo' : 'Clubline',
       title: isPersonalizedExperience ? clubInfo.displayClubName : 'Clubline',
-      subtitle: _welcomeText(),
+      subtitle: _welcomeText(compact),
+      badges: badges,
       media: isPersonalizedExperience
           ? ClubLogoAvatar(
               logoUrl: heroCrestUrl,
-              size: compact ? 96 : 126,
+              size: compact ? 84 : 126,
               fallbackIcon: Icons.shield_outlined,
             )
-          : ClublineBrandLogo(width: compact ? 172 : 224),
+          : ClublineBrandLogo(width: compact ? 148 : 224),
       actions: [
+        if (primaryAction != null)
+          AppActionButton(
+            label: primaryAction.$1,
+            icon: primaryAction.$2,
+            variant: AppButtonVariant.primary,
+            expand: compact,
+            onPressed: primaryAction.$3,
+          ),
         if (onOpenThemeSettings != null)
           AppActionButton(
-            label: 'Colori app',
+            label: compact ? 'Aspetto' : 'Personalizza club',
             icon: Icons.palette_outlined,
             variant: AppButtonVariant.secondary,
             onPressed: onOpenThemeSettings,
           ),
         if (onOpenClubInfoSettings != null)
           AppActionButton(
-            label: 'Info club',
+            label: compact ? 'Modifica club' : 'Aggiorna club',
             icon: Icons.edit_note_outlined,
+            variant: AppButtonVariant.secondary,
             onPressed: onOpenClubInfoSettings,
           ),
       ],
@@ -514,7 +658,7 @@ class _HomeWelcomeCard extends StatelessWidget {
               spacing: compact ? 8 : 10,
               runSpacing: compact ? 8 : 10,
               children: [
-                for (final link in clubInfo.allLinks)
+                for (final link in visibleLinks)
                   _UsefulLinkChip(
                     link: link,
                     onTap: () => onOpenLink(link.url),
@@ -581,12 +725,12 @@ class _AccessCard extends StatelessWidget {
 
   String _sessionSubtitle() {
     if (!isAuthenticated) {
-      return 'Accedi con email e password. Se sei nuovo, puoi creare un account in pochi secondi.';
+      return 'Accedi con email e password oppure crea il tuo account.';
     }
 
     if (needsProfileSetup) {
       if (currentUser != null) {
-        return 'Hai gia un profilo collegato al club, ma mancano ancora i dati sportivi finali per completarlo.';
+        return 'Sei gia nel club, ma mancano ancora gli ultimi dati del giocatore.';
       }
 
       final email = currentUserEmail;
@@ -594,7 +738,7 @@ class _AccessCard extends StatelessWidget {
         return 'Sei autenticato, ma manca il profilo club collegato.';
       }
 
-      return 'Hai eseguito l accesso come $email, ma devi ancora completare il profilo giocatore prima di usare il club.';
+      return 'Hai eseguito l accesso come $email, ma devi ancora completare il profilo giocatore.';
     }
 
     if (currentUser == null) {
@@ -602,54 +746,61 @@ class _AccessCard extends StatelessWidget {
     }
 
     if (currentUser!.isCaptain) {
-      return 'Permessi da capitano: controllo totale del club, della Home e della configurazione dei vice.';
+      return 'Controllo completo del club, delle richieste e dei permessi vice.';
     }
 
     if (currentUser!.isViceCaptain) {
       if (!currentUser!.hasAnyManagementPermission) {
-        return 'Ruolo da vice con permessi gestionali disattivati: continui a usare l app come giocatore, con il solo accesso al tuo profilo e alle tue presenze.';
+        return 'Vice senza permessi gestionali attivi: usi Clubline come giocatore.';
       }
 
-      return 'Permessi da vice: puoi gestire solo le aree che il capitano ha scelto di autorizzarti, incluse eventualmente le info club.';
+      return 'Vice con permessi mirati definiti dal capitano.';
     }
 
-    return 'Permessi da giocatore: puoi consultare tutto, aggiornare solo il tuo profilo e compilare soltanto le tue presenze.';
+    return 'Profilo giocatore attivo: aggiorni il tuo profilo e le tue presenze.';
   }
 
   @override
   Widget build(BuildContext context) {
     final permissionPills = _permissionPills(currentUser);
     final compact = AppResponsive.isCompact(context);
+    final sectionSpacing = compact ? 10.0 : 14.0;
 
     return Card(
       clipBehavior: Clip.antiAlias,
       child: Padding(
-        padding: EdgeInsets.all(AppResponsive.cardPadding(context)),
+        padding: EdgeInsets.all(
+          compact
+              ? AppResponsive.cardPadding(context) - 2
+              : AppResponsive.cardPadding(context),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               !isAuthenticated
-                  ? 'Accesso reale'
+                  ? 'Accedi a Clubline'
                   : needsProfileSetup
-                  ? 'Profilo da completare'
+                  ? 'Completa il profilo'
                   : currentUser == null
-                  ? 'Accesso autenticato'
+                  ? 'Accesso attivo'
+                  : currentUser!.isCaptain
+                  ? 'Capitano attivo'
                   : 'Accesso come ${currentUser!.fullName}',
               style: Theme.of(
                 context,
               ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Text(
               _sessionSubtitle(),
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: ClublineAppTheme.textMuted,
-                height: 1.35,
+                height: 1.3,
               ),
             ),
             if (errorMessage != null) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.sm),
               Text(
                 errorMessage!,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -658,23 +809,16 @@ class _AccessCard extends StatelessWidget {
                 ),
               ),
             ],
-            const SizedBox(height: 16),
+            SizedBox(height: sectionSpacing),
             if (!isAuthenticated) ...[
               Text(
-                'Nessun accesso attivo',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Accedi con un account esistente oppure registrane uno nuovo. Dopo il login creerai prima il tuo giocatore e poi potrai creare un club o chiedere l ingresso in uno esistente.',
+                'Dopo l accesso creerai il tuo giocatore e poi potrai creare un club o chiedere l ingresso in uno esistente.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: ClublineAppTheme.textMuted,
-                  height: 1.35,
+                  height: 1.3,
                 ),
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: sectionSpacing),
               if (compact) ...[
                 SizedBox(
                   width: double.infinity,
@@ -717,33 +861,14 @@ class _AccessCard extends StatelessWidget {
             ] else if (needsProfileSetup) ...[
               Text(
                 currentUser == null
-                    ? 'Profilo non ancora collegato'
-                    : 'Profilo da completare',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                currentUser == null
-                    ? 'Sei autenticato con ${currentUserEmail ?? 'un account valido'}, ma manca ancora il profilo club da compilare.'
-                    : 'Sei dentro il club come ${currentUser!.fullName}, ma devi ancora completare il profilo giocatore con maglia, ruolo e dati mancanti.',
+                    ? 'Manca ancora il profilo collegato al club.'
+                    : 'Aggiungi maglia, ruolo e dati mancanti per sbloccare rosa, formazioni, live e presenze.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: ClublineAppTheme.textMuted,
-                  height: 1.35,
+                  height: 1.3,
                 ),
               ),
-              const SizedBox(height: 14),
-              Text(
-                currentUser == null
-                    ? 'Usa l icona profilo in alto a destra per completare il profilo giocatore. Finche non lo fai, gli altri tab restano bloccati.'
-                    : 'Usa l icona profilo in alto a destra per aprire il completamento del profilo e salvare i dettagli mancanti. Finche non completi il giocatore, gli altri tab restano bloccati.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: ClublineAppTheme.textMuted,
-                  height: 1.35,
-                ),
-              ),
-              const SizedBox(height: 12),
+              SizedBox(height: sectionSpacing),
               _CompleteProfileCtaButton(
                 fullWidth: compact,
                 onPressed: onCreateProfile,
@@ -762,11 +887,11 @@ class _AccessCard extends StatelessWidget {
                 'Hai un profilo collegato e puoi continuare usando Clubline con i tuoi permessi.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: ClublineAppTheme.textMuted,
-                  height: 1.35,
+                  height: 1.3,
                 ),
               ),
               if (requiresPasswordRecovery) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.sm),
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(14),
@@ -787,20 +912,22 @@ class _AccessCard extends StatelessWidget {
                   ),
                 ),
               ],
-              const SizedBox(height: 14),
+              SizedBox(height: sectionSpacing),
               Wrap(
                 spacing: compact ? 8 : 10,
                 runSpacing: compact ? 8 : 10,
                 children: [if (permissionPills.isNotEmpty) ...permissionPills],
               ),
-              const SizedBox(height: 12),
-              Text(
-                'Le azioni account (modifica profilo, password, cancellazione ed uscita) sono nel menu profilo in alto a destra.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: ClublineAppTheme.textMuted,
-                  height: 1.35,
+              if (!compact) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'Le azioni account sono nel menu profilo in alto a destra.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: ClublineAppTheme.textMuted,
+                    height: 1.3,
+                  ),
                 ),
-              ),
+              ],
             ],
           ],
         ),

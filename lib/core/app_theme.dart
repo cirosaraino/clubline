@@ -465,24 +465,24 @@ class ClublineAppTheme {
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: colors.surface,
+        backgroundColor: colors.surfaceRaised,
         elevation: 0,
         height: 78,
-        indicatorColor: colors.gold.withValues(alpha: 0.18),
+        indicatorColor: colors.gold.withValues(alpha: 0.28),
         labelTextStyle: WidgetStateProperty.resolveWith(
           (states) => TextStyle(
             color: states.contains(WidgetState.selected)
-                ? colors.gold
+                ? colors.goldSoft
                 : colors.textMuted,
             fontWeight: states.contains(WidgetState.selected)
-                ? FontWeight.w700
+                ? FontWeight.w800
                 : FontWeight.w500,
           ),
         ),
         iconTheme: WidgetStateProperty.resolveWith(
           (states) => IconThemeData(
             color: states.contains(WidgetState.selected)
-                ? colors.gold
+                ? colors.goldSoft
                 : colors.textMuted,
           ),
         ),
