@@ -33,7 +33,6 @@ class HomePage extends StatelessWidget {
     required this.onOpenSignUp,
     required this.onOpenPasswordSettings,
     required this.onOpenBiometricSettings,
-    required this.onOpenAttendanceTab,
     required this.onOpenClubManagement,
     required this.onOpenThemeSettings,
     required this.onOpenVicePermissionsSettings,
@@ -47,7 +46,6 @@ class HomePage extends StatelessWidget {
   final VoidCallback onOpenSignUp;
   final VoidCallback onOpenPasswordSettings;
   final VoidCallback onOpenBiometricSettings;
-  final VoidCallback onOpenAttendanceTab;
   final VoidCallback onOpenClubManagement;
   final VoidCallback onOpenThemeSettings;
   final VoidCallback onOpenVicePermissionsSettings;
@@ -173,6 +171,9 @@ class HomePage extends StatelessWidget {
     final canManageVicePermissions =
         currentUser?.isCaptain == true && !needsProfileSetup;
     final isPersonalizedExperience = hasClubMembership;
+    final pendingJoinRequests = session.captainPendingJoinRequests.length;
+    final pendingLeaveRequests = session.captainPendingLeaveRequests.length;
+    final pendingCaptainRequests = pendingJoinRequests + pendingLeaveRequests;
 
     return Scaffold(
       appBar: AppBar(
@@ -344,8 +345,8 @@ class HomePage extends StatelessWidget {
                       needsProfileSetup: needsProfileSetup,
                       canOpenThemeSettings: canOpenThemeSettings,
                       canOpenClubInfoSettings: canOpenClubInfoSettings,
+                      pendingCaptainRequests: pendingCaptainRequests,
                       onOpenCreateProfile: onOpenCreateProfile,
-                      onOpenAttendanceTab: onOpenAttendanceTab,
                       onOpenClubManagement: onOpenClubManagement,
                       onOpenThemeSettings: onOpenThemeSettings,
                       onOpenClubInfoSettings: onOpenClubInfoSettings,
@@ -532,8 +533,8 @@ class _HomeWelcomeCard extends StatelessWidget {
     required this.needsProfileSetup,
     required this.canOpenThemeSettings,
     required this.canOpenClubInfoSettings,
+    required this.pendingCaptainRequests,
     required this.onOpenCreateProfile,
-    required this.onOpenAttendanceTab,
     required this.onOpenClubManagement,
     required this.onOpenThemeSettings,
     required this.onOpenClubInfoSettings,
@@ -548,8 +549,8 @@ class _HomeWelcomeCard extends StatelessWidget {
   final bool needsProfileSetup;
   final bool canOpenThemeSettings;
   final bool canOpenClubInfoSettings;
+  final int pendingCaptainRequests;
   final VoidCallback onOpenCreateProfile;
-  final VoidCallback onOpenAttendanceTab;
   final VoidCallback onOpenClubManagement;
   final VoidCallback onOpenThemeSettings;
   final VoidCallback onOpenClubInfoSettings;
@@ -601,19 +602,13 @@ class _HomeWelcomeCard extends StatelessWidget {
       );
     }
 
-    if (currentUser?.isCaptain == true) {
+    if (currentUser?.isCaptain == true && pendingCaptainRequests > 0) {
       return (
-        'Vai alla dashboard capitano',
-        Icons.admin_panel_settings_outlined,
+        pendingCaptainRequests == 1
+            ? 'Gestisci 1 richiesta'
+            : 'Gestisci richieste ($pendingCaptainRequests)',
+        Icons.mark_email_unread_outlined,
         onOpenClubManagement,
-      );
-    }
-
-    if (isAuthenticated) {
-      return (
-        'Apri presenze',
-        Icons.event_available_outlined,
-        onOpenAttendanceTab,
       );
     }
 

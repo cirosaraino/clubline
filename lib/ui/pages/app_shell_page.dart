@@ -537,9 +537,6 @@ class _AppShellPageState extends State<AppShellPage> {
           isRecoveryFlow: session.requiresPasswordRecovery,
         ),
         onOpenBiometricSettings: _openBiometricSettings,
-        onOpenAttendanceTab: () {
-          unawaited(_handleDestinationSelected(4));
-        },
         onOpenClubManagement: _openClubManagement,
         onOpenThemeSettings: _openThemeSettings,
         onOpenVicePermissionsSettings: _openVicePermissionsSettings,
