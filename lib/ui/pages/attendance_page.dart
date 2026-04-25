@@ -624,6 +624,15 @@ class _AttendancePageState extends State<AttendancePage> {
         ? AttendanceDaySummary.buildForDates(weekDates, entries)
         : const <AttendanceDaySummary>[];
     final viewerEntries = _viewerEntriesFor(groupedEntries, viewer);
+    final displayGroupedEntries = !canManageAll && viewerEntries != null
+        ? [
+            viewerEntries,
+            ...filteredGroupedEntries.where(
+              (playerEntries) =>
+                  !_sameId(playerEntries.playerId, viewerEntries.playerId),
+            ),
+          ]
+        : filteredGroupedEntries;
 
     return RefreshIndicator(
       onRefresh: _loadData,
@@ -646,15 +655,6 @@ class _AttendancePageState extends State<AttendancePage> {
             showManagerSummary: canManageAll,
           ),
           const SizedBox(height: 16),
-          if (!canManageAll && activeWeek != null && viewerEntries != null) ...[
-            AttendanceMyActionCard(
-              playerEntries: viewerEntries,
-              weekDates: weekDates,
-              savingEntryKeys: savingEntryKeys,
-              onSelectAvailability: _updateAvailability,
-            ),
-            const SizedBox(height: 16),
-          ],
           if (canUseCaptainFilters && activeWeek != null) ...[
             _CaptainAttendanceFiltersCard(
               isExpanded: isCaptainFiltersExpanded,
@@ -715,8 +715,18 @@ class _AttendancePageState extends State<AttendancePage> {
                 },
               ),
             ],
+            if (!canManageAll &&
+                activeWeek != null &&
+                viewerEntries != null) ...[
+              const AppBanner(
+                message:
+                    'Compila la tua disponibilita per tutti i giorni della settimana.',
+                tone: AppStatusTone.info,
+                icon: Icons.event_available_outlined,
+              ),
+            ],
             const SizedBox(height: 16),
-            for (final playerEntries in filteredGroupedEntries) ...[
+            for (final playerEntries in displayGroupedEntries) ...[
               AttendancePlayerCard(
                 playerEntries: playerEntries,
                 weekDates: weekDates,

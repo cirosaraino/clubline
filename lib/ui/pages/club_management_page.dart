@@ -178,52 +178,8 @@ class _ClubManagementPageState extends State<ClubManagementPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          AppHeroPanel(
-            eyebrow: 'Captain Tools',
-            title: 'Gestisci richieste e ruoli del club',
-            subtitle:
-                'Approva ingressi, gestisci le uscite, trasferisci la fascia e controlla le azioni sensibili del club da un unico punto.',
-            media: Icon(
-              Icons.admin_panel_settings_outlined,
-              size: AppResponsive.isCompact(context) ? 72 : 88,
-              color: ClublineAppTheme.goldSoft,
-            ),
-            badges: [
-              AppStatusBadge(
-                label: '${session.captainPendingJoinRequests.length} ingressi',
-                tone: session.captainPendingJoinRequests.isEmpty
-                    ? AppStatusTone.neutral
-                    : AppStatusTone.info,
-              ),
-              AppStatusBadge(
-                label: '${session.captainPendingLeaveRequests.length} uscite',
-                tone: session.captainPendingLeaveRequests.isEmpty
-                    ? AppStatusTone.neutral
-                    : AppStatusTone.warning,
-              ),
-            ],
-            footer: AppResponsiveGrid(
-              minChildWidth: 180,
-              gap: AppSpacing.sm,
-              children: [
-                AppMetricCard(
-                  label: 'Ingressi in attesa',
-                  value: '${session.captainPendingJoinRequests.length}',
-                  icon: Icons.group_add_outlined,
-                  caption: 'Da approvare o rifiutare',
-                  emphasized: session.captainPendingJoinRequests.isNotEmpty,
-                ),
-                AppMetricCard(
-                  label: 'Uscite in attesa',
-                  value: '${session.captainPendingLeaveRequests.length}',
-                  icon: Icons.exit_to_app_outlined,
-                  caption: 'Richieste di leave',
-                  emphasized: session.captainPendingLeaveRequests.isNotEmpty,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
+          const _CaptainDashboardHeader(),
+          const SizedBox(height: AppSpacing.md),
           AppAdaptiveColumns(
             breakpoint: 1080,
             gap: AppResponsive.sectionGap(context),
@@ -232,70 +188,15 @@ class _ClubManagementPageState extends State<ClubManagementPage> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _SectionCard(
-                    title: 'Richieste di ingresso',
-                    child: session.captainPendingJoinRequests.isEmpty
-                        ? const AppEmptyState(
-                            icon: Icons.group_add_outlined,
-                            title: 'Nessuna richiesta pendente',
-                            message:
-                                'Quando un giocatore chiederà l ingresso al club la richiesta apparirà qui.',
-                          )
-                        : Column(
-                            children: [
-                              for (final request
-                                  in session.captainPendingJoinRequests) ...[
-                                _RequestTile(
-                                  title:
-                                      '${request.requestedNome} ${request.requestedCognome}'
-                                          .trim(),
-                                  subtitle:
-                                      request.club?.name ??
-                                      'Richiesta ingresso club',
-                                  primaryLabel: 'Approva',
-                                  secondaryLabel: 'Rifiuta',
-                                  busy: isBusy,
-                                  onPrimary: () => _approveJoinRequest(request),
-                                  onSecondary: () =>
-                                      _rejectJoinRequest(request),
-                                ),
-                                const SizedBox(height: AppSpacing.sm),
-                              ],
-                            ],
-                          ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  _SectionCard(
-                    title: 'Richieste di uscita',
-                    child: session.captainPendingLeaveRequests.isEmpty
-                        ? const AppEmptyState(
-                            icon: Icons.exit_to_app_outlined,
-                            title: 'Nessuna richiesta pendente',
-                            message:
-                                'Le richieste di uscita approvate o rifiutate spariscono automaticamente da questa lista.',
-                          )
-                        : Column(
-                            children: [
-                              for (final request
-                                  in session.captainPendingLeaveRequests) ...[
-                                _RequestTile(
-                                  title: _memberNameForRequest(
-                                    session.players,
-                                    request,
-                                  ),
-                                  subtitle: 'Richiesta di uscita dal club',
-                                  primaryLabel: 'Approva',
-                                  secondaryLabel: 'Rifiuta',
-                                  busy: isBusy,
-                                  onPrimary: () =>
-                                      _approveLeaveRequest(request),
-                                  onSecondary: () =>
-                                      _rejectLeaveRequest(request),
-                                ),
-                                const SizedBox(height: AppSpacing.sm),
-                              ],
-                            ],
-                          ),
+                  _RequestsSectionCard(
+                    joinRequests: session.captainPendingJoinRequests,
+                    leaveRequests: session.captainPendingLeaveRequests,
+                    players: session.players,
+                    busy: isBusy,
+                    onApproveJoin: _approveJoinRequest,
+                    onRejectJoin: _rejectJoinRequest,
+                    onApproveLeave: _approveLeaveRequest,
+                    onRejectLeave: _rejectLeaveRequest,
                   ),
                 ],
               ),
@@ -303,17 +204,13 @@ class _ClubManagementPageState extends State<ClubManagementPage> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _SectionCard(
+                    icon: Icons.flag_outlined,
                     title: 'Trasferisci la fascia',
+                    subtitle:
+                        'Nomina il nuovo capitano prima di uscire dal club.',
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const AppBanner(
-                          message:
-                              'Prima di uscire dal club devi nominare un nuovo capitano.',
-                          tone: AppStatusTone.info,
-                          icon: Icons.info_outline,
-                        ),
-                        const SizedBox(height: AppSpacing.md),
                         DropdownButtonFormField<dynamic>(
                           initialValue: selectedCaptainMembershipId,
                           items: [
@@ -334,7 +231,7 @@ class _ClubManagementPageState extends State<ClubManagementPage> {
                             labelText: 'Nuovo capitano',
                           ),
                         ),
-                        const SizedBox(height: AppSpacing.md),
+                        const SizedBox(height: AppSpacing.sm),
                         AppActionButton(
                           label: 'Trasferisci ruolo',
                           icon: Icons.flag_outlined,
@@ -350,7 +247,9 @@ class _ClubManagementPageState extends State<ClubManagementPage> {
                   ),
                   const SizedBox(height: AppSpacing.md),
                   _SectionCard(
+                    icon: Icons.warning_amber_outlined,
                     title: 'Zona sensibile',
+                    subtitle: 'Usala solo quando resti l unico membro attivo.',
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -360,13 +259,24 @@ class _ClubManagementPageState extends State<ClubManagementPage> {
                           tone: AppStatusTone.warning,
                           icon: Icons.warning_amber_outlined,
                         ),
-                        const SizedBox(height: AppSpacing.md),
-                        AppActionButton(
-                          label: 'Elimina club',
-                          icon: Icons.delete_outline,
-                          variant: AppButtonVariant.danger,
-                          expand: true,
-                          onPressed: isBusy ? null : _deleteCurrentClub,
+                        const SizedBox(height: AppSpacing.sm),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: isBusy ? null : _deleteCurrentClub,
+                            icon: const Icon(Icons.delete_outline),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Theme.of(
+                                context,
+                              ).colorScheme.error,
+                              side: BorderSide(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.error.withValues(alpha: 0.34),
+                              ),
+                            ),
+                            label: const Text('Elimina club'),
+                          ),
                         ),
                       ],
                     ),
@@ -379,29 +289,204 @@ class _ClubManagementPageState extends State<ClubManagementPage> {
       ),
     );
   }
+}
 
-  String _memberNameForRequest(
-    List<PlayerProfile> players,
-    LeaveRequest request,
-  ) {
-    final matchingPlayer = players.firstWhere(
-      (player) => '${player.membershipId}' == '${request.membershipId}',
-      orElse: () => const PlayerProfile(nome: 'Membro', cognome: 'club'),
-    );
+String _memberNameForRequest(
+  List<PlayerProfile> players,
+  LeaveRequest request,
+) {
+  final matchingPlayer = players.firstWhere(
+    (player) => '${player.membershipId}' == '${request.membershipId}',
+    orElse: () => const PlayerProfile(nome: 'Membro', cognome: 'club'),
+  );
 
-    return matchingPlayer.fullName;
-  }
+  return matchingPlayer.fullName;
 }
 
 class _SectionCard extends StatelessWidget {
-  const _SectionCard({required this.title, required this.child});
+  const _SectionCard({
+    this.icon,
+    required this.title,
+    this.subtitle,
+    this.trailing,
+    required this.child,
+  });
 
+  final IconData? icon;
   final String title;
+  final String? subtitle;
+  final Widget? trailing;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return AppSurfaceCard(title: title, child: child);
+    return AppSurfaceCard(
+      icon: icon,
+      title: title,
+      subtitle: subtitle,
+      trailing: trailing,
+      child: child,
+    );
+  }
+}
+
+class _CaptainDashboardHeader extends StatelessWidget {
+  const _CaptainDashboardHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return const AppPageHeader(
+      eyebrow: 'Captain tools',
+      title: 'Dashboard capitano',
+      subtitle: 'Approva richieste e gestisci il club.',
+    );
+  }
+}
+
+class _RequestsSectionCard extends StatelessWidget {
+  const _RequestsSectionCard({
+    required this.joinRequests,
+    required this.leaveRequests,
+    required this.players,
+    required this.busy,
+    required this.onApproveJoin,
+    required this.onRejectJoin,
+    required this.onApproveLeave,
+    required this.onRejectLeave,
+  });
+
+  final List<JoinRequest> joinRequests;
+  final List<LeaveRequest> leaveRequests;
+  final List<PlayerProfile> players;
+  final bool busy;
+  final ValueChanged<JoinRequest> onApproveJoin;
+  final ValueChanged<JoinRequest> onRejectJoin;
+  final ValueChanged<LeaveRequest> onApproveLeave;
+  final ValueChanged<LeaveRequest> onRejectLeave;
+
+  @override
+  Widget build(BuildContext context) {
+    final pendingTotal = joinRequests.length + leaveRequests.length;
+
+    return _SectionCard(
+      icon: Icons.inbox_outlined,
+      title: 'Richieste',
+      subtitle: pendingTotal == 0
+          ? 'Nessuna richiesta pendente.'
+          : 'Gestisci ingressi e uscite in attesa.',
+      trailing: Wrap(
+        spacing: AppSpacing.xs,
+        runSpacing: AppSpacing.xs,
+        children: [
+          AppCountPill(
+            label: 'Ingressi',
+            value: '${joinRequests.length}',
+            color: joinRequests.isEmpty ? null : ClublineAppTheme.info,
+            emphasized: joinRequests.isNotEmpty,
+          ),
+          AppCountPill(
+            label: 'Uscite',
+            value: '${leaveRequests.length}',
+            color: leaveRequests.isEmpty ? null : ClublineAppTheme.warning,
+            emphasized: leaveRequests.isNotEmpty,
+          ),
+        ],
+      ),
+      child: pendingTotal == 0
+          ? const AppBanner(
+              message: 'Nessuna richiesta da gestire in questo momento.',
+              tone: AppStatusTone.info,
+              icon: Icons.check_circle_outline,
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (joinRequests.isNotEmpty) ...[
+                  _RequestGroupHeader(
+                    label: 'Ingressi',
+                    count: joinRequests.length,
+                    tone: AppStatusTone.info,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  for (var index = 0; index < joinRequests.length; index++) ...[
+                    _RequestTile(
+                      title:
+                          '${joinRequests[index].requestedNome} ${joinRequests[index].requestedCognome}'
+                              .trim(),
+                      subtitle:
+                          joinRequests[index].club?.name ??
+                          'Richiesta ingresso club',
+                      primaryLabel: 'Approva',
+                      secondaryLabel: 'Rifiuta',
+                      busy: busy,
+                      onPrimary: () => onApproveJoin(joinRequests[index]),
+                      onSecondary: () => onRejectJoin(joinRequests[index]),
+                    ),
+                    if (index < joinRequests.length - 1)
+                      const SizedBox(height: AppSpacing.sm),
+                  ],
+                ],
+                if (joinRequests.isNotEmpty && leaveRequests.isNotEmpty)
+                  const SizedBox(height: AppSpacing.md),
+                if (leaveRequests.isNotEmpty) ...[
+                  _RequestGroupHeader(
+                    label: 'Uscite',
+                    count: leaveRequests.length,
+                    tone: AppStatusTone.warning,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  for (
+                    var index = 0;
+                    index < leaveRequests.length;
+                    index++
+                  ) ...[
+                    _RequestTile(
+                      title: _memberNameForRequest(
+                        players,
+                        leaveRequests[index],
+                      ),
+                      subtitle: 'Richiesta di uscita dal club',
+                      primaryLabel: 'Approva',
+                      secondaryLabel: 'Rifiuta',
+                      busy: busy,
+                      onPrimary: () => onApproveLeave(leaveRequests[index]),
+                      onSecondary: () => onRejectLeave(leaveRequests[index]),
+                    ),
+                    if (index < leaveRequests.length - 1)
+                      const SizedBox(height: AppSpacing.sm),
+                  ],
+                ],
+              ],
+            ),
+    );
+  }
+}
+
+class _RequestGroupHeader extends StatelessWidget {
+  const _RequestGroupHeader({
+    required this.label,
+    required this.count,
+    required this.tone,
+  });
+
+  final String label;
+  final int count;
+  final AppStatusTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text(
+          label,
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(width: AppSpacing.xs),
+        AppStatusBadge(label: '$count', tone: tone),
+      ],
+    );
   }
 }
 
@@ -427,10 +512,10 @@ class _RequestTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: ClublineAppTheme.outlineSoft),
       ),
       child: Column(
@@ -447,22 +532,22 @@ class _RequestTile extends StatelessWidget {
                 ),
               ),
               const AppStatusBadge(
-                label: 'Pending',
+                label: 'In attesa',
                 tone: AppStatusTone.warning,
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           Text(
             subtitle,
             style: Theme.of(
               context,
             ).textTheme.bodyMedium?.copyWith(color: ClublineAppTheme.textMuted),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           AppAdaptiveColumns(
-            breakpoint: 620,
-            gap: 10,
+            breakpoint: 540,
+            gap: 8,
             children: [
               AppActionButton(
                 label: primaryLabel,

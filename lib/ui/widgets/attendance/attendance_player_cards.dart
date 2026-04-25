@@ -248,28 +248,56 @@ class AttendanceDayTile extends StatelessWidget {
           ),
           if (hasEntry) ...[
             const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: AttendanceAvailabilityChip(
-                    label: 'Presente',
-                    selected: entry!.isPresent,
-                    color: ClublineAppTheme.success,
-                    enabled: canEdit && !isSaving,
-                    onTap: () => onSelectAvailability('yes'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: AttendanceAvailabilityChip(
-                    label: 'Assente',
-                    selected: entry!.isAbsent,
-                    color: ClublineAppTheme.danger,
-                    enabled: canEdit && !isSaving,
-                    onTap: () => onSelectAvailability('no'),
-                  ),
-                ),
-              ],
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final useVerticalActions = constraints.maxWidth < 182;
+
+                if (useVerticalActions) {
+                  return Column(
+                    children: [
+                      AttendanceAvailabilityChip(
+                        label: 'Presente',
+                        selected: entry!.isPresent,
+                        color: ClublineAppTheme.success,
+                        enabled: canEdit && !isSaving,
+                        onTap: () => onSelectAvailability('yes'),
+                      ),
+                      const SizedBox(height: 8),
+                      AttendanceAvailabilityChip(
+                        label: 'Assente',
+                        selected: entry!.isAbsent,
+                        color: ClublineAppTheme.danger,
+                        enabled: canEdit && !isSaving,
+                        onTap: () => onSelectAvailability('no'),
+                      ),
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    Expanded(
+                      child: AttendanceAvailabilityChip(
+                        label: 'Presente',
+                        selected: entry!.isPresent,
+                        color: ClublineAppTheme.success,
+                        enabled: canEdit && !isSaving,
+                        onTap: () => onSelectAvailability('yes'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: AttendanceAvailabilityChip(
+                        label: 'Assente',
+                        selected: entry!.isAbsent,
+                        color: ClublineAppTheme.danger,
+                        enabled: canEdit && !isSaving,
+                        onTap: () => onSelectAvailability('no'),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 8),
             Text(
@@ -338,6 +366,9 @@ class AttendanceAvailabilityChip extends StatelessWidget {
         ),
         child: Text(
           label,
+          maxLines: 1,
+          softWrap: false,
+          overflow: TextOverflow.fade,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
             color: enabled
                 ? foregroundColor

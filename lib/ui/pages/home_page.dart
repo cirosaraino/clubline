@@ -226,9 +226,9 @@ class HomePage extends StatelessWidget {
                   child: ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: Icon(Icons.password_outlined),
-                      title: Text('Cambia password'),
-                    ),
+                    title: Text('Cambia password'),
                   ),
+                ),
                 if (canOpenThemeSettings)
                   const PopupMenuItem<_HomeProfileMenuAction>(
                     value: _HomeProfileMenuAction.themeSettings,
@@ -342,9 +342,13 @@ class HomePage extends StatelessWidget {
                       isPersonalizedExperience: isPersonalizedExperience,
                       currentUserEmail: currentUserEmail,
                       needsProfileSetup: needsProfileSetup,
+                      canOpenThemeSettings: canOpenThemeSettings,
+                      canOpenClubInfoSettings: canOpenClubInfoSettings,
                       onOpenCreateProfile: onOpenCreateProfile,
                       onOpenAttendanceTab: onOpenAttendanceTab,
                       onOpenClubManagement: onOpenClubManagement,
+                      onOpenThemeSettings: onOpenThemeSettings,
+                      onOpenClubInfoSettings: onOpenClubInfoSettings,
                       onOpenLink: (url) => _openExternalLink(context, url),
                     ),
                     Column(
@@ -420,10 +424,7 @@ class _GlowCircle extends StatelessWidget {
 }
 
 class _ClubPulseCard extends StatelessWidget {
-  const _ClubPulseCard({
-    required this.currentUser,
-    required this.session,
-  });
+  const _ClubPulseCard({required this.currentUser, required this.session});
 
   final PlayerProfile currentUser;
   final AppSessionController session;
@@ -532,9 +533,13 @@ class _HomeWelcomeCard extends StatelessWidget {
     required this.isPersonalizedExperience,
     required this.currentUserEmail,
     required this.needsProfileSetup,
+    required this.canOpenThemeSettings,
+    required this.canOpenClubInfoSettings,
     required this.onOpenCreateProfile,
     required this.onOpenAttendanceTab,
     required this.onOpenClubManagement,
+    required this.onOpenThemeSettings,
+    required this.onOpenClubInfoSettings,
     required this.onOpenLink,
   });
 
@@ -544,9 +549,13 @@ class _HomeWelcomeCard extends StatelessWidget {
   final bool isPersonalizedExperience;
   final String? currentUserEmail;
   final bool needsProfileSetup;
+  final bool canOpenThemeSettings;
+  final bool canOpenClubInfoSettings;
   final VoidCallback onOpenCreateProfile;
   final VoidCallback onOpenAttendanceTab;
   final VoidCallback onOpenClubManagement;
+  final VoidCallback onOpenThemeSettings;
+  final VoidCallback onOpenClubInfoSettings;
   final ValueChanged<String> onOpenLink;
 
   String _welcomeText(bool compact) {
@@ -639,12 +648,12 @@ class _HomeWelcomeCard extends StatelessWidget {
     final visibleLinks = compact
         ? clubInfo.allLinks.take(3).toList(growable: false)
         : clubInfo.allLinks;
+    final primaryLink = visibleLinks.isNotEmpty ? visibleLinks.first : null;
+    final hasClubTools =
+        canOpenThemeSettings || canOpenClubInfoSettings || primaryLink != null;
     final badges = <Widget>[
       if (isAuthenticated && currentUser != null)
-        AppStatusBadge(
-          label: currentUser!.teamRoleDisplay,
-          tone: _roleTone(),
-        ),
+        AppStatusBadge(label: currentUser!.teamRoleDisplay, tone: _roleTone()),
       if (needsProfileSetup)
         const AppStatusBadge(
           label: 'Profilo da completare',
@@ -675,20 +684,81 @@ class _HomeWelcomeCard extends StatelessWidget {
             onPressed: primaryAction.$3,
           ),
       ],
-      footer: showUsefulLinks
-          ? Wrap(
-              alignment: WrapAlignment.center,
-              spacing: compact ? 8 : 10,
-              runSpacing: compact ? 8 : 10,
+      footer: hasClubTools || showUsefulLinks
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                for (final link in visibleLinks)
-                  _UsefulLinkChip(
-                    link: link,
-                    onTap: () => onOpenLink(link.url),
+                if (hasClubTools)
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: compact ? 8 : 10,
+                    runSpacing: compact ? 8 : 10,
+                    children: [
+                      if (canOpenThemeSettings)
+                        _HomeToolChip(
+                          label: 'Colori app',
+                          icon: Icons.palette_outlined,
+                          onTap: onOpenThemeSettings,
+                        ),
+                      if (canOpenClubInfoSettings)
+                        _HomeToolChip(
+                          label: 'Info club',
+                          icon: Icons.edit_note_outlined,
+                          onTap: onOpenClubInfoSettings,
+                        ),
+                      if (primaryLink != null)
+                        _HomeToolChip(
+                          label: 'Link club',
+                          icon: Icons.link_outlined,
+                          onTap: () => onOpenLink(primaryLink.url),
+                        ),
+                    ],
                   ),
+                if (showUsefulLinks) ...[
+                  SizedBox(height: hasClubTools ? AppSpacing.sm : 0),
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: compact ? 8 : 10,
+                    runSpacing: compact ? 8 : 10,
+                    children: [
+                      for (final link in visibleLinks)
+                        _UsefulLinkChip(
+                          link: link,
+                          onTap: () => onOpenLink(link.url),
+                        ),
+                    ],
+                  ),
+                ],
               ],
             )
           : null,
+    );
+  }
+}
+
+class _HomeToolChip extends StatelessWidget {
+  const _HomeToolChip({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ActionChip(
+      onPressed: onTap,
+      avatar: Icon(icon, size: 16, color: ClublineAppTheme.goldSoft),
+      side: BorderSide(color: ClublineAppTheme.outlineSoft),
+      backgroundColor: ClublineAppTheme.surfaceAlt.withValues(alpha: 0.9),
+      labelStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+        color: ClublineAppTheme.textPrimary,
+        fontWeight: FontWeight.w800,
+      ),
+      label: Text(label),
     );
   }
 }
@@ -824,7 +894,8 @@ class _HomeContextCard extends StatelessWidget {
         ),
       if (hasPendingLeaveRequest)
         const AppBanner(
-          message: 'La richiesta di uscita e in attesa della decisione del capitano.',
+          message:
+              'La richiesta di uscita e in attesa della decisione del capitano.',
           icon: Icons.hourglass_top_outlined,
           tone: AppStatusTone.info,
         ),
@@ -833,10 +904,9 @@ class _HomeContextCard extends StatelessWidget {
           !requiresPasswordRecovery &&
           errorMessage == null)
         AppBanner(
-          message:
-              currentUserEmail == null
-                  ? 'Stiamo sincronizzando il tuo profilo club.'
-                  : 'Accesso eseguito come $currentUserEmail. Stiamo sincronizzando il profilo club.',
+          message: currentUserEmail == null
+              ? 'Stiamo sincronizzando il tuo profilo club.'
+              : 'Accesso eseguito come $currentUserEmail. Stiamo sincronizzando il profilo club.',
         ),
     ];
 
