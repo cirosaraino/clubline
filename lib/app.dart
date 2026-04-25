@@ -31,6 +31,9 @@ class _ClublineAppState extends State<ClublineApp> {
       onClubInfoChanged: (clubInfo) {
         unawaited(
           themeController.syncWithClubTheme(
+            clubScope: sessionController.hasClubMembership
+                ? clubInfo.id.toString()
+                : null,
             primaryColor: clubInfo.primaryColor,
             accentColor: clubInfo.accentColor,
             surfaceColor: clubInfo.surfaceColor,

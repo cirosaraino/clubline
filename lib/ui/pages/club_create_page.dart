@@ -169,7 +169,7 @@ class _ClubCreatePageState extends State<ClubCreatePage> {
             eyebrow: 'Club Setup',
             title: 'Crea la tua squadra',
             subtitle:
-                'Definisci nome e logo del club. Il tuo giocatore entrerà subito come capitano e la palette verrà proposta automaticamente dal logo.',
+                'Definisci nome e logo del club. Il tuo giocatore entrerà subito come capitano e il tema Stemma partirà automaticamente dal logo.',
             media: Icon(
               Icons.shield_outlined,
               size: AppResponsive.isCompact(context) ? 72 : 88,
@@ -314,7 +314,7 @@ class _ClubCreatePageState extends State<ClubCreatePage> {
                     icon: Icons.auto_awesome_outlined,
                     title: 'Tema automatico',
                     subtitle:
-                        'Dopo il salvataggio useremo il logo per impostare subito la palette iniziale del club.',
+                        'Dopo il salvataggio useremo il logo per impostare subito la palette Stemma del club. Se l estrazione non riesce, partirà il tema Clubline.',
                     child: SizedBox.shrink(),
                   ),
                 ],

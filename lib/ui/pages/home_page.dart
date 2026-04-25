@@ -235,7 +235,7 @@ class HomePage extends StatelessWidget {
                     child: ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: Icon(Icons.palette_outlined),
-                      title: Text('Aspetto club'),
+                      title: Text('Aspetto app'),
                     ),
                   ),
                 if (canOpenClubInfoSettings)
@@ -356,12 +356,13 @@ class HomePage extends StatelessWidget {
                       children: [
                         if (currentUser != null &&
                             !needsProfileSetup &&
-                            (currentUser.isCaptain ||
-                                session.hasPendingLeaveRequest ||
-                                session.captainPendingJoinRequests.isNotEmpty ||
-                                session
-                                    .captainPendingLeaveRequests
-                                    .isNotEmpty)) ...[
+                            (currentUser.isCaptain &&
+                                (session
+                                        .captainPendingJoinRequests
+                                        .isNotEmpty ||
+                                    session
+                                        .captainPendingLeaveRequests
+                                        .isNotEmpty))) ...[
                           _ClubPulseCard(
                             currentUser: currentUser,
                             session: session,
@@ -438,16 +439,12 @@ class _ClubPulseCard extends StatelessWidget {
     final pendingTotal = pendingJoin + pendingLeave;
 
     final title = isCaptain
-        ? pendingTotal == 0
-              ? 'Dashboard capitano'
-              : '$pendingTotal richieste da gestire'
+        ? 'Richieste del club'
         : session.hasPendingLeaveRequest
         ? 'Uscita inviata'
         : 'Club attivo';
     final message = isCaptain
-        ? pendingTotal == 0
-              ? 'Hai tutto sotto controllo. Apri la dashboard per richieste, vice e impostazioni club.'
-              : '$pendingJoin ingressi e $pendingLeave uscite aspettano la tua decisione.'
+        ? '$pendingJoin ingressi e $pendingLeave uscite aspettano la tua decisione.'
         : 'La richiesta di uscita e in attesa della decisione del capitano.';
 
     return Card(
@@ -643,12 +640,16 @@ class _HomeWelcomeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final compact = AppResponsive.isCompact(context);
     final heroCrestUrl = isPersonalizedExperience ? clubInfo.crestUrl : null;
-    final showUsefulLinks = isPersonalizedExperience && clubInfo.hasAnyLinks;
     final primaryAction = _primaryAction();
     final visibleLinks = compact
         ? clubInfo.allLinks.take(3).toList(growable: false)
         : clubInfo.allLinks;
     final primaryLink = visibleLinks.isNotEmpty ? visibleLinks.first : null;
+    final secondaryVisibleLinks = primaryLink == null
+        ? visibleLinks
+        : visibleLinks.skip(1).toList(growable: false);
+    final showUsefulLinks =
+        isPersonalizedExperience && secondaryVisibleLinks.isNotEmpty;
     final hasClubTools =
         canOpenThemeSettings || canOpenClubInfoSettings || primaryLink != null;
     final badges = <Widget>[
@@ -696,7 +697,7 @@ class _HomeWelcomeCard extends StatelessWidget {
                     children: [
                       if (canOpenThemeSettings)
                         _HomeToolChip(
-                          label: 'Colori app',
+                          label: 'Aspetto app',
                           icon: Icons.palette_outlined,
                           onTap: onOpenThemeSettings,
                         ),
@@ -721,7 +722,7 @@ class _HomeWelcomeCard extends StatelessWidget {
                     spacing: compact ? 8 : 10,
                     runSpacing: compact ? 8 : 10,
                     children: [
-                      for (final link in visibleLinks)
+                      for (final link in secondaryVisibleLinks)
                         _UsefulLinkChip(
                           link: link,
                           onTap: () => onOpenLink(link.url),

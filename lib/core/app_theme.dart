@@ -168,6 +168,19 @@ class ClublineAppTheme {
 
   static const List<ClublineThemePreset> curatedPresets = [
     ClublineThemePreset(
+      id: 'alto_contrasto',
+      name: 'Alto Contrasto',
+      description: 'Massima leggibilita con contrasti piu forti.',
+      palette: ClublineThemePalette(
+        black: Color(0xFF050505),
+        backgroundTop: Color(0xFF101010),
+        backgroundBottom: Color(0xFF030303),
+        surface: Color(0xFF121212),
+        surfaceAlt: Color(0xFF1E1E1E),
+        accent: Color(0xFFFFE45E),
+      ),
+    ),
+    ClublineThemePreset(
       id: 'grafite_oro',
       name: 'Grafite Oro',
       description: 'Più neutra e professionale, con oro più pulito.',
@@ -225,8 +238,7 @@ class ClublineAppTheme {
     return ClublineThemePreset(
       id: 'stemma',
       name: 'Stemma',
-      description:
-          'La palette reale del club, derivata da logo e colori attuali.',
+      description: 'Usa i colori del club come base del tuo aspetto personale.',
       palette: palette,
     );
   }

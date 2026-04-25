@@ -75,7 +75,7 @@ class _ThemePaletteSheetState extends State<ThemePaletteSheet> {
     }
 
     messenger.showSnackBar(
-      const SnackBar(content: Text('Colori app aggiornati')),
+      const SnackBar(content: Text('Aspetto app aggiornato')),
     );
     Navigator.pop(context);
   }
@@ -93,9 +93,7 @@ class _ThemePaletteSheetState extends State<ThemePaletteSheet> {
     }
 
     messenger.showSnackBar(
-      const SnackBar(
-        content: Text('Ripristinati i colori originali del logo club'),
-      ),
+      const SnackBar(content: Text('Ripristinati i colori del club')),
     );
     Navigator.pop(context);
   }
@@ -128,24 +126,32 @@ class _ThemePaletteSheetState extends State<ThemePaletteSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Colori app',
+              'Aspetto app',
               style: Theme.of(
                 context,
               ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 8),
             Text(
-              'Lo sfondo generale di Clubline resta quello del brand. Qui puoi personalizzare card, pannelli, accenti e dettagli del tuo club senza usare codici.',
+              'Personalizza i colori solo per te. Non stai modificando il club.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: ClublineAppTheme.textMuted,
                 height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Predefinito: usa i colori del club (Stemma).',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: ClublineAppTheme.textMuted,
+                fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 18),
             _PalettePreviewCard(palette: draftPalette),
             const SizedBox(height: 20),
             Text(
-              'Palette suggerite',
+              'Stemma e preset',
               style: Theme.of(
                 context,
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
@@ -229,14 +235,14 @@ class _ThemePaletteSheetState extends State<ThemePaletteSheet> {
                         ? Icons.hourglass_top_outlined
                         : Icons.palette_outlined,
                   ),
-                  label: Text(isSaving ? 'Salvataggio...' : 'Applica colori'),
+                  label: Text(isSaving ? 'Salvataggio...' : 'Salva aspetto'),
                 ),
                 OutlinedButton.icon(
                   onPressed: isSaving || themeController.isLoading
                       ? null
                       : _resetPalette,
                   icon: const Icon(Icons.restart_alt_outlined),
-                  label: const Text('Ripristina colori club'),
+                  label: const Text('Ripristina colori del club'),
                 ),
               ],
             ),

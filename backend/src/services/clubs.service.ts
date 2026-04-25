@@ -25,6 +25,11 @@ import { PlayerProfilesRepository } from '../repositories/player-profiles.reposi
 import { PlayerIdentityService } from './player-identity.service';
 
 const CLUB_LOGO_BUCKET = 'club-assets';
+const DEFAULT_CLUB_THEME = {
+  primaryColor: '#1F2937',
+  accentColor: '#0F766E',
+  surfaceColor: '#0F172A',
+} as const;
 const allowedLogoMimeTypes = new Set([
   'image/png',
   'image/jpeg',
@@ -39,6 +44,12 @@ type ClubLogoUpload = {
   mimeType: string;
   bytes: Buffer;
   extension: string;
+};
+
+type ResolvedClubTheme = {
+  primaryColor: string;
+  accentColor: string;
+  surfaceColor: string;
 };
 
 function normalizeText(value: string | null | undefined): string {
@@ -99,6 +110,30 @@ function normalizeHexColor(value: string | null | undefined): string | null {
   }
 
   return hex.toUpperCase();
+}
+
+function resolveClubThemeColors(
+  input: {
+    primaryColor?: string | null;
+    accentColor?: string | null;
+    surfaceColor?: string | null;
+  },
+  fallback: Partial<ResolvedClubTheme> = DEFAULT_CLUB_THEME,
+): ResolvedClubTheme {
+  return {
+    primaryColor:
+      normalizeHexColor(input.primaryColor) ??
+      fallback.primaryColor ??
+      DEFAULT_CLUB_THEME.primaryColor,
+    accentColor:
+      normalizeHexColor(input.accentColor) ??
+      fallback.accentColor ??
+      DEFAULT_CLUB_THEME.accentColor,
+    surfaceColor:
+      normalizeHexColor(input.surfaceColor) ??
+      fallback.surfaceColor ??
+      DEFAULT_CLUB_THEME.surfaceColor,
+  };
 }
 
 function ensureHasClub(principal: RequestPrincipal): MembershipRow {
@@ -287,15 +322,21 @@ export class ClubsService {
     await this.ensureUniqueClubName(normalizedName);
 
     const slug = await this.generateUniqueSlug(clubName);
+    const initialTheme = resolveClubThemeColors({
+      primaryColor: input.primary_color,
+      accentColor: input.accent_color,
+      surfaceColor: input.surface_color,
+    });
+
     const clubInsertResponse = await this.db
       .from('clubs')
       .insert({
         name: clubName,
         normalized_name: normalizedName,
         slug,
-        primary_color: normalizeHexColor(input.primary_color) ?? '#1F2937',
-        accent_color: normalizeHexColor(input.accent_color) ?? '#0F766E',
-        surface_color: normalizeHexColor(input.surface_color) ?? '#0F172A',
+        primary_color: initialTheme.primaryColor,
+        accent_color: initialTheme.accentColor,
+        surface_color: initialTheme.surfaceColor,
         created_by_user_id: principal.authUser.id,
       })
       .select('*')
@@ -805,6 +846,20 @@ export class ClubsService {
     clubId: string | number,
     input: UpdateClubLogoInput,
   ): Promise<ClubRow> {
+    const currentClub = await this.getClubById(clubId);
+    const nextTheme = resolveClubThemeColors(
+      {
+        primaryColor: input.primary_color,
+        accentColor: input.accent_color,
+        surfaceColor: input.surface_color,
+      },
+      {
+        primaryColor: currentClub.primary_color ?? undefined,
+        accentColor: currentClub.accent_color ?? undefined,
+        surfaceColor: currentClub.surface_color ?? undefined,
+      },
+    );
+
     const parsedLogo = parseLogoUpload(input.logo_data_url);
     const path = `clubs/${clubId}/logo-${Date.now()}.${parsedLogo.extension}`;
     const uploadResponse = await this.db.storage
@@ -825,9 +880,9 @@ export class ClubsService {
       .update({
         logo_url: publicUrl,
         logo_storage_path: path,
-        primary_color: normalizeHexColor(input.primary_color),
-        accent_color: normalizeHexColor(input.accent_color),
-        surface_color: normalizeHexColor(input.surface_color),
+        primary_color: nextTheme.primaryColor,
+        accent_color: nextTheme.accentColor,
+        surface_color: nextTheme.surfaceColor,
       })
       .eq('id', clubId)
       .select('*')

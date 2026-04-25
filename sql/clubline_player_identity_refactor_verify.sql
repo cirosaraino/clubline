@@ -40,3 +40,11 @@ where event_object_schema = 'public'
     'memberships_detach_player_profiles_on_delete'
   )
 order by trigger_name, event_manipulation;
+
+select pg_get_functiondef('public.detach_player_identity_from_membership()'::regprocedure)
+  not like '%shirt_number = null%'
+  and pg_get_functiondef('public.detach_player_identity_from_membership()'::regprocedure)
+  not like '%primary_role = null%'
+  and pg_get_functiondef('public.detach_player_identity_from_membership()'::regprocedure)
+  not like '%secondary_roles = ''{}''::text[]%'
+  as detach_trigger_preserves_profile_fields;

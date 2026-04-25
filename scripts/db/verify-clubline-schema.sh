@@ -74,6 +74,14 @@ select 'player_profiles_standalone_team_role_check=' || exists(
   from pg_constraint
   where conname = 'player_profiles_standalone_team_role_check'
 )::text;
+select 'detach_player_identity_preserves_profile_fields=' || (
+  pg_get_functiondef('public.detach_player_identity_from_membership()'::regprocedure)
+    not like '%shirt_number = null%'
+  and pg_get_functiondef('public.detach_player_identity_from_membership()'::regprocedure)
+    not like '%primary_role = null%'
+  and pg_get_functiondef('public.detach_player_identity_from_membership()'::regprocedure)
+    not like '%secondary_roles = ''{}''::text[]%'
+)::text;
 select 'memberships_user_status_created_idx=' || exists(
   select 1
   from pg_indexes

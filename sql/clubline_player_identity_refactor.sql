@@ -87,10 +87,6 @@ begin
   update public.player_profiles
   set club_id = null,
       membership_id = null,
-      shirt_number = null,
-      primary_role = null,
-      secondary_role = null,
-      secondary_roles = '{}'::text[],
       team_role = 'player'
   where membership_id = old.id
     and archived_at is null;

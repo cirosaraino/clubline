@@ -9,7 +9,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "APP_ENV=local NODE_ENV=test tsx --test src/**/*.test.ts",
+    "test": "APP_ENV=local NODE_ENV=test ENABLE_LEGACY_WORKFLOW_FALLBACK=true tsx --test src/**/*.test.ts",
     "validate:e2e:supabase": "tsx tests/e2e/production-supabase-validation.ts",
     "check": "npm run typecheck && npm test",
     "bootstrap": "../scripts/backend/install.sh",

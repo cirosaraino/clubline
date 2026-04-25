@@ -125,45 +125,47 @@ export class PlayerIdentityService {
     const hasOperationalHistory = await this.hasOperationalHistory(profile.id);
 
     if (!keepStandaloneIdentity) {
-      return this.playerProfiles.updateById(profile.id, {
-        club_id: profile.club_id,
-        membership_id: null,
-        team_role: 'player',
-        archived_at: leftAt,
-      });
+      return this.playerProfiles.updateById(
+        profile.id,
+        this.buildDetachedProfilePayload(profile, {
+          clubId: profile.club_id,
+          membershipId: null,
+          teamRole: 'player',
+          archivedAt: leftAt,
+        }),
+      );
     }
 
     if (hasOperationalHistory) {
-      await this.playerProfiles.updateById(profile.id, {
-        club_id: profile.club_id,
-        membership_id: null,
-        team_role: 'player',
-        archived_at: leftAt,
-      });
+      await this.playerProfiles.updateById(
+        profile.id,
+        this.buildDetachedProfilePayload(profile, {
+          clubId: profile.club_id,
+          membershipId: null,
+          teamRole: 'player',
+          archivedAt: leftAt,
+        }),
+      );
 
-      return this.playerProfiles.insert({
-        club_id: null,
-        membership_id: null,
-        nome: profile.nome,
-        cognome: profile.cognome,
-        auth_user_id: profile.auth_user_id,
-        account_email: profile.account_email,
-        shirt_number: profile.shirt_number,
-        primary_role: profile.primary_role,
-        secondary_role: profile.secondary_role,
-        secondary_roles: profile.secondary_roles,
-        id_console: profile.id_console,
-        team_role: 'player',
-        archived_at: null,
-      });
+      return this.playerProfiles.insert(
+        this.buildDetachedProfilePayload(profile, {
+          clubId: null,
+          membershipId: null,
+          teamRole: 'player',
+          archivedAt: null,
+        }),
+      );
     }
 
-    return this.playerProfiles.updateById(profile.id, {
-      club_id: null,
-      membership_id: null,
-      team_role: 'player',
-      archived_at: null,
-    });
+    return this.playerProfiles.updateById(
+      profile.id,
+      this.buildDetachedProfilePayload(profile, {
+        clubId: null,
+        membershipId: null,
+        teamRole: 'player',
+        archivedAt: null,
+      }),
+    );
   }
 
   async ensureConsoleIdAvailable(
@@ -310,7 +312,9 @@ export class PlayerIdentityService {
     secondaryRoles: string[] | undefined;
     consoleId: string | null | undefined;
   } {
-    const primaryRole = normalizeOptionalTextField(input.primaryRole);
+    const primaryRole = input.primaryRole == null
+      ? undefined
+      : normalizeOptionalTextField(input.primaryRole);
     const normalizedSecondaryRoles = normalizeRoles([
       ...(input.secondaryRoles ?? []),
       ...(input.secondaryRole ? [input.secondaryRole] : []),
@@ -320,13 +324,42 @@ export class PlayerIdentityService {
       nome: normalizeOptionalTextField(input.nome),
       cognome: normalizeOptionalTextField(input.cognome),
       accountEmail: normalizeEmailField(input.email),
-      shirtNumber: input.shirtNumber,
+      shirtNumber: input.shirtNumber == null ? undefined : input.shirtNumber,
       primaryRole,
       secondaryRoles:
         input.secondaryRole !== undefined || input.secondaryRoles !== undefined
           ? normalizedSecondaryRoles
           : undefined,
-      consoleId: normalizeOptionalTextField(input.consoleId),
+      consoleId:
+        input.consoleId == null
+          ? undefined
+          : normalizeOptionalTextField(input.consoleId),
     };
+  }
+
+  private buildDetachedProfilePayload(
+    profile: PlayerProfileRow,
+    options: {
+      clubId: string | number | null;
+      membershipId: string | number | null;
+      teamRole: TeamRole;
+      archivedAt: string | null;
+    },
+  ) {
+    return {
+      club_id: options.clubId,
+      membership_id: options.membershipId,
+      nome: profile.nome,
+      cognome: profile.cognome,
+      auth_user_id: profile.auth_user_id,
+      account_email: profile.account_email,
+      shirt_number: profile.shirt_number,
+      primary_role: profile.primary_role,
+      secondary_role: profile.secondary_role,
+      secondary_roles: profile.secondary_roles,
+      id_console: profile.id_console,
+      team_role: options.teamRole,
+      archived_at: options.archivedAt,
+    } as const;
   }
 }

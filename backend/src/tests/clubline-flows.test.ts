@@ -15,6 +15,9 @@ import { ClubsService } from '../services/clubs.service';
 import { PlayerService } from '../services/player.service';
 import { FakeSupabaseClient } from './support/fake-supabase';
 
+const ONE_PIXEL_PNG_DATA_URL =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a6GQAAAAASUVORK5CYII=';
+
 function createClub(overrides: Partial<ClubRow> = {}): ClubRow {
   return {
     id: 1,
@@ -236,6 +239,67 @@ test('createClub rejects duplicate club names with case-insensitive normalizatio
       ),
     ConflictError,
   );
+});
+
+test('createClub with logo stores the stemma palette as the default club theme', async () => {
+  const db = new FakeSupabaseClient();
+  const service = new ClubsService(db as any);
+
+  const result = await service.createClub(
+    {
+      name: 'Napoli Clubline',
+      owner_nome: 'Ciro',
+      owner_cognome: 'Saraino',
+      owner_id_console: 'ciro-nap',
+      logo_data_url: ONE_PIXEL_PNG_DATA_URL,
+      primary_color: '#1274FF',
+      accent_color: '#00D4C6',
+      surface_color: '#12384E',
+    },
+    buildPrincipal({
+      userId: 'founder-logo-1',
+      email: 'founder-logo-1@example.com',
+    }),
+  );
+
+  assert.equal(result.club.logo_url?.startsWith('https://storage.example.test/clubs/'), true);
+  assert.equal(result.club.primary_color, '#1274FF');
+  assert.equal(result.club.accent_color, '#00D4C6');
+  assert.equal(result.club.surface_color, '#12384E');
+
+  const savedClub = db.rows<ClubRow>('clubs')[0];
+  assert.equal(savedClub?.primary_color, '#1274FF');
+  assert.equal(savedClub?.accent_color, '#00D4C6');
+  assert.equal(savedClub?.surface_color, '#12384E');
+});
+
+test('createClub with logo keeps a safe fallback palette when logo extraction is unavailable', async () => {
+  const db = new FakeSupabaseClient();
+  const service = new ClubsService(db as any);
+
+  const result = await service.createClub(
+    {
+      name: 'Fallback Club',
+      owner_nome: 'Mario',
+      owner_cognome: 'Rossi',
+      owner_id_console: 'mario-fallback',
+      logo_data_url: ONE_PIXEL_PNG_DATA_URL,
+    },
+    buildPrincipal({
+      userId: 'founder-logo-2',
+      email: 'founder-logo-2@example.com',
+    }),
+  );
+
+  assert.equal(result.club.logo_url?.startsWith('https://storage.example.test/clubs/'), true);
+  assert.equal(result.club.primary_color, '#1F2937');
+  assert.equal(result.club.accent_color, '#0F766E');
+  assert.equal(result.club.surface_color, '#0F172A');
+
+  const savedClub = db.rows<ClubRow>('clubs')[0];
+  assert.equal(savedClub?.primary_color, '#1F2937');
+  assert.equal(savedClub?.accent_color, '#0F766E');
+  assert.equal(savedClub?.surface_color, '#0F172A');
 });
 
 test('listClubs uses prefix search and paginates club discovery results', async () => {
@@ -535,6 +599,12 @@ test('requestJoinClub enforces the one-active-club-per-user rule', async () => {
 
 test('members can request leave and captain approval detach the profile but keep the player identity', async () => {
   const seed = createClubSeed({ clubId: 1 });
+  const otherClub = createClubSeed({
+    clubId: 2,
+    clubName: 'Club Due',
+    captainUserId: 'captain-2',
+    captainMembershipId: 22,
+  });
   const memberMembership = createMembership({
     id: 12,
     club_id: seed.club.id,
@@ -547,12 +617,21 @@ test('members can request leave and captain approval detach the profile but keep
     membership_id: memberMembership.id,
     auth_user_id: memberMembership.auth_user_id,
     account_email: 'leaving-member@example.com',
+    shirt_number: 11,
+    primary_role: 'CDC',
+    secondary_role: 'CC',
+    secondary_roles: ['CC', 'MED'],
+    id_console: 'leaving-11',
     team_role: 'player',
   });
   const db = new FakeSupabaseClient({
-    clubs: [seed.club],
-    memberships: [seed.captainMembership, memberMembership],
-    player_profiles: [seed.captainPlayer, memberProfile],
+    clubs: [seed.club, otherClub.club],
+    memberships: [
+      seed.captainMembership,
+      otherClub.captainMembership,
+      memberMembership,
+    ],
+    player_profiles: [seed.captainPlayer, otherClub.captainPlayer, memberProfile],
   });
   const service = new ClubsService(db as any);
 
@@ -589,7 +668,97 @@ test('members can request leave and captain approval detach the profile but keep
   assert.equal(updatedProfile?.membership_id, null);
   assert.equal(updatedProfile?.auth_user_id, memberMembership.auth_user_id);
   assert.equal(updatedProfile?.account_email, 'leaving-member@example.com');
+  assert.equal(updatedProfile?.shirt_number, 11);
+  assert.equal(updatedProfile?.primary_role, 'CDC');
+  assert.equal(updatedProfile?.secondary_role, 'CC');
+  assert.deepEqual(updatedProfile?.secondary_roles, ['CC', 'MED']);
+  assert.equal(updatedProfile?.id_console, 'leaving-11');
+  assert.equal(updatedProfile?.team_role, 'player');
   assert.equal(updatedProfile?.archived_at, null);
+
+  const nextJoinRequest = await service.requestJoinClub(
+    {
+      club_id: otherClub.club.id,
+      requested_nome: 'Luca',
+      requested_cognome: 'Rientro',
+    },
+    buildPrincipal({
+      userId: memberMembership.auth_user_id,
+      email: 'leaving-member@example.com',
+    }),
+  );
+
+  const nextMembership = await service.approveJoinRequest(
+    nextJoinRequest.id,
+    buildPrincipal({
+      userId: otherClub.captainMembership.auth_user_id,
+      club: otherClub.club,
+      membership: otherClub.captainMembership,
+      player: otherClub.captainPlayer,
+    }),
+  );
+
+  const rejoinedProfile = db
+    .rows<PlayerProfileRow>('player_profiles')
+    .find((player) => player.id === memberProfile.id);
+
+  assert.equal(rejoinedProfile?.club_id, otherClub.club.id);
+  assert.equal(rejoinedProfile?.membership_id, nextMembership.id);
+  assert.equal(rejoinedProfile?.shirt_number, 11);
+  assert.equal(rejoinedProfile?.primary_role, 'CDC');
+  assert.deepEqual(rejoinedProfile?.secondary_roles, ['CC', 'MED']);
+  assert.equal(rejoinedProfile?.id_console, 'leaving-11');
+});
+
+test('detached player identities can create a new club without recreating the profile', async () => {
+  const standaloneProfile = createPlayerProfile({
+    id: 211,
+    club_id: null,
+    membership_id: null,
+    auth_user_id: 'returning-founder',
+    account_email: 'returning-founder@example.com',
+    shirt_number: 77,
+    primary_role: 'POR',
+    secondary_role: 'DC',
+    secondary_roles: ['DC'],
+    id_console: 'returning-77',
+    team_role: 'player',
+  });
+  const db = new FakeSupabaseClient({
+    player_profiles: [standaloneProfile],
+  });
+  const service = new ClubsService(db as any);
+
+  const created = await service.createClub(
+    {
+      name: 'Nuovo Club',
+      owner_nome: standaloneProfile.nome,
+      owner_cognome: standaloneProfile.cognome,
+      owner_id_console: standaloneProfile.id_console,
+      owner_shirt_number: standaloneProfile.shirt_number,
+      owner_primary_role: standaloneProfile.primary_role,
+    },
+    buildPrincipal({
+      userId: standaloneProfile.auth_user_id!,
+      email: standaloneProfile.account_email!,
+    }),
+  );
+
+  const playerProfiles = db.rows<PlayerProfileRow>('player_profiles');
+  const reusedProfile = playerProfiles.find((player) => player.id === standaloneProfile.id);
+  const authProfiles = playerProfiles.filter(
+    (player) => player.auth_user_id === standaloneProfile.auth_user_id,
+  );
+
+  assert.equal(authProfiles.length, 1);
+  assert.equal(reusedProfile?.club_id, created.club.id);
+  assert.equal(reusedProfile?.membership_id, created.membership.id);
+  assert.equal(reusedProfile?.team_role, 'captain');
+  assert.equal(reusedProfile?.shirt_number, 77);
+  assert.equal(reusedProfile?.primary_role, 'POR');
+  assert.equal(reusedProfile?.secondary_role, 'DC');
+  assert.deepEqual(reusedProfile?.secondary_roles, ['DC']);
+  assert.equal(reusedProfile?.id_console, 'returning-77');
 });
 
 test('captains can reject leave requests and cannot leave until the role is transferred', async () => {
