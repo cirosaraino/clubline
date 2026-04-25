@@ -32,27 +32,6 @@
 
   <title>Clubline</title>
   <link rel="manifest" href="manifest.json">
-  <script>
-    (function () {
-      const state = window.__clublinePwa = window.__clublinePwa || {
-        deferredPrompt: null,
-        installed: window.matchMedia('(display-mode: standalone)').matches ||
-          window.navigator.standalone === true,
-      };
-
-      window.addEventListener('beforeinstallprompt', function (event) {
-        event.preventDefault();
-        state.deferredPrompt = event;
-        window.dispatchEvent(new Event('clubline-pwa-install-available'));
-      });
-
-      window.addEventListener('appinstalled', function () {
-        state.deferredPrompt = null;
-        state.installed = true;
-        window.dispatchEvent(new Event('clubline-pwa-installed'));
-      });
-    })();
-  </script>
 </head>
 <body>
   <!--

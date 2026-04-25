@@ -503,6 +503,30 @@ class _AppShellPageState extends State<AppShellPage> {
     ];
   }
 
+  Widget _buildBottomNavigationBar(BuildContext context) {
+    final theme = Theme.of(context);
+    final navigationBackground =
+        theme.navigationBarTheme.backgroundColor ?? theme.colorScheme.surface;
+
+    return ColoredBox(
+      color: navigationBackground,
+      child: SafeArea(
+        top: false,
+        left: false,
+        right: false,
+        maintainBottomViewPadding: true,
+        child: NavigationBar(
+          height: AppResponsive.isCompact(context) ? 74 : null,
+          selectedIndex: selectedIndex,
+          onDestinationSelected: (index) {
+            unawaited(_handleDestinationSelected(index));
+          },
+          destinations: _bottomDestinations(),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = AppSessionScope.of(context);
@@ -548,14 +572,7 @@ class _AppShellPageState extends State<AppShellPage> {
     if (!useRail) {
       return Scaffold(
         body: IndexedStack(index: selectedIndex, children: pages),
-        bottomNavigationBar: NavigationBar(
-          height: AppResponsive.isCompact(context) ? 74 : null,
-          selectedIndex: selectedIndex,
-          onDestinationSelected: (index) {
-            unawaited(_handleDestinationSelected(index));
-          },
-          destinations: _bottomDestinations(),
-        ),
+        bottomNavigationBar: _buildBottomNavigationBar(context),
       );
     }
 

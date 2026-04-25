@@ -9,7 +9,6 @@ import 'core/app_theme_controller.dart';
 import 'ui/pages/app_shell_page.dart';
 import 'ui/widgets/app_realtime_sync_host.dart';
 import 'ui/widgets/biometric_unlock_host.dart';
-import 'ui/widgets/mobile_web_install_prompt_host.dart';
 
 class ClublineApp extends StatefulWidget {
   const ClublineApp({super.key});
@@ -74,9 +73,7 @@ class _ClublineAppState extends State<ClublineApp> {
                   controller: biometricUnlockController,
                   child: BiometricUnlockHost(
                     child: AppRealtimeSyncHost(
-                      child: MobileWebInstallPromptHost(
-                        child: child ?? const SizedBox.shrink(),
-                      ),
+                      child: child ?? const SizedBox.shrink(),
                     ),
                   ),
                 ),

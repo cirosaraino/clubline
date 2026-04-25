@@ -2,20 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:clubline/app.dart';
-import 'package:web/web.dart' as web;
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-
-  Future<void> setStandaloneSimulation(bool enabled) async {
-    try {
-      if (enabled) {
-        web.window.localStorage.setItem('e2e_force_standalone', '1');
-      } else {
-        web.window.localStorage.removeItem('e2e_force_standalone');
-      }
-    } catch (_) {}
-  }
 
   Future<void> assertGuestButtonsAreClickable(WidgetTester tester) async {
     await tester.pumpWidget(const SquadraApp());
@@ -42,22 +31,7 @@ void main() {
     expect(find.text('Crea account Clubline'), findsOneWidget);
   }
 
-  setUp(() async {
-    await setStandaloneSimulation(false);
-  });
-
-  tearDown(() async {
-    await setStandaloneSimulation(false);
-  });
-
   testWidgets('guest-home-buttons-clickable-browser', (tester) async {
-    await assertGuestButtonsAreClickable(tester);
-  });
-
-  testWidgets('guest-home-buttons-clickable-standalone-simulated', (
-    tester,
-  ) async {
-    await setStandaloneSimulation(true);
     await assertGuestButtonsAreClickable(tester);
   });
 }
