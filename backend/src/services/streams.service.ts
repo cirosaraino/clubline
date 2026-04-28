@@ -1,6 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import type { RequestPrincipal, StreamLinkRow } from '../domain/types';
+import type {
+  RequestPrincipal,
+  StreamLinkRow,
+  StreamStatus,
+} from '../domain/types';
 import { ForbiddenError } from '../lib/errors';
 import { ensureSuccess, optionalData, requiredData } from '../lib/supabase-result';
 
@@ -9,7 +13,7 @@ export interface StreamLinkInput {
   competition_name?: string | null;
   played_on: string;
   stream_url: string;
-  stream_status: 'live' | 'ended';
+  stream_status: StreamStatus;
   stream_ended_at?: string | null;
   provider?: string | null;
   result?: string | null;
@@ -22,6 +26,20 @@ function normalizeText(value: string | null | undefined): string | null {
 
 function normalizeDateOnly(value: string): string {
   return value.trim().slice(0, 10);
+}
+
+function streamStatusSortRank(status: StreamStatus): number {
+  switch (status) {
+    case 'live':
+      return 0;
+    case 'scheduled':
+      return 1;
+    case 'unknown':
+      return 2;
+    case 'ended':
+    default:
+      return 3;
+  }
 }
 
 export class StreamsService {
@@ -39,7 +57,10 @@ export class StreamsService {
 
     return [...rows].sort((left, right) => {
       if (left.stream_status !== right.stream_status) {
-        return left.stream_status === 'live' ? -1 : 1;
+        return (
+          streamStatusSortRank(left.stream_status) -
+          streamStatusSortRank(right.stream_status)
+        );
       }
 
       const leftReference = left.stream_ended_at ?? left.played_on;
@@ -140,7 +161,10 @@ export class StreamsService {
       played_on: normalizeDateOnly(input.played_on),
       stream_url: input.stream_url.trim(),
       stream_status: input.stream_status,
-      stream_ended_at: normalizeText(input.stream_ended_at),
+      stream_ended_at:
+        input.stream_status === 'ended'
+          ? normalizeText(input.stream_ended_at)
+          : null,
       provider: normalizeText(input.provider),
       result: normalizeText(input.result),
     };

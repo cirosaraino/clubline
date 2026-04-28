@@ -75,6 +75,59 @@ String normalizeStreamUrl(String value) {
   return value.trim();
 }
 
+String normalizeStreamStatus(String? value) {
+  final normalized = value?.trim().toLowerCase() ?? '';
+  switch (normalized) {
+    case 'live':
+      return 'live';
+    case 'scheduled':
+    case 'upcoming':
+    case 'programmato':
+      return 'scheduled';
+    case 'ended':
+    case 'conclusa':
+      return 'ended';
+    case 'unknown':
+    case 'pending':
+    case 'unverified':
+    case 'offline':
+    case 'not_live':
+      return 'unknown';
+    default:
+      return 'unknown';
+  }
+}
+
+bool isLiveStreamStatus(String? status) {
+  return normalizeStreamStatus(status) == 'live';
+}
+
+bool isScheduledStreamStatus(String? status) {
+  return normalizeStreamStatus(status) == 'scheduled';
+}
+
+bool isEndedStreamStatus(String? status) {
+  return normalizeStreamStatus(status) == 'ended';
+}
+
+bool isUnknownStreamStatus(String? status) {
+  return normalizeStreamStatus(status) == 'unknown';
+}
+
+int streamStatusSortRank(String? status) {
+  switch (normalizeStreamStatus(status)) {
+    case 'live':
+      return 0;
+    case 'scheduled':
+      return 1;
+    case 'unknown':
+      return 2;
+    case 'ended':
+    default:
+      return 3;
+  }
+}
+
 bool isValidStreamUrl(String value) {
   final normalizedValue = normalizeStreamUrl(value);
   if (normalizedValue.isEmpty) return false;
@@ -87,12 +140,16 @@ bool isValidStreamUrl(String value) {
 }
 
 String streamStatusLabel(String status) {
-  switch (status) {
+  switch (normalizeStreamStatus(status)) {
     case 'live':
-      return 'LIVE';
+      return 'In diretta';
+    case 'scheduled':
+      return 'Programmato';
     case 'ended':
-      return 'CONCLUSA';
+      return 'Conclusa';
+    case 'unknown':
+      return 'Stato non verificato';
     default:
-      return status.toUpperCase();
+      return 'Stato non verificato';
   }
 }

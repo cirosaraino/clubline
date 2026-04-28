@@ -34,7 +34,7 @@ class StreamLink {
       ),
       playedOn: DateTime.parse(map['played_on'].toString()),
       streamUrl: normalizeStreamUrl(map['stream_url']?.toString() ?? ''),
-      streamStatus: map['stream_status']?.toString() ?? 'ended',
+      streamStatus: normalizeStreamStatus(map['stream_status']?.toString()),
       streamEndedAt: map['stream_ended_at'] == null
           ? null
           : DateTime.parse(map['stream_ended_at'].toString()),
@@ -54,8 +54,10 @@ class StreamLink {
       'competition_name': normalizeOptionalCompetitionName(competitionName),
       'played_on': normalizedPlayedOn.toIso8601String().split('T').first,
       'stream_url': normalizeStreamUrl(streamUrl),
-      'stream_status': streamStatus,
-      'stream_ended_at': streamEndedAt?.toUtc().toIso8601String(),
+      'stream_status': normalizeStreamStatus(streamStatus),
+      'stream_ended_at': isEnded
+          ? streamEndedAt?.toUtc().toIso8601String()
+          : null,
       'provider': provider,
       'result': normalizeOptionalResult(result),
     };
@@ -70,7 +72,13 @@ class StreamLink {
 
   bool get hasEndedAt => streamEndedAt != null;
 
-  bool get isLive => streamStatus == 'live';
+  bool get isLive => isLiveStreamStatus(streamStatus);
+
+  bool get isScheduled => isScheduledStreamStatus(streamStatus);
+
+  bool get isEnded => isEndedStreamStatus(streamStatus);
+
+  bool get isUnknown => isUnknownStreamStatus(streamStatus);
 
   String get statusLabel => streamStatusLabel(streamStatus);
 

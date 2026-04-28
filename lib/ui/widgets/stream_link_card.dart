@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/app_theme.dart';
+import '../../core/stream_link_formatters.dart';
 import '../../models/stream_link.dart';
 import 'app_chrome.dart';
 
@@ -35,10 +36,7 @@ class StreamLinkCard extends StatelessWidget {
           label: streamLink.provider!.toUpperCase(),
         ),
       if (streamLink.hasResult)
-        _StreamTag(
-          icon: Icons.scoreboard_outlined,
-          label: streamLink.result!,
-        ),
+        _StreamTag(icon: Icons.scoreboard_outlined, label: streamLink.result!),
     ];
 
     return Card(
@@ -55,14 +53,15 @@ class StreamLinkCard extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _CardLeadingIcon(isLive: streamLink.isLive),
+                    _CardLeadingIcon(status: streamLink.streamStatus),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         streamLink.streamTitle,
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
                               fontWeight: FontWeight.w800,
                               height: 1.2,
                             ),
@@ -70,31 +69,24 @@ class StreamLinkCard extends StatelessWidget {
                     ),
                     if (onEdit != null || onDelete != null) ...[
                       const SizedBox(width: 8),
-                      _StreamActionMenu(
-                        onEdit: onEdit,
-                        onDelete: onDelete,
-                      ),
+                      _StreamActionMenu(onEdit: onEdit, onDelete: onDelete),
                     ],
                   ],
                 ),
                 const SizedBox(height: 10),
                 _StreamBadge(
                   label: streamLink.statusLabel,
-                  isLive: streamLink.isLive,
+                  status: streamLink.streamStatus,
                 ),
                 if (tags.isNotEmpty) ...[
                   const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: tags,
-                  ),
+                  Wrap(spacing: 8, runSpacing: 8, children: tags),
                 ],
               ] else
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _CardLeadingIcon(isLive: streamLink.isLive),
+                    _CardLeadingIcon(status: streamLink.streamStatus),
                     const SizedBox(width: 14),
                     Expanded(
                       child: Column(
@@ -104,18 +96,15 @@ class StreamLinkCard extends StatelessWidget {
                             streamLink.streamTitle,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(
                                   fontWeight: FontWeight.w800,
                                   height: 1.2,
                                 ),
                           ),
                           if (tags.isNotEmpty) ...[
                             const SizedBox(height: 10),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: tags,
-                            ),
+                            Wrap(spacing: 8, runSpacing: 8, children: tags),
                           ],
                         ],
                       ),
@@ -126,14 +115,11 @@ class StreamLinkCard extends StatelessWidget {
                       children: [
                         _StreamBadge(
                           label: streamLink.statusLabel,
-                          isLive: streamLink.isLive,
+                          status: streamLink.streamStatus,
                         ),
                         if (onEdit != null || onDelete != null) ...[
                           const SizedBox(height: 8),
-                          _StreamActionMenu(
-                            onEdit: onEdit,
-                            onDelete: onDelete,
-                          ),
+                          _StreamActionMenu(onEdit: onEdit, onDelete: onDelete),
                         ],
                       ],
                     ),
@@ -182,7 +168,9 @@ class StreamLinkCard extends StatelessWidget {
                               icon: streamLink.hasEndedAt
                                   ? Icons.schedule_outlined
                                   : Icons.videocam_outlined,
-                              label: streamLink.hasEndedAt ? 'Conclusa' : 'Stato',
+                              label: streamLink.hasEndedAt
+                                  ? 'Conclusa'
+                                  : 'Stato',
                               value: streamLink.hasEndedAt
                                   ? streamLink.endedAtDisplay!
                                   : streamLink.statusLabel,
@@ -191,9 +179,7 @@ class StreamLinkCard extends StatelessWidget {
                         ],
                       ),
                     const SizedBox(height: 12),
-                    _StreamLinkPanel(
-                      url: streamLink.streamUrl,
-                    ),
+                    _StreamLinkPanel(url: streamLink.streamUrl),
                   ],
                 ),
               ),
@@ -242,10 +228,7 @@ class StreamLinkCard extends StatelessWidget {
 }
 
 class _StreamActionMenu extends StatelessWidget {
-  const _StreamActionMenu({
-    required this.onEdit,
-    required this.onDelete,
-  });
+  const _StreamActionMenu({required this.onEdit, required this.onDelete});
 
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
@@ -285,9 +268,7 @@ class _StreamActionMenu extends StatelessWidget {
               ),
               title: Text(
                 'Elimina',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.error,
-                ),
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
               contentPadding: EdgeInsets.zero,
             ),
@@ -299,18 +280,41 @@ class _StreamActionMenu extends StatelessWidget {
 }
 
 class _CardLeadingIcon extends StatelessWidget {
-  const _CardLeadingIcon({required this.isLive});
+  const _CardLeadingIcon({required this.status});
 
-  final bool isLive;
+  final String status;
 
   @override
   Widget build(BuildContext context) {
-    final background = isLive
+    final normalizedStatus = normalizeStreamStatus(status);
+    final background = normalizedStatus == 'live'
         ? ClublineAppTheme.danger.withValues(alpha: 0.14)
+        : normalizedStatus == 'scheduled'
+        ? ClublineAppTheme.info.withValues(alpha: 0.14)
+        : normalizedStatus == 'ended'
+        ? ClublineAppTheme.surfaceAlt.withValues(alpha: 0.82)
         : ClublineAppTheme.gold.withValues(alpha: 0.12);
-    final border =
-        isLive ? ClublineAppTheme.danger : ClublineAppTheme.outline;
-    final iconColor = isLive ? ClublineAppTheme.dangerSoft : ClublineAppTheme.goldSoft;
+    final border = normalizedStatus == 'live'
+        ? ClublineAppTheme.danger
+        : normalizedStatus == 'scheduled'
+        ? ClublineAppTheme.info
+        : normalizedStatus == 'ended'
+        ? ClublineAppTheme.outlineSoft
+        : ClublineAppTheme.outline;
+    final iconColor = normalizedStatus == 'live'
+        ? ClublineAppTheme.dangerSoft
+        : normalizedStatus == 'scheduled'
+        ? ClublineAppTheme.infoSoft
+        : normalizedStatus == 'ended'
+        ? ClublineAppTheme.textMuted
+        : ClublineAppTheme.goldSoft;
+    final icon = normalizedStatus == 'live'
+        ? Icons.radio_button_checked
+        : normalizedStatus == 'scheduled'
+        ? Icons.event_available_outlined
+        : normalizedStatus == 'ended'
+        ? Icons.videocam_off_outlined
+        : Icons.help_outline;
 
     return Container(
       width: 48,
@@ -320,31 +324,41 @@ class _CardLeadingIcon extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: border),
       ),
-      child: Icon(
-        isLive ? Icons.radio_button_checked : Icons.play_circle_outline,
-        color: iconColor,
-      ),
+      child: Icon(icon, color: iconColor),
     );
   }
 }
 
 class _StreamBadge extends StatelessWidget {
-  const _StreamBadge({
-    required this.label,
-    required this.isLive,
-  });
+  const _StreamBadge({required this.label, required this.status});
 
   final String label;
-  final bool isLive;
+  final String status;
 
   @override
   Widget build(BuildContext context) {
-    final backgroundColor = isLive
+    final normalizedStatus = normalizeStreamStatus(status);
+    final backgroundColor = normalizedStatus == 'live'
         ? ClublineAppTheme.danger.withValues(alpha: 0.14)
+        : normalizedStatus == 'scheduled'
+        ? ClublineAppTheme.info.withValues(alpha: 0.14)
+        : normalizedStatus == 'ended'
+        ? ClublineAppTheme.surfaceAlt.withValues(alpha: 0.86)
         : ClublineAppTheme.gold.withValues(alpha: 0.16);
-    final borderColor =
-        isLive ? ClublineAppTheme.danger : ClublineAppTheme.outlineStrong;
-    final textColor = isLive ? ClublineAppTheme.dangerSoft : ClublineAppTheme.goldSoft;
+    final borderColor = normalizedStatus == 'live'
+        ? ClublineAppTheme.danger
+        : normalizedStatus == 'scheduled'
+        ? ClublineAppTheme.info
+        : normalizedStatus == 'ended'
+        ? ClublineAppTheme.outlineSoft
+        : ClublineAppTheme.outlineStrong;
+    final textColor = normalizedStatus == 'live'
+        ? ClublineAppTheme.dangerSoft
+        : normalizedStatus == 'scheduled'
+        ? ClublineAppTheme.infoSoft
+        : normalizedStatus == 'ended'
+        ? ClublineAppTheme.textPrimary
+        : ClublineAppTheme.goldSoft;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -356,20 +370,17 @@ class _StreamBadge extends StatelessWidget {
       child: Text(
         label,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: textColor,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.3,
-            ),
+          color: textColor,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.3,
+        ),
       ),
     );
   }
 }
 
 class _StreamTag extends StatelessWidget {
-  const _StreamTag({
-    required this.icon,
-    required this.label,
-  });
+  const _StreamTag({required this.icon, required this.label});
 
   final IconData icon;
   final String label;
@@ -394,9 +405,9 @@ class _StreamTag extends StatelessWidget {
               label,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: ClublineAppTheme.textPrimary,
-                    fontWeight: FontWeight.w700,
-                  ),
+                color: ClublineAppTheme.textPrimary,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -437,9 +448,9 @@ class _StreamFactTile extends StatelessWidget {
                 child: Text(
                   label,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: ClublineAppTheme.textMuted,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    color: ClublineAppTheme.textMuted,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ],
@@ -449,9 +460,9 @@ class _StreamFactTile extends StatelessWidget {
             value,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
         ],
       ),
@@ -484,8 +495,8 @@ class _StreamLinkPanel extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: ClublineAppTheme.textMuted,
-                  ),
+                color: ClublineAppTheme.textMuted,
+              ),
             ),
           ),
           const SizedBox(width: 10),

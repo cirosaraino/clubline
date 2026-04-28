@@ -21,7 +21,7 @@ class StreamLinkMetadata {
     return StreamLinkMetadata(
       title: normalizeStreamTitle(map['title']?.toString() ?? ''),
       normalizedUrl: normalizeStreamUrl(map['normalizedUrl']?.toString() ?? ''),
-      status: map['status']?.toString() ?? 'ended',
+      status: normalizeStreamStatus(map['status']?.toString()),
       provider: map['provider']?.toString() ?? 'generic',
       suggestedPlayedOn: DateTime.parse(map['suggestedPlayedOn'].toString()),
       endedAt: map['endedAt'] == null
@@ -30,7 +30,13 @@ class StreamLinkMetadata {
     );
   }
 
-  bool get isLive => status == 'live';
+  bool get isLive => isLiveStreamStatus(status);
+
+  bool get isScheduled => isScheduledStreamStatus(status);
+
+  bool get isEnded => isEndedStreamStatus(status);
+
+  bool get isUnknown => isUnknownStreamStatus(status);
 
   String get statusLabel => streamStatusLabel(status);
 

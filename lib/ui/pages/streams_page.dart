@@ -133,16 +133,13 @@ class _StreamsPageState extends State<StreamsPage> {
     final uri = Uri.tryParse(streamLink.streamUrl);
     if (uri == null) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Link non valido')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Link non valido')));
       return;
     }
 
-    final opened = await launchUrl(
-      uri,
-      mode: LaunchMode.externalApplication,
-    );
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
 
     if (!opened && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -156,9 +153,9 @@ class _StreamsPageState extends State<StreamsPage> {
 
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Link copiato negli appunti')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Link copiato negli appunti')));
   }
 
   Future<void> _deleteStreamLink(StreamLink streamLink) async {
@@ -203,13 +200,12 @@ class _StreamsPageState extends State<StreamsPage> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Live cancellata')),
-      );
-      AppDataSync.instance.notifyDataChanged(
-        {AppDataScope.streams},
-        reason: 'stream_deleted',
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Live cancellata')));
+      AppDataSync.instance.notifyDataChanged({
+        AppDataScope.streams,
+      }, reason: 'stream_deleted');
     } catch (e) {
       setState(() {
         errorMessage = e.toString();
@@ -219,7 +215,8 @@ class _StreamsPageState extends State<StreamsPage> {
   }
 
   Future<void> _deleteAllStreamLinks() async {
-    if (AppSessionScope.read(context).currentUser?.canManageStreams != true || isDeletingAll) {
+    if (AppSessionScope.read(context).currentUser?.canManageStreams != true ||
+        isDeletingAll) {
       return;
     }
 
@@ -262,10 +259,9 @@ class _StreamsPageState extends State<StreamsPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Tutte le live sono state cancellate')),
       );
-      AppDataSync.instance.notifyDataChanged(
-        {AppDataScope.streams},
-        reason: 'stream_deleted_all',
-      );
+      AppDataSync.instance.notifyDataChanged({
+        AppDataScope.streams,
+      }, reason: 'stream_deleted_all');
     } catch (e) {
       if (!mounted) {
         return;
@@ -285,7 +281,8 @@ class _StreamsPageState extends State<StreamsPage> {
   Future<void> _deleteStreamLinksForDay(DateTime date, int count) async {
     final currentUser = AppSessionScope.read(context).currentUser;
     final dayKey = _dayKey(date);
-    if (currentUser?.canManageStreams != true || deletingDayKeys.contains(dayKey)) {
+    if (currentUser?.canManageStreams != true ||
+        deletingDayKeys.contains(dayKey)) {
       return;
     }
 
@@ -326,12 +323,13 @@ class _StreamsPageState extends State<StreamsPage> {
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Live del ${formatPlayedOnDate(date)} cancellate')),
+        SnackBar(
+          content: Text('Live del ${formatPlayedOnDate(date)} cancellate'),
+        ),
       );
-      AppDataSync.instance.notifyDataChanged(
-        {AppDataScope.streams},
-        reason: 'stream_deleted_day',
-      );
+      AppDataSync.instance.notifyDataChanged({
+        AppDataScope.streams,
+      }, reason: 'stream_deleted_day');
     } catch (e) {
       if (!mounted) {
         return;
@@ -399,13 +397,16 @@ class _StreamsPageState extends State<StreamsPage> {
   }
 
   int _compareStreamLinks(StreamLink a, StreamLink b) {
-    final dayCompare = normalizePlayedOnDate(b.playedOn).compareTo(
-      normalizePlayedOnDate(a.playedOn),
-    );
+    final dayCompare = normalizePlayedOnDate(
+      b.playedOn,
+    ).compareTo(normalizePlayedOnDate(a.playedOn));
     if (dayCompare != 0) return dayCompare;
 
-    if (a.isLive != b.isLive) {
-      return a.isLive ? -1 : 1;
+    final statusCompare = streamStatusSortRank(
+      a.streamStatus,
+    ).compareTo(streamStatusSortRank(b.streamStatus));
+    if (statusCompare != 0) {
+      return statusCompare;
     }
 
     final aReference = a.streamEndedAt ?? a.createdAt ?? a.playedOn;
@@ -421,7 +422,8 @@ class _StreamsPageState extends State<StreamsPage> {
     final normalizedSelectedDate = normalizePlayedOnDate(selectedDate!);
     return streams
         .where(
-          (stream) => normalizePlayedOnDate(stream.playedOn) == normalizedSelectedDate,
+          (stream) =>
+              normalizePlayedOnDate(stream.playedOn) == normalizedSelectedDate,
         )
         .toList();
   }
@@ -476,17 +478,17 @@ class _StreamsPageState extends State<StreamsPage> {
       ),
       floatingActionButton: canManageStreams
           ? compact
-              ? FloatingActionButton(
-                  heroTag: 'streams_page_fab',
-                  onPressed: () => _openStreamForm(),
-                  child: const Icon(Icons.add),
-                )
-              : FloatingActionButton.extended(
-                  heroTag: 'streams_page_fab',
-                  onPressed: () => _openStreamForm(),
-                  icon: const Icon(Icons.add),
-                  label: const Text('Nuova live'),
-                )
+                ? FloatingActionButton(
+                    heroTag: 'streams_page_fab',
+                    onPressed: () => _openStreamForm(),
+                    child: const Icon(Icons.add),
+                  )
+                : FloatingActionButton.extended(
+                    heroTag: 'streams_page_fab',
+                    onPressed: () => _openStreamForm(),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Nuova live'),
+                  )
           : null,
       body: _buildBody(),
     );
@@ -578,8 +580,12 @@ class _StreamsPageState extends State<StreamsPage> {
                 streamLink: streamLink,
                 onOpen: () => _openStreamLink(streamLink),
                 onCopy: () => _copyStreamLink(streamLink),
-                onEdit: canManageStreams ? () => _openStreamForm(streamLink: streamLink) : null,
-                onDelete: canManageStreams ? () => _deleteStreamLink(streamLink) : null,
+                onEdit: canManageStreams
+                    ? () => _openStreamForm(streamLink: streamLink)
+                    : null,
+                onDelete: canManageStreams
+                    ? () => _deleteStreamLink(streamLink)
+                    : null,
               ),
           ],
         ),
@@ -669,7 +675,9 @@ class _StreamsFilterCard extends StatelessWidget {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: ClublineAppTheme.dangerSoft,
                           side: BorderSide(
-                            color: ClublineAppTheme.danger.withValues(alpha: 0.35),
+                            color: ClublineAppTheme.danger.withValues(
+                              alpha: 0.35,
+                            ),
                           ),
                         ),
                         icon: Icon(
@@ -721,7 +729,9 @@ class _StreamsFilterCard extends StatelessWidget {
                               onPressed: onPickDate,
                               icon: const Icon(Icons.event_outlined),
                               label: Text(
-                                selectedDate == null ? 'Scegli data' : 'Cambia data',
+                                selectedDate == null
+                                    ? 'Scegli data'
+                                    : 'Cambia data',
                               ),
                             ),
                             if (selectedDate != null)
@@ -736,7 +746,9 @@ class _StreamsFilterCard extends StatelessWidget {
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: ClublineAppTheme.dangerSoft,
                                   side: BorderSide(
-                                    color: ClublineAppTheme.danger.withValues(alpha: 0.35),
+                                    color: ClublineAppTheme.danger.withValues(
+                                      alpha: 0.35,
+                                    ),
                                   ),
                                 ),
                                 icon: Icon(
@@ -745,7 +757,9 @@ class _StreamsFilterCard extends StatelessWidget {
                                       : Icons.delete_sweep_outlined,
                                 ),
                                 label: Text(
-                                  isDeletingAll ? 'Eliminazione...' : 'Elimina tutto',
+                                  isDeletingAll
+                                      ? 'Eliminazione...'
+                                      : 'Elimina tutto',
                                 ),
                               ),
                           ],
@@ -835,14 +849,14 @@ class _StreamsDaySectionCard extends StatelessWidget {
                             children: [
                               Text(
                                 formatPlayedOnSectionLabel(date),
-                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.w800,
-                                    ),
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.w800),
                               ),
                               const SizedBox(height: 2),
                               Text(
                                 formatPlayedOnDate(date),
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
                                       color: ClublineAppTheme.textMuted,
                                     ),
                               ),
@@ -871,14 +885,14 @@ class _StreamsDaySectionCard extends StatelessWidget {
                             children: [
                               Text(
                                 formatPlayedOnSectionLabel(date),
-                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.w800,
-                                    ),
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.w800),
                               ),
                               const SizedBox(height: 2),
                               Text(
                                 formatPlayedOnDate(date),
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
                                       color: ClublineAppTheme.textMuted,
                                     ),
                               ),
@@ -886,16 +900,22 @@ class _StreamsDaySectionCard extends StatelessWidget {
                           ),
                         ),
                         AppCountPill(
-                          label: '$count ${count == 1 ? 'contenuto' : 'contenuti'}',
+                          label:
+                              '$count ${count == 1 ? 'contenuto' : 'contenuti'}',
                         ),
                       ],
                     ),
                   const SizedBox(height: 12),
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
-                      color: ClublineAppTheme.surfaceAlt.withValues(alpha: 0.58),
+                      color: ClublineAppTheme.surfaceAlt.withValues(
+                        alpha: 0.58,
+                      ),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: ClublineAppTheme.outlineSoft),
                     ),
@@ -904,9 +924,8 @@ class _StreamsDaySectionCard extends StatelessWidget {
                         Expanded(
                           child: Text(
                             toggleLabel,
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                ),
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(fontWeight: FontWeight.w700),
                           ),
                         ),
                         Icon(
@@ -929,7 +948,9 @@ class _StreamsDaySectionCard extends StatelessWidget {
                           style: OutlinedButton.styleFrom(
                             foregroundColor: ClublineAppTheme.dangerSoft,
                             side: BorderSide(
-                              color: ClublineAppTheme.danger.withValues(alpha: 0.35),
+                              color: ClublineAppTheme.danger.withValues(
+                                alpha: 0.35,
+                              ),
                             ),
                           ),
                           icon: Icon(
@@ -938,7 +959,9 @@ class _StreamsDaySectionCard extends StatelessWidget {
                                 : Icons.delete_outline,
                           ),
                           label: Text(
-                            isDeletingDay ? 'Eliminazione...' : 'Elimina giorno',
+                            isDeletingDay
+                                ? 'Eliminazione...'
+                                : 'Elimina giorno',
                           ),
                         ),
                       ),

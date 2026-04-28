@@ -3,9 +3,8 @@ import '../models/stream_link.dart';
 import 'api_client.dart';
 
 class StreamLinkRepository {
-  StreamLinkRepository({
-    ApiClient? apiClient,
-  }) : _apiClient = apiClient ?? ApiClient.shared;
+  StreamLinkRepository({ApiClient? apiClient})
+    : _apiClient = apiClient ?? ApiClient.shared;
 
   final ApiClient _apiClient;
 
@@ -18,12 +17,14 @@ class StreamLinkRepository {
     };
 
     final streamLinks = rawStreams
-        .map<StreamLink>((row) => StreamLink.fromMap(Map<String, dynamic>.from(row)))
+        .map<StreamLink>(
+          (row) => StreamLink.fromMap(Map<String, dynamic>.from(row)),
+        )
         .toList();
 
     streamLinks.sort((a, b) {
-      final aStatus = a.isLive ? 0 : 1;
-      final bStatus = b.isLive ? 0 : 1;
+      final aStatus = streamStatusSortRank(a.streamStatus);
+      final bStatus = streamStatusSortRank(b.streamStatus);
       if (aStatus != bStatus) return aStatus.compareTo(bStatus);
 
       final aDate = a.streamEndedAt ?? a.playedOn;
@@ -55,21 +56,17 @@ class StreamLinkRepository {
   }
 
   Future<void> deleteStreamLink(dynamic streamLinkId) async {
-    await _apiClient.delete(
-      '/streams/$streamLinkId',
-      authenticated: true,
-    );
+    await _apiClient.delete('/streams/$streamLinkId', authenticated: true);
   }
 
   Future<void> deleteAllStreamLinks() async {
-    await _apiClient.delete(
-      '/streams/all',
-      authenticated: true,
-    );
+    await _apiClient.delete('/streams/all', authenticated: true);
   }
 
   Future<void> deleteStreamLinksForDay(DateTime playedOn) async {
-    final normalizedDate = normalizePlayedOnDate(playedOn).toIso8601String().split('T').first;
+    final normalizedDate = normalizePlayedOnDate(
+      playedOn,
+    ).toIso8601String().split('T').first;
     await _apiClient.delete(
       '/streams/day/$normalizedDate',
       authenticated: true,

@@ -4,7 +4,7 @@ create table if not exists public.stream_links (
   competition_name text,
   played_on date not null,
   stream_url text not null,
-  stream_status text not null default 'ended',
+  stream_status text not null default 'unknown',
   stream_ended_at timestamptz,
   provider text,
   result text,
@@ -14,7 +14,7 @@ create table if not exists public.stream_links (
   constraint stream_links_stream_url_not_blank
     check (char_length(btrim(stream_url)) > 0),
   constraint stream_links_status_check
-    check (stream_status in ('live', 'ended'))
+    check (stream_status in ('live', 'scheduled', 'ended', 'unknown'))
 );
 
 create index if not exists stream_links_played_on_idx

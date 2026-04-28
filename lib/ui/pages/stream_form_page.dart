@@ -181,10 +181,11 @@ class _StreamFormPageState extends State<StreamFormPage> {
 
       setState(() {
         metadataError =
-            'Recupero automatico non disponibile. Compila o verifica i campi prima di salvare.';
+            'Stato live non verificato automaticamente. Puoi completare e salvare la live, poi aggiornare i dati dal link quando disponibili.';
         isFetchingMetadata = false;
         detectedProvider ??= providerGuess;
         selectedStreamStatus ??= fallbackStatus;
+        selectedEndedAt = null;
         selectedPlayedOn ??= normalizePlayedOnDate(DateTime.now());
       });
 
@@ -211,19 +212,15 @@ class _StreamFormPageState extends State<StreamFormPage> {
       return 'TWITCH';
     }
 
+    if (host.contains('tiktok.com')) {
+      return 'TIKTOK';
+    }
+
     return null;
   }
 
   String _guessStatusFromUrl(String url) {
-    final parsed = Uri.tryParse(url);
-    final host = (parsed?.host ?? '').toLowerCase();
-    final path = (parsed?.path ?? '').toLowerCase();
-
-    if (host.contains('twitch.tv') && !path.contains('/videos/')) {
-      return 'live';
-    }
-
-    return 'ended';
+    return 'unknown';
   }
 
   void _applyMetadata(StreamLinkMetadata metadata) {
@@ -235,7 +232,7 @@ class _StreamFormPageState extends State<StreamFormPage> {
       streamTitleController.text = metadata.title;
       streamUrlController.text = metadata.normalizedUrl;
       selectedStreamStatus = metadata.status;
-      selectedEndedAt = metadata.endedAt?.toLocal();
+      selectedEndedAt = metadata.isEnded ? metadata.endedAt?.toLocal() : null;
       detectedProvider = metadata.providerDisplay;
       selectedPlayedOn = normalizedPlayedOn;
       lastFetchedUrl = metadata.normalizedUrl;
@@ -315,7 +312,9 @@ class _StreamFormPageState extends State<StreamFormPage> {
       playedOn: selectedPlayedOn!,
       streamUrl: streamUrl,
       streamStatus: selectedStreamStatus!,
-      streamEndedAt: selectedEndedAt,
+      streamEndedAt: isEndedStreamStatus(selectedStreamStatus)
+          ? selectedEndedAt
+          : null,
       provider: detectedProvider,
       result: result,
     );
@@ -365,7 +364,7 @@ class _StreamFormPageState extends State<StreamFormPage> {
               'Link streaming',
               errorText: streamUrlError,
               hintText: 'https://...',
-              helperText: 'Incolla un link YouTube o Twitch.',
+              helperText: 'Incolla un link YouTube, Twitch o TikTok.',
               prefixIcon: Icons.language_outlined,
             ),
             onChanged: (value) {
@@ -404,6 +403,8 @@ class _StreamFormPageState extends State<StreamFormPage> {
               label: Text(
                 isFetchingMetadata
                     ? 'Recupero dati live...'
+                    : metadataLoaded
+                    ? 'Aggiorna dati dal link'
                     : 'Recupera dati dal link',
               ),
             ),
@@ -687,21 +688,19 @@ class _MetadataPreviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (metadataError != null) {
+    if (metadataError != null && !metadataLoaded) {
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: ClublineAppTheme.danger.withValues(alpha: 0.14),
+          color: ClublineAppTheme.gold.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: ClublineAppTheme.danger.withValues(alpha: 0.35),
-          ),
+          border: Border.all(color: ClublineAppTheme.outlineStrong),
         ),
         child: Text(
           metadataError!,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: ClublineAppTheme.dangerSoft,
+            color: ClublineAppTheme.goldSoft,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -718,7 +717,7 @@ class _MetadataPreviewCard extends StatelessWidget {
           border: Border.all(color: ClublineAppTheme.outlineSoft),
         ),
         child: Text(
-          'Quando recuperi i dati dal link, qui vedrai subito provider, stato e giorno live.',
+          'Quando recuperi i dati dal link, qui vedrai provider, stato e giorno live senza segnare per errore una live attiva come conclusa.',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             color: ClublineAppTheme.textMuted,
             height: 1.35,
@@ -727,11 +726,8 @@ class _MetadataPreviewCard extends StatelessWidget {
       );
     }
 
-    final statusValue = streamStatus == 'live'
-        ? 'LIVE'
-        : endedAt == null
-        ? 'CONCLUSA'
-        : formatStreamDateTime(endedAt!);
+    final normalizedStatus = normalizeStreamStatus(streamStatus);
+    final statusValue = streamStatusLabel(normalizedStatus);
 
     return Container(
       width: double.infinity,
@@ -744,6 +740,26 @@ class _MetadataPreviewCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (metadataError != null) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: ClublineAppTheme.gold.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: ClublineAppTheme.outlineStrong),
+              ),
+              child: Text(
+                metadataError!,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: ClublineAppTheme.goldSoft,
+                  fontWeight: FontWeight.w700,
+                  height: 1.35,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           Text(
             'Anteprima dati recuperati',
             style: Theme.of(
@@ -761,15 +777,24 @@ class _MetadataPreviewCard extends StatelessWidget {
                   label: provider!,
                 ),
               _MetadataBadge(
-                icon: streamStatus == 'live'
+                icon: normalizedStatus == 'live'
                     ? Icons.radio_button_checked
-                    : Icons.videocam_outlined,
+                    : normalizedStatus == 'scheduled'
+                    ? Icons.event_available_outlined
+                    : normalizedStatus == 'ended'
+                    ? Icons.videocam_off_outlined
+                    : Icons.help_outline,
                 label: statusValue,
               ),
               if (playedOn != null)
                 _MetadataBadge(
                   icon: Icons.calendar_today_outlined,
                   label: formatPlayedOnDate(playedOn!),
+                ),
+              if (normalizedStatus == 'ended' && endedAt != null)
+                _MetadataBadge(
+                  icon: Icons.schedule_outlined,
+                  label: formatStreamDateTime(endedAt!),
                 ),
             ],
           ),

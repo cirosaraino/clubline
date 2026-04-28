@@ -14,7 +14,7 @@ const streamInputSchema = z.object({
   competition_name: z.string().nullable().optional(),
   played_on: z.string().min(1),
   stream_url: z.string().url(),
-  stream_status: z.enum(['live', 'ended']),
+  stream_status: z.enum(['live', 'scheduled', 'ended', 'unknown']),
   stream_ended_at: z.string().nullable().optional(),
   provider: z.string().nullable().optional(),
   result: z.string().nullable().optional(),

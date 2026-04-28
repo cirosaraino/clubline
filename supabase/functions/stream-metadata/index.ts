@@ -6,7 +6,7 @@ const corsHeaders = {
 type StreamMetadata = {
   title: string;
   normalizedUrl: string;
-  status: 'live' | 'ended';
+  status: 'live' | 'scheduled' | 'ended' | 'unknown';
   provider: string;
   suggestedPlayedOn: string;
   endedAt: string | null;
@@ -67,6 +67,16 @@ function extractYouTubeVideoId(url: URL): string | null {
 function isTwitchHost(hostname: string): boolean {
   const host = hostname.replace(/^www\./, '');
   return host === 'twitch.tv' || host === 'm.twitch.tv';
+}
+
+function isTikTokHost(hostname: string): boolean {
+  const host = hostname.replace(/^www\./, '');
+  return (
+    host === 'tiktok.com' ||
+    host === 'm.tiktok.com' ||
+    host === 'vm.tiktok.com' ||
+    host === 'vt.tiktok.com'
+  );
 }
 
 function extractTwitchVideoId(url: URL): string | null {
@@ -640,14 +650,33 @@ async function fetchYouTubeMetadata(
     cleanStreamTitle(html == null ? null : extractTitleTag(html)) ??
     'Live YouTube';
 
-  const isLive =
+  const isLiveNow =
     liveDetails.isLiveNow === true ||
-    videoDetails.isLive === true ||
-    videoDetails.isLiveContent === true;
+    videoDetails.isLive === true;
+  const isLiveContent = videoDetails.isLiveContent === true;
   const endedAt =
     typeof liveDetails.endTimestamp === 'string' && liveDetails.endTimestamp.trim() !== ''
       ? liveDetails.endTimestamp
       : null;
+  const startedAtValue = normalizeDateValue(startedAt);
+  const hasScheduledStart =
+    startedAtValue != null &&
+    endedAt == null &&
+    new Date(startedAtValue).getTime() > Date.now() + 60 * 1000;
+  const isScheduled =
+    hasScheduledStart ||
+    playerMicroformat.isUpcoming === true ||
+    liveDetails.isUpcoming === true ||
+    videoDetails.isUpcoming === true;
+  const status: StreamMetadata['status'] = isLiveNow
+    ? 'live'
+    : endedAt != null
+      ? 'ended'
+      : isScheduled
+        ? 'scheduled'
+        : isLiveContent || startedAt != null
+          ? 'unknown'
+          : 'ended';
 
   const suggestedPlayedOn =
     isoDatePart(endedAt) ??
@@ -659,10 +688,10 @@ async function fetchYouTubeMetadata(
   return {
     title,
     normalizedUrl: canonicalWatchUrl,
-    status: isLive ? 'live' : 'ended',
+    status,
     provider: 'youtube',
     suggestedPlayedOn,
-    endedAt,
+    endedAt: status === 'ended' ? endedAt : null,
     ...(debug
         ? {
             debug: {
@@ -675,6 +704,7 @@ async function fetchYouTubeMetadata(
               rawPublishedAt,
               publishedTextFromSearch,
               fallbackPublishedOn,
+              status,
               startedAt,
               endedAt,
               publishDate: playerMicroformat.publishDate ?? null,
@@ -814,20 +844,35 @@ async function fetchTwitchChannelMetadata(
 
   const userRecord = user as Record<string, unknown>;
   const stream = userRecord['stream'];
+  const displayName = isNonEmptyString(userRecord['displayName'])
+    ? userRecord['displayName']
+    : login;
 
   if (stream == null || typeof stream !== 'object') {
-    throw new Error(
-      'Il canale Twitch non risulta in diretta. Usa il link di una live attiva o di un video archiviato.',
-    );
+    return {
+      title: `${displayName} su Twitch`,
+      normalizedUrl: `https://www.twitch.tv/${login}`,
+      status: 'unknown',
+      provider: 'twitch',
+      suggestedPlayedOn: todayIsoDate(),
+      endedAt: null,
+      ...(debug
+          ? {
+              debug: {
+                inputUrl: url.toString(),
+                login,
+                displayName,
+                streamType: null,
+              },
+            }
+          : {}),
+    };
   }
 
   const streamRecord = stream as Record<string, unknown>;
   const createdAt = isNonEmptyString(streamRecord['createdAt'])
     ? streamRecord['createdAt']
     : null;
-  const displayName = isNonEmptyString(userRecord['displayName'])
-    ? userRecord['displayName']
-    : login;
   const title =
     cleanTwitchTitle(
       streamRecord['title']?.toString(),
@@ -880,14 +925,16 @@ async function fetchGenericMetadata(url: URL, debug = false): Promise<StreamMeta
     cleanStreamTitle(ogTitle) ??
     cleanStreamTitle(readJsonLdString(videoJsonLd, 'name', 'headline')) ??
     cleanStreamTitle(extractTitleTag(html)) ??
-    url.hostname;
+    (isTikTokHost(url.hostname) ? 'Contenuto TikTok' : url.hostname);
   const provider =
-    url.hostname.replace(/^www\./, '').split('.')[0] || 'web';
+    isTikTokHost(url.hostname)
+      ? 'tiktok'
+      : url.hostname.replace(/^www\./, '').split('.')[0] || 'web';
 
   return {
     title,
     normalizedUrl: canonicalUrl,
-    status: 'ended',
+    status: 'unknown',
     provider,
     suggestedPlayedOn: isoDatePart(publishedAt) ?? todayIsoDate(),
     endedAt: null,
@@ -900,6 +947,20 @@ async function fetchGenericMetadata(url: URL, debug = false): Promise<StreamMeta
             },
           }
         : {}),
+  };
+}
+
+async function fetchTikTokMetadata(
+  url: URL,
+  debug = false,
+): Promise<StreamMetadata> {
+  const metadata = await fetchGenericMetadata(url, debug);
+  return {
+    ...metadata,
+    title: metadata.title.trim() || 'Contenuto TikTok',
+    provider: 'tiktok',
+    status: metadata.status === 'ended' ? 'unknown' : metadata.status,
+    endedAt: null,
   };
 }
 
@@ -920,6 +981,7 @@ Deno.serve(async (request) => {
     const youtubeVideoId = extractYouTubeVideoId(url);
     const twitchVideoId = extractTwitchVideoId(url);
     const twitchChannelLogin = extractTwitchChannelLogin(url);
+    const isTikTok = isTikTokHost(url.hostname);
 
     const metadata = youtubeVideoId != null
       ? await fetchYouTubeMetadata(url, youtubeVideoId, debug)
@@ -927,7 +989,9 @@ Deno.serve(async (request) => {
           ? await fetchTwitchVideoMetadata(url, twitchVideoId, debug)
           : twitchChannelLogin != null
               ? await fetchTwitchChannelMetadata(url, twitchChannelLogin, debug)
-              : await fetchGenericMetadata(url, debug);
+              : isTikTok
+                ? await fetchTikTokMetadata(url, debug)
+                : await fetchGenericMetadata(url, debug);
 
     return jsonResponse(metadata);
   } catch (error) {

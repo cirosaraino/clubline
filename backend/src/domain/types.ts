@@ -3,6 +3,7 @@ import type { Request } from 'express';
 export type TeamRole = 'captain' | 'vice_captain' | 'player';
 export type MembershipStatus = 'active' | 'left';
 export type RequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled' | 'expired';
+export type StreamStatus = 'live' | 'scheduled' | 'ended' | 'unknown';
 
 export interface AuthUserDto {
   id: string;
@@ -153,7 +154,7 @@ export interface StreamLinkRow {
   competition_name: string | null;
   played_on: string;
   stream_url: string;
-  stream_status: 'live' | 'ended';
+  stream_status: StreamStatus;
   stream_ended_at: string | null;
   provider: string | null;
   result: string | null;
@@ -163,7 +164,7 @@ export interface StreamLinkRow {
 export interface StreamMetadataDto {
   title: string;
   normalizedUrl: string;
-  status: 'live' | 'ended';
+  status: StreamStatus;
   provider: string;
   suggestedPlayedOn: string;
   endedAt: string | null;

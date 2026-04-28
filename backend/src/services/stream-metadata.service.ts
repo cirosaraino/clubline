@@ -1,23 +1,42 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import type { RequestPrincipal, StreamMetadataDto } from '../domain/types';
+import type {
+  RequestPrincipal,
+  StreamMetadataDto,
+  StreamStatus,
+} from '../domain/types';
 import { ForbiddenError, ValidationError } from '../lib/errors';
 
 const TWITCH_CLIENT_ID = 'kimne78kx3ncx6brgo4mv6wki5h1ko';
 
 function isYouTubeHost(host: string): boolean {
   const normalizedHost = host.toLowerCase();
-  return normalizedHost === 'youtube.com' ||
+  return (
+    normalizedHost === 'youtube.com' ||
     normalizedHost === 'www.youtube.com' ||
     normalizedHost === 'm.youtube.com' ||
-    normalizedHost === 'youtu.be';
+    normalizedHost === 'youtu.be'
+  );
 }
 
 function isTwitchHost(host: string): boolean {
   const normalizedHost = host.toLowerCase();
-  return normalizedHost === 'twitch.tv' ||
+  return (
+    normalizedHost === 'twitch.tv' ||
     normalizedHost === 'www.twitch.tv' ||
-    normalizedHost === 'm.twitch.tv';
+    normalizedHost === 'm.twitch.tv'
+  );
+}
+
+function isTikTokHost(host: string): boolean {
+  const normalizedHost = host.toLowerCase();
+  return (
+    normalizedHost === 'tiktok.com' ||
+    normalizedHost === 'www.tiktok.com' ||
+    normalizedHost === 'm.tiktok.com' ||
+    normalizedHost === 'vm.tiktok.com' ||
+    normalizedHost === 'vt.tiktok.com'
+  );
 }
 
 function extractTwitchVideoId(url: URL): string | null {
@@ -70,7 +89,12 @@ function extractYouTubeVideoId(url: URL): string | null {
   }
 
   const segments = url.pathname.split('/').filter(Boolean);
-  if (segments.length >= 2 && (segments[0] === 'shorts' || segments[0] === 'live')) {
+  if (
+    segments.length >= 2 &&
+    (segments[0] === 'shorts' ||
+      segments[0] === 'live' ||
+      segments[0] === 'embed')
+  ) {
     return segments[1]?.trim() || null;
   }
 
@@ -81,57 +105,216 @@ function normalizeYouTubeWatchUrl(videoId: string): string {
   return `https://www.youtube.com/watch?v=${videoId}`;
 }
 
-function buildFallbackMetadata(parsedUrl: URL): StreamMetadataDto | null {
+function normalizeText(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  return trimmed.replace(/\s+/g, ' ');
+}
+
+function normalizeDateTime(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return `${trimmed}T00:00:00.000Z`;
+  }
+
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed.toISOString();
+}
+
+function normalizeStreamStatus(
+  value: unknown,
+  fallback: StreamStatus = 'unknown',
+): StreamStatus {
+  const normalized = `${value ?? ''}`.trim().toLowerCase();
+  switch (normalized) {
+    case 'live':
+      return 'live';
+    case 'scheduled':
+    case 'upcoming':
+    case 'programmato':
+      return 'scheduled';
+    case 'ended':
+    case 'completed':
+    case 'conclusa':
+      return 'ended';
+    case 'unknown':
+    case 'pending':
+    case 'unverified':
+    case 'offline':
+    case 'not_live':
+      return 'unknown';
+    default:
+      return fallback;
+  }
+}
+
+function providerFromUrl(url: URL): string {
+  if (isYouTubeHost(url.host)) {
+    return 'youtube';
+  }
+
+  if (isTwitchHost(url.host)) {
+    return 'twitch';
+  }
+
+  if (isTikTokHost(url.host)) {
+    return 'tiktok';
+  }
+
+  const normalizedHost = url.host.toLowerCase().replace(/^www\./, '');
+  return normalizedHost.split('.')[0] || 'web';
+}
+
+function normalizeProviderName(value: unknown, url: URL): string {
+  const normalized = `${value ?? ''}`.trim().toLowerCase();
+  if (!normalized) {
+    return providerFromUrl(url);
+  }
+
+  if (['youtube', 'twitch', 'tiktok', 'web', 'generic'].includes(normalized)) {
+    return normalized === 'generic' ? 'web' : normalized;
+  }
+
+  return normalized;
+}
+
+function safeNormalizedUrl(value: unknown, fallback: string): string {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return fallback;
+  }
+
+  return value.trim();
+}
+
+function defaultTitleForUrl(url: URL): string {
+  if (isYouTubeHost(url.host)) {
+    return 'Contenuto YouTube';
+  }
+
+  if (isTikTokHost(url.host)) {
+    return 'Contenuto TikTok';
+  }
+
+  if (isTwitchHost(url.host)) {
+    const videoId = extractTwitchVideoId(url);
+    if (videoId) {
+      return 'Video Twitch';
+    }
+
+    const channelLogin = extractTwitchChannelLogin(url);
+    if (channelLogin) {
+      return `${channelLogin} su Twitch`;
+    }
+
+    return 'Contenuto Twitch';
+  }
+
+  return 'Link live';
+}
+
+function buildFallbackMetadata(
+  parsedUrl: URL,
+  overrides: Partial<StreamMetadataDto> = {},
+): StreamMetadataDto {
   const nowIso = new Date().toISOString();
 
   if (isYouTubeHost(parsedUrl.host)) {
     const videoId = extractYouTubeVideoId(parsedUrl);
+    const status = normalizeStreamStatus(overrides.status, 'unknown');
     return {
-      title: 'Video YouTube',
-      normalizedUrl: videoId ? normalizeYouTubeWatchUrl(videoId) : parsedUrl.toString(),
-      status: 'ended',
+      title: normalizeText(overrides.title) ?? 'Contenuto YouTube',
+      normalizedUrl:
+        safeNormalizedUrl(
+          overrides.normalizedUrl,
+          videoId ? normalizeYouTubeWatchUrl(videoId) : parsedUrl.toString(),
+        ),
+      status,
       provider: 'youtube',
-      suggestedPlayedOn: nowIso,
-      endedAt: null,
+      suggestedPlayedOn:
+        normalizeDateTime(overrides.suggestedPlayedOn) ?? nowIso,
+      endedAt: status === 'ended' ? normalizeDateTime(overrides.endedAt) : null,
     };
   }
 
   if (isTwitchHost(parsedUrl.host)) {
     const videoId = extractTwitchVideoId(parsedUrl);
     if (videoId) {
+      const status = normalizeStreamStatus(overrides.status, 'ended');
       return {
-        title: 'Video Twitch',
-        normalizedUrl: `https://www.twitch.tv/videos/${videoId}`,
-        status: 'ended',
+        title: normalizeText(overrides.title) ?? 'Video Twitch',
+        normalizedUrl: safeNormalizedUrl(
+          overrides.normalizedUrl,
+          `https://www.twitch.tv/videos/${videoId}`,
+        ),
+        status,
         provider: 'twitch',
-        suggestedPlayedOn: nowIso,
-        endedAt: null,
+        suggestedPlayedOn:
+          normalizeDateTime(overrides.suggestedPlayedOn) ?? nowIso,
+        endedAt:
+          status === 'ended' ? normalizeDateTime(overrides.endedAt) : null,
       };
     }
 
     const channelLogin = extractTwitchChannelLogin(parsedUrl);
-    if (channelLogin) {
-      return {
-        title: `${channelLogin} live su Twitch`,
-        normalizedUrl: `https://www.twitch.tv/${channelLogin}`,
-        status: 'live',
-        provider: 'twitch',
-        suggestedPlayedOn: nowIso,
-        endedAt: null,
-      };
-    }
-
+    const status = normalizeStreamStatus(overrides.status, 'unknown');
     return {
-      title: 'Contenuto Twitch',
-      normalizedUrl: parsedUrl.toString(),
-      status: 'ended',
+      title:
+        normalizeText(overrides.title) ??
+        (channelLogin == null ? 'Contenuto Twitch' : `${channelLogin} su Twitch`),
+      normalizedUrl: safeNormalizedUrl(
+        overrides.normalizedUrl,
+        channelLogin == null
+            ? parsedUrl.toString()
+            : `https://www.twitch.tv/${channelLogin}`,
+      ),
+      status,
       provider: 'twitch',
-      suggestedPlayedOn: nowIso,
-      endedAt: null,
+      suggestedPlayedOn:
+        normalizeDateTime(overrides.suggestedPlayedOn) ?? nowIso,
+      endedAt: status === 'ended' ? normalizeDateTime(overrides.endedAt) : null,
     };
   }
 
-  return null;
+  if (isTikTokHost(parsedUrl.host)) {
+    const status = normalizeStreamStatus(overrides.status, 'unknown');
+    return {
+      title: normalizeText(overrides.title) ?? 'Contenuto TikTok',
+      normalizedUrl: safeNormalizedUrl(
+        overrides.normalizedUrl,
+        parsedUrl.toString(),
+      ),
+      status,
+      provider: 'tiktok',
+      suggestedPlayedOn:
+        normalizeDateTime(overrides.suggestedPlayedOn) ?? nowIso,
+      endedAt: status === 'ended' ? normalizeDateTime(overrides.endedAt) : null,
+    };
+  }
+
+  const status = normalizeStreamStatus(overrides.status, 'unknown');
+  return {
+    title: normalizeText(overrides.title) ?? defaultTitleForUrl(parsedUrl),
+    normalizedUrl: safeNormalizedUrl(overrides.normalizedUrl, parsedUrl.toString()),
+    status,
+    provider: providerFromUrl(parsedUrl),
+    suggestedPlayedOn: normalizeDateTime(overrides.suggestedPlayedOn) ?? nowIso,
+    endedAt: status === 'ended' ? normalizeDateTime(overrides.endedAt) : null,
+  };
 }
 
 function escapeGraphQl(value: string): string {
@@ -156,7 +339,10 @@ function normalizeComparisonKey(value: string | null | undefined): string | null
   return trimmed.replace(/[^a-z0-9]+/g, '');
 }
 
-function removeTrailingOwnerSuffix(title: string, ownerValue: string | null | undefined): string {
+function removeTrailingOwnerSuffix(
+  title: string,
+  ownerValue: string | null | undefined,
+): string {
   const normalizedOwner = normalizeComparisonKey(ownerValue);
   if (!normalizedOwner) {
     return title;
@@ -194,13 +380,16 @@ function cleanTwitchTitle(
 }
 
 export class StreamMetadataService {
-  constructor(
-    private readonly db: SupabaseClient,
-  ) {}
+  constructor(private readonly db: SupabaseClient) {}
 
-  async fetchMetadata(url: string, principal: RequestPrincipal): Promise<StreamMetadataDto> {
+  async fetchMetadata(
+    url: string,
+    principal: RequestPrincipal,
+  ): Promise<StreamMetadataDto> {
     if (!principal.canManageStreams) {
-      throw new ForbiddenError('Non hai i permessi per recuperare i metadata delle live');
+      throw new ForbiddenError(
+        'Non hai i permessi per recuperare i metadata delle live',
+      );
     }
 
     let parsedUrl: URL;
@@ -213,22 +402,27 @@ export class StreamMetadataService {
     if (isTwitchHost(parsedUrl.host)) {
       try {
         const twitchMetadata = await this.fetchTwitchMetadata(parsedUrl);
-        if (twitchMetadata) {
+        if (twitchMetadata != null) {
           return twitchMetadata;
         }
       } catch (_) {
-        const fallback = buildFallbackMetadata(parsedUrl);
-        if (fallback) {
-          return fallback;
-        }
+        // Fall back to the serverless metadata function or a safe local fallback.
       }
     }
 
-    if (isYouTubeHost(parsedUrl.host)) {
-      const youTubeMetadata = await this.fetchYouTubeMetadata(parsedUrl);
-      if (youTubeMetadata) {
-        return youTubeMetadata;
-      }
+    const functionMetadata = await this.tryFetchMetadataWithFunction(parsedUrl);
+    if (functionMetadata != null) {
+      return functionMetadata;
+    }
+
+    return buildFallbackMetadata(parsedUrl);
+  }
+
+  private async tryFetchMetadataWithFunction(
+    parsedUrl: URL,
+  ): Promise<StreamMetadataDto | null> {
+    if (typeof this.db.functions?.invoke !== 'function') {
+      return null;
     }
 
     try {
@@ -237,98 +431,42 @@ export class StreamMetadataService {
       });
 
       if (response.error) {
-        throw response.error;
+        return null;
       }
 
       const data = response.data;
       if (!data || typeof data !== 'object') {
-        throw new ValidationError('Risposta metadata non valida');
+        return null;
       }
 
       const payload = data as Record<string, unknown>;
       if (payload.error != null) {
-        throw new ValidationError(String(payload.error));
+        return null;
       }
 
-      const title = String(payload.title ?? '').trim();
-      const normalizedUrl = String(payload.normalizedUrl ?? parsedUrl.toString()).trim();
-      const status = payload.status === 'live' ? 'live' : 'ended';
-      const provider = String(payload.provider ?? 'generic').trim() || 'generic';
-      const suggestedPlayedOn = String(payload.suggestedPlayedOn ?? '').trim();
-      const endedAt = payload.endedAt == null ? null : String(payload.endedAt);
-
-      if (!title || !suggestedPlayedOn) {
-        throw new ValidationError('Metadata live incompleti');
-      }
-
+      const fallback = buildFallbackMetadata(parsedUrl);
+      const status = normalizeStreamStatus(payload.status, fallback.status);
       return {
-        title,
-        normalizedUrl,
+        title: normalizeText(`${payload.title ?? ''}`) ?? fallback.title,
+        normalizedUrl: safeNormalizedUrl(
+          payload.normalizedUrl,
+          fallback.normalizedUrl,
+        ),
         status,
-        provider,
-        suggestedPlayedOn,
-        endedAt,
+        provider: normalizeProviderName(payload.provider, parsedUrl),
+        suggestedPlayedOn:
+          normalizeDateTime(payload.suggestedPlayedOn) ??
+          fallback.suggestedPlayedOn,
+        endedAt: status === 'ended' ? normalizeDateTime(payload.endedAt) : null,
       };
     } catch (_) {
-      const fallback = buildFallbackMetadata(parsedUrl);
-      if (fallback) {
-        return fallback;
-      }
-
-      throw new ValidationError(
-        'Non siamo riusciti a recuperare automaticamente i dati del link. Inserisci titolo e dettagli manualmente.',
-      );
-    }
-  }
-
-  private async fetchYouTubeMetadata(url: URL): Promise<StreamMetadataDto | null> {
-    const videoId = extractYouTubeVideoId(url);
-    if (!videoId) {
       return null;
     }
-
-    const normalizedUrl = normalizeYouTubeWatchUrl(videoId);
-    const nowIso = new Date().toISOString();
-
-    try {
-      const endpoint =
-        `https://www.youtube.com/oembed?url=${encodeURIComponent(normalizedUrl)}&format=json`;
-      const response = await fetch(endpoint);
-      if (!response.ok) {
-        return {
-          title: 'Video YouTube',
-          normalizedUrl,
-          status: 'ended',
-          provider: 'youtube',
-          suggestedPlayedOn: nowIso,
-          endedAt: null,
-        };
-      }
-
-      const payload = await response.json() as Record<string, unknown>;
-      const title = String(payload.title ?? '').trim() || 'Video YouTube';
-
-      return {
-        title,
-        normalizedUrl,
-        status: 'ended',
-        provider: 'youtube',
-        suggestedPlayedOn: nowIso,
-        endedAt: null,
-      };
-    } catch (_) {
-      return {
-        title: 'Video YouTube',
-        normalizedUrl,
-        status: 'ended',
-        provider: 'youtube',
-        suggestedPlayedOn: nowIso,
-        endedAt: null,
-      };
-    }
   }
 
-  private async fetchTwitchMetadata(url: URL): Promise<StreamMetadataDto | null> {
+  private async fetchTwitchMetadata(
+    url: URL,
+  ): Promise<StreamMetadataDto | null> {
     const videoId = extractTwitchVideoId(url);
     if (videoId) {
       return this.fetchTwitchVideoMetadata(videoId);
@@ -342,7 +480,9 @@ export class StreamMetadataService {
     return null;
   }
 
-  private async fetchTwitchVideoMetadata(videoId: string): Promise<StreamMetadataDto> {
+  private async fetchTwitchVideoMetadata(
+    videoId: string,
+  ): Promise<StreamMetadataDto> {
     const payload = await this.postTwitchGraphQl(`
       query {
         video(id: "${escapeGraphQl(videoId)}") {
@@ -359,47 +499,50 @@ export class StreamMetadataService {
     `);
 
     const data = payload.data;
-    const video = typeof data === 'object' && data != null && 'video' in data
-      ? (data as { video?: Record<string, unknown> | null }).video
-      : null;
+    const video =
+      typeof data === 'object' && data != null && 'video' in data
+          ? (data as { video?: Record<string, unknown> | null }).video
+          : null;
 
     if (!video) {
       throw new ValidationError('Impossibile leggere i dati del video Twitch');
     }
 
-    const owner = typeof video.owner === 'object' && video.owner != null
-      ? (video.owner as Record<string, unknown>)
-      : null;
-    const publishedAt = typeof video.publishedAt === 'string'
-      ? video.publishedAt
-      : typeof video.createdAt === 'string'
-          ? video.createdAt
+    const owner =
+      typeof video.owner === 'object' && video.owner != null
+          ? (video.owner as Record<string, unknown>)
           : null;
+    const publishedAt =
+      typeof video.publishedAt === 'string'
+          ? video.publishedAt
+          : typeof video.createdAt === 'string'
+            ? video.createdAt
+            : null;
 
-    if (!publishedAt) {
-      throw new ValidationError('Impossibile leggere la data del video Twitch');
-    }
-
-    const title = cleanTwitchTitle(
-      typeof video.title === 'string' ? video.title : null,
-      {
-        ownerDisplayName: typeof owner?.displayName === 'string' ? owner.displayName : null,
+    const normalizedPublishedAt = normalizeDateTime(publishedAt);
+    const title =
+      cleanTwitchTitle(typeof video.title === 'string' ? video.title : null, {
+        ownerDisplayName:
+            typeof owner?.displayName === 'string' ? owner.displayName : null,
         ownerLogin: typeof owner?.login === 'string' ? owner.login : null,
-      },
-    ) ??
-        (typeof owner?.displayName === 'string' ? owner.displayName : 'Video Twitch');
+      }) ??
+      (typeof owner?.displayName === 'string'
+          ? owner.displayName
+          : 'Video Twitch');
 
     return {
       title,
       normalizedUrl: `https://www.twitch.tv/videos/${videoId}`,
       status: 'ended',
       provider: 'twitch',
-      suggestedPlayedOn: new Date(publishedAt).toISOString(),
-      endedAt: new Date(publishedAt).toISOString(),
+      suggestedPlayedOn: normalizedPublishedAt ?? new Date().toISOString(),
+      endedAt: normalizedPublishedAt,
     };
   }
 
-  private async fetchTwitchChannelMetadata(channelLogin: string): Promise<StreamMetadataDto> {
+  private async fetchTwitchChannelMetadata(
+    channelLogin: string,
+  ): Promise<StreamMetadataDto> {
     const payload = await this.postTwitchGraphQl(`
       query {
         user(login: "${escapeGraphQl(channelLogin)}") {
@@ -417,51 +560,57 @@ export class StreamMetadataService {
     `);
 
     const data = payload.data;
-    const user = typeof data === 'object' && data != null && 'user' in data
-      ? (data as { user?: Record<string, unknown> | null }).user
-      : null;
+    const user =
+      typeof data === 'object' && data != null && 'user' in data
+          ? (data as { user?: Record<string, unknown> | null }).user
+          : null;
 
     if (!user) {
       throw new ValidationError('Impossibile leggere i dati del canale Twitch');
     }
 
-    const stream = typeof user.stream === 'object' && user.stream != null
-      ? (user.stream as Record<string, unknown>)
-      : null;
+    const normalizedUrl = new URL(`https://www.twitch.tv/${channelLogin}`);
+    const stream =
+      typeof user.stream === 'object' && user.stream != null
+          ? (user.stream as Record<string, unknown>)
+          : null;
+    const displayName =
+      typeof user.displayName === 'string' && user.displayName.trim()
+          ? user.displayName.trim()
+          : channelLogin;
 
     if (!stream) {
-      throw new ValidationError(
-        'Il canale Twitch non risulta in diretta. Usa il link di una live attiva o di un video archiviato.',
-      );
+      return buildFallbackMetadata(normalizedUrl, {
+        title: `${displayName} su Twitch`,
+        provider: 'twitch',
+        normalizedUrl: normalizedUrl.toString(),
+        status: 'unknown',
+      });
     }
 
-    const createdAt = typeof stream.createdAt === 'string' ? stream.createdAt : null;
-    if (!createdAt) {
-      throw new ValidationError('Impossibile leggere la data della live Twitch');
-    }
-
-    const displayName = typeof user.displayName === 'string' && user.displayName.trim()
-      ? user.displayName.trim()
-      : channelLogin;
-    const title = cleanTwitchTitle(
-      typeof stream.title === 'string' ? stream.title : null,
-      {
+    const createdAt =
+      typeof stream.createdAt === 'string' ? stream.createdAt : null;
+    const normalizedCreatedAt = normalizeDateTime(createdAt);
+    const title =
+      cleanTwitchTitle(typeof stream.title === 'string' ? stream.title : null, {
         ownerDisplayName: displayName,
         ownerLogin: typeof user.login === 'string' ? user.login : null,
-      },
-    ) ?? `${displayName} live su Twitch`;
+      }) ??
+      `${displayName} live su Twitch`;
 
     return {
       title,
-      normalizedUrl: `https://www.twitch.tv/${channelLogin}`,
+      normalizedUrl: normalizedUrl.toString(),
       status: 'live',
       provider: 'twitch',
-      suggestedPlayedOn: new Date(createdAt).toISOString(),
+      suggestedPlayedOn: normalizedCreatedAt ?? new Date().toISOString(),
       endedAt: null,
     };
   }
 
-  private async postTwitchGraphQl(query: string): Promise<Record<string, unknown>> {
+  private async postTwitchGraphQl(
+    query: string,
+  ): Promise<Record<string, unknown>> {
     const response = await fetch('https://gql.twitch.tv/gql', {
       method: 'POST',
       headers: {
