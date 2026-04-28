@@ -1,11 +1,16 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../core/app_data_sync.dart';
 import '../../core/app_session.dart';
 import '../../core/app_theme.dart';
+import '../../core/club_logo_picker/club_logo_picker_bridge.dart';
+import '../../core/club_logo_picker/club_logo_picker_types.dart';
+import '../../core/club_logo_resolver.dart';
 import '../../core/club_info_formatters.dart';
+import '../../core/club_theme_palette_extractor.dart';
 import '../../data/club_info_repository.dart';
 import '../../models/club_info.dart';
 import 'app_chrome.dart';
@@ -31,8 +36,13 @@ class _ClubInfoSheetState extends State<ClubInfoSheet> {
   final tiktokUrlController = TextEditingController();
   final customLinks = <_EditableCustomLink>[];
 
+  ClubInfo? initialClubInfo;
+  PickedClubLogo? pickedLogo;
+  ClubThemePaletteResult? extractedPalette;
   bool hasInitialized = false;
   bool isSaving = false;
+  bool isPickingLogo = false;
+  bool isUsingFallbackPalette = false;
   String? errorMessage;
 
   @override
@@ -70,8 +80,11 @@ class _ClubInfoSheetState extends State<ClubInfoSheet> {
   }
 
   void _populate(ClubInfo clubInfo) {
+    initialClubInfo = clubInfo;
     clubNameController.text = clubInfo.displayClubName;
-    crestUrlController.text = clubInfo.crestUrl ?? '';
+    crestUrlController.text = clubInfo.hasStoredCrestAsset
+        ? ''
+        : clubInfo.crestUrl ?? '';
     websiteUrlController.text = clubInfo.websiteUrl ?? '';
     youtubeUrlController.text = clubInfo.youtubeUrl ?? '';
     discordUrlController.text = clubInfo.discordUrl ?? '';
@@ -90,6 +103,9 @@ class _ClubInfoSheetState extends State<ClubInfoSheet> {
           (link) => _EditableCustomLink(label: link.label, url: link.url),
         ),
       );
+    pickedLogo = null;
+    extractedPalette = null;
+    isUsingFallbackPalette = false;
   }
 
   InputDecoration _inputDecoration(
@@ -120,6 +136,169 @@ class _ClubInfoSheetState extends State<ClubInfoSheet> {
 
   String? _normalizeFieldUrl(TextEditingController controller) {
     return normalizeOptionalClubUrl(controller.text);
+  }
+
+  ClubInfo get _currentClubInfo => initialClubInfo ?? ClubInfo.defaults;
+
+  bool get _hasPendingLogoUpload => pickedLogo != null;
+
+  Future<void> _pickLogo() async {
+    setState(() {
+      isPickingLogo = true;
+      errorMessage = null;
+    });
+
+    try {
+      final result = await pickClubLogo();
+      if (!mounted || result == null) {
+        return;
+      }
+
+      final validationError = validatePickedClubLogo(result);
+      if (validationError != null) {
+        setState(() {
+          errorMessage = validationError;
+        });
+        return;
+      }
+
+      late final ClubThemePaletteResult palette;
+      var usedFallbackPalette = false;
+      try {
+        palette = await extractClubThemePalette(result.bytes);
+        usedFallbackPalette = isFallbackClubThemePalette(palette);
+      } catch (_) {
+        palette = fallbackClubThemePalette();
+        usedFallbackPalette = true;
+      }
+
+      setState(() {
+        pickedLogo = result;
+        extractedPalette = palette;
+        isUsingFallbackPalette = usedFallbackPalette;
+        crestUrlController.clear();
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        errorMessage = error.toString();
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          isPickingLogo = false;
+        });
+      }
+    }
+  }
+
+  ClubThemePaletteResult? _paletteForDraft({
+    ClubThemePaletteResult? paletteOverride,
+  }) {
+    return paletteOverride ?? extractedPalette;
+  }
+
+  bool _isUsingCustomCrestUrl(String? crestUrl) {
+    return crestUrl != null && crestUrl.isNotEmpty;
+  }
+
+  bool _isChangingCrestSource(String? crestUrl) {
+    final currentClubInfo = _currentClubInfo;
+    if (_hasPendingLogoUpload) {
+      return true;
+    }
+
+    if (!_isUsingCustomCrestUrl(crestUrl)) {
+      return false;
+    }
+
+    return currentClubInfo.hasStoredCrestAsset ||
+        crestUrl != currentClubInfo.crestUrl;
+  }
+
+  String? _previewCrestUrl() {
+    if (_hasPendingLogoUpload) {
+      return null;
+    }
+
+    final customCrestUrl = _normalizeFieldUrl(crestUrlController);
+    if (customCrestUrl != null) {
+      return customCrestUrl;
+    }
+
+    return _currentClubInfo.crestUrl;
+  }
+
+  String? _previewCrestStoragePath() {
+    if (_hasPendingLogoUpload ||
+        _normalizeFieldUrl(crestUrlController) != null) {
+      return null;
+    }
+
+    return _currentClubInfo.crestStoragePath;
+  }
+
+  void _restoreCurrentLogoReference() {
+    setState(() {
+      pickedLogo = null;
+      extractedPalette = null;
+      isUsingFallbackPalette = false;
+      errorMessage = null;
+      crestUrlController.clear();
+    });
+  }
+
+  Future<_PreparedClubInfoSave> _prepareClubInfoSave(ClubInfo draft) async {
+    if (_hasPendingLogoUpload) {
+      final palette = _paletteForDraft() ?? fallbackClubThemePalette();
+      return _PreparedClubInfoSave(
+        clubInfo: draft.copyWith(
+          primaryColor: palette.primaryHex,
+          accentColor: palette.accentHex,
+          surfaceColor: palette.surfaceHex,
+        ),
+        logoDataUrl: pickedLogo?.dataUrl,
+        palette: palette,
+        usedFallbackPalette: isUsingFallbackPalette || extractedPalette == null,
+        changedLogo: true,
+      );
+    }
+
+    final crestUrl = draft.crestUrl;
+    if (!_isChangingCrestSource(crestUrl) ||
+        !_isUsingCustomCrestUrl(crestUrl)) {
+      return _PreparedClubInfoSave(
+        clubInfo: draft,
+        logoDataUrl: null,
+        palette: null,
+        usedFallbackPalette: false,
+        changedLogo: false,
+      );
+    }
+
+    late final ClubThemePaletteResult palette;
+    var usedFallbackPalette = false;
+    try {
+      palette = await extractClubThemePaletteFromUrl(crestUrl!);
+      usedFallbackPalette = isFallbackClubThemePalette(palette);
+    } catch (_) {
+      palette = fallbackClubThemePalette();
+      usedFallbackPalette = true;
+    }
+
+    return _PreparedClubInfoSave(
+      clubInfo: draft.copyWith(
+        primaryColor: palette.primaryHex,
+        accentColor: palette.accentHex,
+        surfaceColor: palette.surfaceHex,
+      ),
+      logoDataUrl: null,
+      palette: palette,
+      usedFallbackPalette: usedFallbackPalette,
+      changedLogo: true,
+    );
   }
 
   List<String> _collectInvalidFields() {
@@ -207,7 +386,22 @@ class _ClubInfoSheetState extends State<ClubInfoSheet> {
     });
 
     try {
-      await repository.saveClubInfo(_buildDraft());
+      final draft = _buildDraft();
+      final preparedSave = await _prepareClubInfoSave(draft);
+      if (mounted && preparedSave.palette != null) {
+        setState(() {
+          extractedPalette = preparedSave.palette;
+          isUsingFallbackPalette = preparedSave.usedFallbackPalette;
+        });
+      }
+
+      await repository.saveClubInfo(
+        preparedSave.clubInfo,
+        logoDataUrl: preparedSave.logoDataUrl,
+      );
+      if (preparedSave.changedLogo) {
+        ClubLogoResolver.instance.clearCache();
+      }
       unawaited(session.refresh(showLoadingState: false));
       AppDataSync.instance.notifyDataChanged({
         AppDataScope.clubInfo,
@@ -217,9 +411,17 @@ class _ClubInfoSheetState extends State<ClubInfoSheet> {
         return;
       }
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Info club aggiornate')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            preparedSave.changedLogo
+                ? preparedSave.usedFallbackPalette
+                      ? 'Info club aggiornate. Logo salvato con palette Stemma di fallback.'
+                      : 'Info club aggiornate. Logo e palette Stemma salvati.'
+                : 'Info club aggiornate',
+          ),
+        ),
+      );
       Navigator.pop(context);
     } catch (error) {
       if (!mounted) {
@@ -238,9 +440,15 @@ class _ClubInfoSheetState extends State<ClubInfoSheet> {
     final currentUser = session.currentUser;
     final canManage = currentUser?.canManageClubInfo == true;
     final clubNamePreview = normalizeClubName(clubNameController.text);
-    final crestUrlPreview = normalizeOptionalClubUrl(crestUrlController.text);
+    final crestUrlPreview = _previewCrestUrl();
+    final crestStoragePathPreview = _previewCrestStoragePath();
     final compact = AppResponsive.isCompact(context);
     final horizontalPadding = AppResponsive.horizontalPadding(context) + 4;
+    final hasCustomCrestUrlDraft =
+        !_hasPendingLogoUpload &&
+        _isUsingCustomCrestUrl(_normalizeFieldUrl(crestUrlController));
+    final willUpdateThemeFromExternalUrl =
+        hasCustomCrestUrlDraft && _isChangingCrestSource(crestUrlPreview);
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -274,6 +482,8 @@ class _ClubInfoSheetState extends State<ClubInfoSheet> {
             _ClubPreviewCard(
               clubName: clubNamePreview,
               crestUrl: crestUrlPreview,
+              crestStoragePath: crestStoragePathPreview,
+              pendingLogo: pickedLogo,
             ),
             const SizedBox(height: 18),
             _ClubSectionCard(
@@ -300,17 +510,120 @@ class _ClubInfoSheetState extends State<ClubInfoSheet> {
                     enabled: canManage && !isSaving,
                     keyboardType: TextInputType.url,
                     decoration: _inputDecoration(
-                      'URL logo personalizzato',
+                      'URL logo esterno',
                       helperText:
-                          'Lascia vuoto per usare il logo attuale del club o il fallback grafico dell app.',
+                          'Lascia vuoto per mantenere il logo attuale. Seleziona un file per caricarlo nello storage del club.',
                       icon: Icons.shield_outlined,
                     ),
                     onChanged: (_) {
                       setState(() {
+                        if (pickedLogo != null) {
+                          pickedLogo = null;
+                        }
+                        extractedPalette = null;
+                        isUsingFallbackPalette = false;
                         errorMessage = null;
                       });
                     },
                   ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: canManage && !isSaving && !isPickingLogo
+                            ? _pickLogo
+                            : null,
+                        icon: Icon(
+                          isPickingLogo
+                              ? Icons.hourglass_top_outlined
+                              : Icons.upload_file_outlined,
+                        ),
+                        label: Text(
+                          isPickingLogo
+                              ? 'Selezione logo...'
+                              : pickedLogo == null
+                              ? 'Carica logo'
+                              : 'Sostituisci file',
+                        ),
+                      ),
+                      if ((pickedLogo != null ||
+                              crestUrlController.text.trim().isNotEmpty) &&
+                          canManage)
+                        TextButton.icon(
+                          onPressed: isSaving
+                              ? null
+                              : _restoreCurrentLogoReference,
+                          icon: const Icon(Icons.restore_outlined),
+                          label: const Text('Ripristina logo attuale'),
+                        ),
+                    ],
+                  ),
+                  if (_currentClubInfo.hasStoredCrestAsset &&
+                      pickedLogo == null &&
+                      crestUrlController.text.trim().isEmpty) ...[
+                    const SizedBox(height: 12),
+                    const AppStatusBadge(
+                      label: 'Logo gestito da storage',
+                      tone: AppStatusTone.info,
+                    ),
+                  ],
+                  if (pickedLogo != null) ...[
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
+                        const AppStatusBadge(
+                          label: 'Logo selezionato',
+                          tone: AppStatusTone.success,
+                        ),
+                        if (extractedPalette != null)
+                          AppStatusBadge(
+                            label: isUsingFallbackPalette
+                                ? 'Palette fallback'
+                                : 'Palette pronta',
+                            tone: isUsingFallbackPalette
+                                ? AppStatusTone.warning
+                                : AppStatusTone.success,
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    _SelectedLogoCard(logo: pickedLogo!),
+                  ] else if (willUpdateThemeFromExternalUrl) ...[
+                    const SizedBox(height: 12),
+                    const AppBanner(
+                      message:
+                          'Al salvataggio useremo questo URL esterno anche per ricalcolare la palette Stemma. Se l estrazione non riesce, useremo una palette sicura.',
+                      tone: AppStatusTone.info,
+                      icon: Icons.auto_awesome_outlined,
+                    ),
+                  ],
+                  if (extractedPalette != null &&
+                      (pickedLogo != null ||
+                          willUpdateThemeFromExternalUrl)) ...[
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
+                        _ColorPreviewChip(
+                          label: 'Primario',
+                          color: extractedPalette!.primaryColor,
+                        ),
+                        _ColorPreviewChip(
+                          label: 'Accento',
+                          color: extractedPalette!.accentColor,
+                        ),
+                        _ColorPreviewChip(
+                          label: 'Superficie',
+                          color: extractedPalette!.surfaceColor,
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -470,10 +783,17 @@ class _ClubInfoSheetState extends State<ClubInfoSheet> {
 }
 
 class _ClubPreviewCard extends StatelessWidget {
-  const _ClubPreviewCard({required this.clubName, required this.crestUrl});
+  const _ClubPreviewCard({
+    required this.clubName,
+    required this.crestUrl,
+    required this.crestStoragePath,
+    this.pendingLogo,
+  });
 
   final String clubName;
   final String? crestUrl;
+  final String? crestStoragePath;
+  final PickedClubLogo? pendingLogo;
 
   @override
   Widget build(BuildContext context) {
@@ -489,7 +809,12 @@ class _ClubPreviewCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _ClubCrestPreview(crestUrl: crestUrl, size: compact ? 88 : 104),
+          _ClubCrestPreview(
+            crestUrl: crestUrl,
+            crestStoragePath: crestStoragePath,
+            pendingLogo: pendingLogo,
+            size: compact ? 88 : 104,
+          ),
           const SizedBox(height: 14),
           Text(
             clubName,
@@ -646,17 +971,182 @@ class _CustomLinkRow extends StatelessWidget {
 }
 
 class _ClubCrestPreview extends StatelessWidget {
-  const _ClubCrestPreview({required this.crestUrl, required this.size});
+  const _ClubCrestPreview({
+    required this.crestUrl,
+    required this.crestStoragePath,
+    required this.size,
+    this.pendingLogo,
+  });
 
   final String? crestUrl;
+  final String? crestStoragePath;
+  final double size;
+  final PickedClubLogo? pendingLogo;
+
+  @override
+  Widget build(BuildContext context) {
+    if (pendingLogo != null) {
+      return _LocalClubLogoAvatar(logo: pendingLogo!, size: size);
+    }
+
+    return ClubLogoAvatar(
+      logoUrl: crestUrl,
+      logoStoragePath: crestStoragePath,
+      size: size,
+      fallbackIcon: Icons.shield_outlined,
+    );
+  }
+}
+
+class _SelectedLogoCard extends StatelessWidget {
+  const _SelectedLogoCard({required this.logo});
+
+  final PickedClubLogo logo;
+
+  @override
+  Widget build(BuildContext context) {
+    final fileSizeKb = (logo.bytes.length / 1024).toStringAsFixed(1);
+    final borderRadius = BorderRadius.circular(18);
+    final previewBackground = Theme.of(
+      context,
+    ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.42);
+    final previewBorder = Theme.of(context).colorScheme.outlineVariant;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: borderRadius,
+        color: previewBackground,
+        border: Border.all(color: previewBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.image_outlined,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  logo.fileName,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${logo.mimeType} • $fileSizeKb KB',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: ClublineAppTheme.textMuted),
+          ),
+          const SizedBox(height: 14),
+          Container(
+            height: 180,
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.92),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: logo.isSvg
+                ? SvgPicture.memory(logo.bytes, fit: BoxFit.contain)
+                : Image.memory(
+                    logo.bytes,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Center(
+                        child: Text(
+                          'Anteprima non disponibile per questo file.',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                          textAlign: TextAlign.center,
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ColorPreviewChip extends StatelessWidget {
+  const _ColorPreviewChip({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final onColor = color.computeLuminance() > 0.45
+        ? Colors.black
+        : Colors.white;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: onColor,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _LocalClubLogoAvatar extends StatelessWidget {
+  const _LocalClubLogoAvatar({required this.logo, required this.size});
+
+  final PickedClubLogo logo;
   final double size;
 
   @override
   Widget build(BuildContext context) {
-    return ClubLogoAvatar(
-      logoUrl: crestUrl,
-      size: size,
-      fallbackIcon: Icons.shield_outlined,
+    return Container(
+      width: size,
+      height: size,
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: ClublineAppTheme.surfaceAlt.withValues(alpha: 0.82),
+        border: Border.all(color: ClublineAppTheme.outlineStrong, width: 2),
+      ),
+      child: ClipOval(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.92),
+          ),
+          child: Padding(
+            padding: EdgeInsets.all(size * 0.08),
+            child: logo.isSvg
+                ? SvgPicture.memory(logo.bytes, fit: BoxFit.contain)
+                : Image.memory(
+                    logo.bytes,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Center(
+                        child: Icon(
+                          Icons.shield_outlined,
+                          color: ClublineAppTheme.goldSoft,
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -673,6 +1163,22 @@ class _EditableCustomLink {
     labelController.dispose();
     urlController.dispose();
   }
+}
+
+class _PreparedClubInfoSave {
+  const _PreparedClubInfoSave({
+    required this.clubInfo,
+    required this.logoDataUrl,
+    required this.palette,
+    required this.usedFallbackPalette,
+    required this.changedLogo,
+  });
+
+  final ClubInfo clubInfo;
+  final String? logoDataUrl;
+  final ClubThemePaletteResult? palette;
+  final bool usedFallbackPalette;
+  final bool changedLogo;
 }
 
 @Deprecated('Use ClubInfoSheet instead.')

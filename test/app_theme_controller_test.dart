@@ -1,5 +1,6 @@
 import 'package:clubline/core/app_theme.dart';
 import 'package:clubline/core/app_theme_controller.dart';
+import 'package:clubline/core/club_theme_palette_extractor.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -140,6 +141,139 @@ void main() {
         preferences.getInt('theme_accent_club-legacy'),
         legacyValues['accent'],
       );
+    },
+  );
+
+  test(
+    'syncWithClubTheme derives the stemma palette from a storage-backed club logo when explicit colors are missing',
+    () async {
+      var loaderCalls = 0;
+      String? receivedStoragePath;
+      String? receivedLogoUrl;
+      final controller = AppThemeController(
+        paletteLoader: ({logoStoragePath, logoUrl}) async {
+          loaderCalls += 1;
+          receivedStoragePath = logoStoragePath;
+          receivedLogoUrl = logoUrl;
+          return const ClubThemePaletteResult(
+            primaryColor: Color(0xFF2244AA),
+            accentColor: Color(0xFF11CC88),
+            surfaceColor: Color(0xFF102030),
+          );
+        },
+      );
+      addTearDown(controller.dispose);
+      await _waitForController(controller);
+
+      await controller.syncWithClubTheme(
+        clubScope: 'club-storage',
+        primaryColor: null,
+        accentColor: null,
+        surfaceColor: null,
+        logoStoragePath: 'clubs/7/logo.png',
+        logoUrl: null,
+      );
+
+      final expectedPalette = ClublineAppTheme.paletteFromClubTheme(
+        primaryColor: '#2244AA',
+        accentColor: '#11CC88',
+        surfaceColor: '#102030',
+      );
+      expect(loaderCalls, 1);
+      expect(receivedStoragePath, 'clubs/7/logo.png');
+      expect(receivedLogoUrl, isNull);
+      expect(controller.clubPalette.matches(expectedPalette), isTrue);
+      expect(controller.palette.matches(expectedPalette), isTrue);
+    },
+  );
+
+  test(
+    'failed stemma extraction from a logo path falls back to the default palette',
+    () async {
+      final controller = AppThemeController(
+        paletteLoader: ({logoStoragePath, logoUrl}) async {
+          throw Exception('palette failed');
+        },
+      );
+      addTearDown(controller.dispose);
+      await _waitForController(controller);
+
+      await controller.syncWithClubTheme(
+        clubScope: 'club-fallback',
+        primaryColor: null,
+        accentColor: null,
+        surfaceColor: null,
+        logoStoragePath: 'clubs/9/logo.png',
+        logoUrl: null,
+      );
+
+      expect(
+        controller.clubPalette.matches(ClublineAppTheme.defaultPalette),
+        isTrue,
+      );
+      expect(
+        controller.palette.matches(ClublineAppTheme.defaultPalette),
+        isTrue,
+      );
+    },
+  );
+
+  test(
+    'manual theme override is preserved when the club logo updates the stemma palette from storage',
+    () async {
+      var paletteVersion = 1;
+      final controller = AppThemeController(
+        paletteLoader: ({logoStoragePath, logoUrl}) async {
+          if (paletteVersion == 1) {
+            return const ClubThemePaletteResult(
+              primaryColor: Color(0xFF2B5FFF),
+              accentColor: Color(0xFF29D3A2),
+              surfaceColor: Color(0xFF11263D),
+            );
+          }
+
+          return const ClubThemePaletteResult(
+            primaryColor: Color(0xFF8F2CFF),
+            accentColor: Color(0xFFFFB020),
+            surfaceColor: Color(0xFF1A1228),
+          );
+        },
+      );
+      addTearDown(controller.dispose);
+      await _waitForController(controller);
+
+      await controller.syncWithClubTheme(
+        clubScope: 'club-storage-override',
+        primaryColor: null,
+        accentColor: null,
+        surfaceColor: null,
+        logoStoragePath: 'clubs/10/logo-a.png',
+        logoUrl: null,
+      );
+
+      final customPalette = controller.palette.copyWith(
+        accent: const Color(0xFFFF7A59),
+        surfaceAlt: const Color(0xFF25161A),
+      );
+      await controller.updatePalette(customPalette);
+
+      paletteVersion = 2;
+      await controller.syncWithClubTheme(
+        clubScope: 'club-storage-override',
+        primaryColor: null,
+        accentColor: null,
+        surfaceColor: null,
+        logoStoragePath: 'clubs/10/logo-b.png',
+        logoUrl: null,
+      );
+
+      final refreshedClubPalette = ClublineAppTheme.paletteFromClubTheme(
+        primaryColor: '#8F2CFF',
+        accentColor: '#FFB020',
+        surfaceColor: '#1A1228',
+      );
+      expect(controller.clubPalette.matches(refreshedClubPalette), isTrue);
+      expect(controller.palette.matches(customPalette), isTrue);
     },
   );
 }

@@ -14,6 +14,8 @@ const clubInfoSchema = z
   club_name: z.string().min(1).optional(),
   team_name: z.string().min(1).optional(),
   crest_url: z.string().url().nullable().optional(),
+  crest_storage_path: z.string().min(1).nullable().optional(),
+  logo_data_url: z.string().min(1).nullable().optional(),
   website_url: z.string().url().nullable().optional(),
   youtube_url: z.string().url().nullable().optional(),
   discord_url: z.string().url().nullable().optional(),
@@ -63,6 +65,8 @@ clubInfoRouter.put(
         ...parsedClubInfo,
         id: req.principal!.membership!.club_id,
         crest_url: parsedClubInfo.crest_url ?? null,
+        crest_storage_path: parsedClubInfo.crest_storage_path ?? null,
+        logo_data_url: parsedClubInfo.logo_data_url ?? null,
         website_url: parsedClubInfo.website_url ?? null,
         youtube_url: parsedClubInfo.youtube_url ?? null,
         discord_url: parsedClubInfo.discord_url ?? null,
@@ -77,7 +81,7 @@ clubInfoRouter.put(
       },
       principal!,
     );
-    publishRealtimeChange(['clubInfo'], 'club_info_updated');
+    publishRealtimeChange(['clubInfo', 'clubs'], 'club_info_updated');
     sendOk(res, { clubInfo, teamInfo: clubInfo });
   }),
 );

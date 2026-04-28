@@ -626,6 +626,9 @@ class _HomeWelcomeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final compact = AppResponsive.isCompact(context);
     final heroCrestUrl = isPersonalizedExperience ? clubInfo.crestUrl : null;
+    final heroCrestStoragePath = isPersonalizedExperience
+        ? clubInfo.crestStoragePath
+        : null;
     final primaryAction = _primaryAction();
     final visibleLinks = compact
         ? clubInfo.allLinks.take(3).toList(growable: false)
@@ -657,6 +660,7 @@ class _HomeWelcomeCard extends StatelessWidget {
       media: isPersonalizedExperience
           ? ClubLogoAvatar(
               logoUrl: heroCrestUrl,
+              logoStoragePath: heroCrestStoragePath,
               size: compact ? 84 : 126,
               fallbackIcon: Icons.shield_outlined,
             )

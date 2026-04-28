@@ -491,6 +491,7 @@ class AppSessionController extends ChangeNotifier {
       id: club.id is num ? (club.id as num).toInt() : 1,
       clubName: club.name,
       crestUrl: club.logoUrl,
+      crestStoragePath: club.logoStoragePath,
       slug: club.slug,
       primaryColor: club.primaryColor,
       accentColor: club.accentColor,

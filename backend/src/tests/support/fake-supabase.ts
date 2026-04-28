@@ -37,16 +37,28 @@ function likeToRegExp(pattern: string, caseInsensitive = false): RegExp {
 export class FakeSupabaseClient {
   private readonly tables: Record<string, Row[]>;
   private readonly idCounters = new Map<string, number>();
+  readonly uploadedStoragePaths: string[] = [];
+  readonly removedStoragePaths: string[] = [];
 
   readonly storage = {
     from: (_bucket: string) => ({
-      upload: async (path: string) => ({
-        data: { path },
-        error: null,
-      }),
+      upload: async (path: string) => {
+        this.uploadedStoragePaths.push(path);
+        return {
+          data: { path },
+          error: null,
+        };
+      },
       getPublicUrl: (path: string) => ({
         data: { publicUrl: `https://storage.example.test/${path}` },
       }),
+      remove: async (paths: string[]) => {
+        this.removedStoragePaths.push(...paths);
+        return {
+          data: { paths: cloneValue(paths) },
+          error: null,
+        };
+      },
     }),
   };
 

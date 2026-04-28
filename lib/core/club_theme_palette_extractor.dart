@@ -5,6 +5,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import 'club_logo_resolver.dart';
+
 class ClubThemePaletteResult {
   const ClubThemePaletteResult({
     required this.primaryColor,
@@ -40,12 +42,12 @@ Future<ClubThemePaletteResult> extractClubThemePalette(Uint8List bytes) async {
     format: ui.ImageByteFormat.rawRgba,
   );
   if (byteData == null) {
-    return _fallbackPalette();
+    return fallbackClubThemePalette();
   }
 
   final pixels = byteData.buffer.asUint8List();
   if (pixels.isEmpty) {
-    return _fallbackPalette();
+    return fallbackClubThemePalette();
   }
 
   var redSum = 0.0;
@@ -85,7 +87,7 @@ Future<ClubThemePaletteResult> extractClubThemePalette(Uint8List bytes) async {
   }
 
   if (sampleCount == 0) {
-    return _fallbackPalette();
+    return fallbackClubThemePalette();
   }
 
   final averageColor = Color.fromARGB(
@@ -131,10 +133,26 @@ Future<ClubThemePaletteResult> extractClubThemePaletteFromUrl(
   if (response.statusCode < 200 ||
       response.statusCode >= 300 ||
       response.bodyBytes.isEmpty) {
-    return _fallbackPalette();
+    return fallbackClubThemePalette();
   }
 
   return extractClubThemePalette(response.bodyBytes);
+}
+
+Future<ClubThemePaletteResult> extractClubThemePaletteFromLogoReference({
+  String? logoStoragePath,
+  String? logoUrl,
+  ClubLogoResolver? resolver,
+}) async {
+  final resolvedUrl = await (resolver ?? ClubLogoResolver.instance).resolveUrl(
+    storagePath: logoStoragePath,
+    fallbackUrl: logoUrl,
+  );
+  if (resolvedUrl == null) {
+    return fallbackClubThemePalette();
+  }
+
+  return extractClubThemePaletteFromUrl(resolvedUrl);
 }
 
 bool _looksLikeSvg(Uint8List bytes) {
@@ -179,7 +197,7 @@ ClubThemePaletteResult _extractSvgPalette(Uint8List bytes) {
   }
 
   if (weightedColors.isEmpty) {
-    return _fallbackPalette();
+    return fallbackClubThemePalette();
   }
 
   final ranked = weightedColors.entries.toList()
@@ -260,10 +278,17 @@ Color? _parseSvgColor(String rawValue) {
   return null;
 }
 
-ClubThemePaletteResult _fallbackPalette() {
+ClubThemePaletteResult fallbackClubThemePalette() {
   return const ClubThemePaletteResult(
     primaryColor: Color(0xFF2563EB),
     accentColor: Color(0xFF22C55E),
     surfaceColor: Color(0xFF0F172A),
   );
+}
+
+bool isFallbackClubThemePalette(ClubThemePaletteResult result) {
+  final fallback = fallbackClubThemePalette();
+  return result.primaryColor.toARGB32() == fallback.primaryColor.toARGB32() &&
+      result.accentColor.toARGB32() == fallback.accentColor.toARGB32() &&
+      result.surfaceColor.toARGB32() == fallback.surfaceColor.toARGB32();
 }

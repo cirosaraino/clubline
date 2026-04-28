@@ -263,11 +263,13 @@ test('createClub with logo stores the stemma palette as the default club theme',
   );
 
   assert.equal(result.club.logo_url?.startsWith('https://storage.example.test/clubs/'), true);
+  assert.match(result.club.logo_storage_path ?? '', /^clubs\/\d+\/logo-/);
   assert.equal(result.club.primary_color, '#1274FF');
   assert.equal(result.club.accent_color, '#00D4C6');
   assert.equal(result.club.surface_color, '#12384E');
 
   const savedClub = db.rows<ClubRow>('clubs')[0];
+  assert.equal(savedClub?.logo_storage_path, result.club.logo_storage_path);
   assert.equal(savedClub?.primary_color, '#1274FF');
   assert.equal(savedClub?.accent_color, '#00D4C6');
   assert.equal(savedClub?.surface_color, '#12384E');
@@ -292,11 +294,13 @@ test('createClub with logo keeps a safe fallback palette when logo extraction is
   );
 
   assert.equal(result.club.logo_url?.startsWith('https://storage.example.test/clubs/'), true);
+  assert.match(result.club.logo_storage_path ?? '', /^clubs\/\d+\/logo-/);
   assert.equal(result.club.primary_color, '#1F2937');
   assert.equal(result.club.accent_color, '#0F766E');
   assert.equal(result.club.surface_color, '#0F172A');
 
   const savedClub = db.rows<ClubRow>('clubs')[0];
+  assert.equal(savedClub?.logo_storage_path, result.club.logo_storage_path);
   assert.equal(savedClub?.primary_color, '#1F2937');
   assert.equal(savedClub?.accent_color, '#0F766E');
   assert.equal(savedClub?.surface_color, '#0F172A');

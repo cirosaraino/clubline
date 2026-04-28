@@ -110,6 +110,7 @@ export class AccessService {
       id: club.id,
       club_name: club.name,
       crest_url: club.logo_url,
+      crest_storage_path: club.logo_storage_path,
       website_url: settings?.website_url ?? null,
       youtube_url: settings?.youtube_url ?? null,
       discord_url: settings?.discord_url ?? null,

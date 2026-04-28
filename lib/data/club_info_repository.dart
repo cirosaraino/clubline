@@ -19,11 +19,18 @@ class ClubInfoRepository {
     return ClubInfo.fromMap(rawClubInfo);
   }
 
-  Future<void> saveClubInfo(ClubInfo clubInfo) async {
+  Future<void> saveClubInfo(
+    ClubInfo clubInfo, {
+    String? logoDataUrl,
+  }) async {
     await _apiClient.put(
       '/club-info',
       authenticated: true,
-      body: clubInfo.toDatabaseMap(),
+      body: {
+        ...clubInfo.toDatabaseMap(),
+        if (logoDataUrl != null && logoDataUrl.trim().isNotEmpty)
+          'logo_data_url': logoDataUrl.trim(),
+      },
     );
   }
 }

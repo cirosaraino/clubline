@@ -1,5 +1,15 @@
 import 'dart:typed_data';
 
+const Set<String> kAllowedClubLogoMimeTypes = {
+  'image/png',
+  'image/jpeg',
+  'image/jpg',
+  'image/webp',
+  'image/gif',
+  'image/svg+xml',
+};
+const int kMaxClubLogoBytes = 5 * 1024 * 1024;
+
 class PickedClubLogo {
   const PickedClubLogo({
     required this.fileName,
@@ -31,4 +41,21 @@ class PickedClubLogo {
     ).trimLeft().toLowerCase();
     return header.startsWith('<?xml') || header.startsWith('<svg');
   }
+}
+
+String? validatePickedClubLogo(PickedClubLogo logo) {
+  final normalizedMimeType = logo.mimeType.trim().toLowerCase();
+  if (!kAllowedClubLogoMimeTypes.contains(normalizedMimeType) && !logo.isSvg) {
+    return 'Formato logo non supportato. Usa PNG, JPG, WEBP, GIF o SVG.';
+  }
+
+  if (logo.bytes.isEmpty) {
+    return 'Il file selezionato e vuoto.';
+  }
+
+  if (logo.bytes.length > kMaxClubLogoBytes) {
+    return 'Il logo deve essere inferiore a 5 MB.';
+  }
+
+  return null;
 }

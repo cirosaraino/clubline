@@ -74,6 +74,7 @@ export interface ClubInfoRow {
   id: number | string;
   club_name: string;
   crest_url: string | null;
+  crest_storage_path: string | null;
   website_url: string | null;
   youtube_url: string | null;
   discord_url: string | null;

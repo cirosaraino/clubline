@@ -37,6 +37,7 @@ class _ClublineAppState extends State<ClublineApp> {
             primaryColor: clubInfo.primaryColor,
             accentColor: clubInfo.accentColor,
             surfaceColor: clubInfo.surfaceColor,
+            logoStoragePath: clubInfo.crestStoragePath,
             logoUrl: clubInfo.crestUrl,
           ),
         );

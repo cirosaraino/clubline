@@ -4,6 +4,7 @@ class Club {
     required this.name,
     required this.slug,
     this.logoUrl,
+    this.logoStoragePath,
     this.primaryColor,
     this.accentColor,
     this.surfaceColor,
@@ -13,6 +14,7 @@ class Club {
   final String name;
   final String slug;
   final String? logoUrl;
+  final String? logoStoragePath;
   final String? primaryColor;
   final String? accentColor;
   final String? surfaceColor;
@@ -25,6 +27,10 @@ class Club {
       logoUrl: map['logo_url']?.toString().trim().isEmpty == true
           ? null
           : map['logo_url']?.toString().trim(),
+      logoStoragePath: map['logo_storage_path']?.toString().trim().isEmpty ==
+              true
+          ? null
+          : map['logo_storage_path']?.toString().trim(),
       primaryColor: map['primary_color']?.toString(),
       accentColor: map['accent_color']?.toString(),
       surfaceColor: map['surface_color']?.toString(),
@@ -37,6 +43,7 @@ class Club {
       'name': name,
       'slug': slug,
       'logo_url': logoUrl,
+      'logo_storage_path': logoStoragePath,
       'primary_color': primaryColor,
       'accent_color': accentColor,
       'surface_color': surfaceColor,
@@ -48,6 +55,7 @@ class Club {
     String? name,
     String? slug,
     String? logoUrl,
+    String? logoStoragePath,
     String? primaryColor,
     String? accentColor,
     String? surfaceColor,
@@ -57,6 +65,7 @@ class Club {
       name: name ?? this.name,
       slug: slug ?? this.slug,
       logoUrl: logoUrl ?? this.logoUrl,
+      logoStoragePath: logoStoragePath ?? this.logoStoragePath,
       primaryColor: primaryColor ?? this.primaryColor,
       accentColor: accentColor ?? this.accentColor,
       surfaceColor: surfaceColor ?? this.surfaceColor,

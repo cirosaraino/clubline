@@ -44,6 +44,7 @@ class ClubInfo {
     this.id = 1,
     this.clubName = kDefaultClubName,
     this.crestUrl,
+    this.crestStoragePath,
     this.slug,
     this.websiteUrl,
     this.youtubeUrl,
@@ -63,6 +64,7 @@ class ClubInfo {
   final int id;
   final String clubName;
   final String? crestUrl;
+  final String? crestStoragePath;
   final String? slug;
   final String? websiteUrl;
   final String? youtubeUrl;
@@ -87,6 +89,16 @@ class ClubInfo {
       id: map['id'] is num ? (map['id'] as num).toInt() : 1,
       clubName: normalizeClubName(rawClubName),
       crestUrl: normalizeOptionalClubUrl(map['crest_url']?.toString()),
+      crestStoragePath:
+          (map['crest_storage_path'] ?? map['logo_storage_path'])
+                  ?.toString()
+                  .trim()
+                  .isEmpty ==
+              true
+          ? null
+          : (map['crest_storage_path'] ?? map['logo_storage_path'])
+                ?.toString()
+                .trim(),
       slug: map['slug']?.toString(),
       websiteUrl: normalizeOptionalClubUrl(map['website_url']?.toString()),
       youtubeUrl: normalizeOptionalClubUrl(map['youtube_url']?.toString()),
@@ -111,6 +123,7 @@ class ClubInfo {
     int? id,
     String? clubName,
     String? crestUrl,
+    String? crestStoragePath,
     String? slug,
     String? websiteUrl,
     String? youtubeUrl,
@@ -128,6 +141,7 @@ class ClubInfo {
       id: id ?? this.id,
       clubName: clubName ?? this.clubName,
       crestUrl: crestUrl ?? this.crestUrl,
+      crestStoragePath: crestStoragePath ?? this.crestStoragePath,
       slug: slug ?? this.slug,
       websiteUrl: websiteUrl ?? this.websiteUrl,
       youtubeUrl: youtubeUrl ?? this.youtubeUrl,
@@ -160,6 +174,7 @@ class ClubInfo {
       'club_name': normalizeClubName(clubName),
       'team_name': normalizeClubName(clubName),
       'crest_url': normalizeOptionalClubUrl(crestUrl),
+      'crest_storage_path': crestStoragePath,
       'slug': slug,
       'website_url': normalizeOptionalClubUrl(websiteUrl),
       'youtube_url': normalizeOptionalClubUrl(youtubeUrl),
@@ -177,7 +192,11 @@ class ClubInfo {
 
   String get displayClubName => normalizeClubName(clubName);
 
-  bool get hasCustomCrest => (crestUrl ?? '').trim().isNotEmpty;
+  bool get hasStoredCrestAsset =>
+      (crestStoragePath ?? '').trim().isNotEmpty;
+
+  bool get hasCustomCrest =>
+      hasStoredCrestAsset || (crestUrl ?? '').trim().isNotEmpty;
 
   bool get hasAnyLinks => allLinks.isNotEmpty;
 

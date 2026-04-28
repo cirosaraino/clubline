@@ -22,29 +22,13 @@ import { ensureSuccess, optionalData, requiredData } from '../lib/supabase-resul
 import { ClubWorkflowsRepository } from '../repositories/club-workflows.repository';
 import { MembershipsRepository } from '../repositories/memberships.repository';
 import { PlayerProfilesRepository } from '../repositories/player-profiles.repository';
+import {
+  DEFAULT_CLUB_THEME,
+  normalizeStoredClubLogoPath,
+  removeClubLogoAsset,
+  uploadClubLogoAsset,
+} from './club-logo.service';
 import { PlayerIdentityService } from './player-identity.service';
-
-const CLUB_LOGO_BUCKET = 'club-assets';
-const DEFAULT_CLUB_THEME = {
-  primaryColor: '#1F2937',
-  accentColor: '#0F766E',
-  surfaceColor: '#0F172A',
-} as const;
-const allowedLogoMimeTypes = new Set([
-  'image/png',
-  'image/jpeg',
-  'image/jpg',
-  'image/webp',
-  'image/gif',
-  'image/svg+xml',
-]);
-const maxLogoBytes = 5 * 1024 * 1024;
-
-type ClubLogoUpload = {
-  mimeType: string;
-  bytes: Buffer;
-  extension: string;
-};
 
 type ResolvedClubTheme = {
   primaryColor: string;
@@ -153,42 +137,6 @@ function ensureCaptain(principal: RequestPrincipal): MembershipRow {
   return membership;
 }
 
-function parseLogoUpload(dataUrl: string): ClubLogoUpload {
-  const normalized = dataUrl.trim();
-  const match = /^data:([^;]+);base64,(.+)$/i.exec(normalized);
-  if (match == null) {
-    throw new ValidationError('Il logo deve essere inviato come immagine base64 valida');
-  }
-
-  const mimeType = match[1]?.toLowerCase() ?? '';
-  const encoded = match[2] ?? '';
-  if (!allowedLogoMimeTypes.has(mimeType)) {
-    throw new ValidationError('Formato logo non supportato');
-  }
-
-  const bytes = Buffer.from(encoded, 'base64');
-  if (bytes.length == 0 || bytes.length > maxLogoBytes) {
-    throw new ValidationError('Il logo deve essere inferiore a 5 MB');
-  }
-
-  return {
-    mimeType,
-    bytes,
-    extension:
-      mimeType === 'image/png'
-        ? 'png'
-        : mimeType === 'image/jpeg' || mimeType === 'image/jpg'
-          ? 'jpg'
-          : mimeType === 'image/webp'
-            ? 'webp'
-            : mimeType === 'image/gif'
-              ? 'gif'
-              : mimeType === 'image/svg+xml'
-                ? 'svg'
-                : 'img',
-  };
-}
-
 export interface CreateClubInput {
   name: string;
   logo_data_url?: string | null;
@@ -226,7 +174,14 @@ export interface ListClubsInput {
 export interface ClubListItemRow
   extends Pick<
     ClubRow,
-    'id' | 'name' | 'slug' | 'logo_url' | 'primary_color' | 'accent_color' | 'surface_color'
+    | 'id'
+    | 'name'
+    | 'slug'
+    | 'logo_url'
+    | 'logo_storage_path'
+    | 'primary_color'
+    | 'accent_color'
+    | 'surface_color'
   > {}
 
 export interface ClubListResult {
@@ -263,7 +218,9 @@ export class ClubsService {
 
     let query = this.db
       .from('clubs')
-      .select('id,name,slug,logo_url,primary_color,accent_color,surface_color')
+      .select(
+        'id,name,slug,logo_url,logo_storage_path,primary_color,accent_color,surface_color',
+      )
       .order('normalized_name', { ascending: true })
       .range(start, end);
 
@@ -847,48 +804,59 @@ export class ClubsService {
     input: UpdateClubLogoInput,
   ): Promise<ClubRow> {
     const currentClub = await this.getClubById(clubId);
+    const previousStoragePath = normalizeStoredClubLogoPath(
+      currentClub.logo_storage_path,
+    );
     const nextTheme = resolveClubThemeColors(
       {
         primaryColor: input.primary_color,
         accentColor: input.accent_color,
         surfaceColor: input.surface_color,
       },
-      {
-        primaryColor: currentClub.primary_color ?? undefined,
-        accentColor: currentClub.accent_color ?? undefined,
-        surfaceColor: currentClub.surface_color ?? undefined,
-      },
+      DEFAULT_CLUB_THEME,
     );
 
-    const parsedLogo = parseLogoUpload(input.logo_data_url);
-    const path = `clubs/${clubId}/logo-${Date.now()}.${parsedLogo.extension}`;
-    const uploadResponse = await this.db.storage
-      .from(CLUB_LOGO_BUCKET)
-      .upload(path, parsedLogo.bytes, {
-        contentType: parsedLogo.mimeType,
-        upsert: true,
-      });
+    const uploadedLogo = await uploadClubLogoAsset(
+      this.db,
+      clubId,
+      input.logo_data_url,
+    );
 
-    if (uploadResponse.error) {
-      throw uploadResponse.error;
+    try {
+      const response = await this.db
+        .from('clubs')
+        .update({
+          logo_url: uploadedLogo.publicUrl,
+          logo_storage_path: uploadedLogo.storagePath,
+          primary_color: nextTheme.primaryColor,
+          accent_color: nextTheme.accentColor,
+          surface_color: nextTheme.surfaceColor,
+        })
+        .eq('id', clubId)
+        .select('*')
+        .single();
+
+      const updatedClub = requiredData(response) as ClubRow;
+      if (
+        previousStoragePath != null &&
+        previousStoragePath != uploadedLogo.storagePath
+      ) {
+        try {
+          await removeClubLogoAsset(this.db, previousStoragePath);
+        } catch {
+          // Best effort cleanup for old assets after a successful update.
+        }
+      }
+
+      return updatedClub;
+    } catch (error) {
+      try {
+        await removeClubLogoAsset(this.db, uploadedLogo.storagePath);
+      } catch {
+        // Best effort cleanup for failed writes.
+      }
+      throw error;
     }
-
-    const publicUrlResponse = this.db.storage.from(CLUB_LOGO_BUCKET).getPublicUrl(path);
-    const publicUrl = publicUrlResponse.data.publicUrl;
-    const response = await this.db
-      .from('clubs')
-      .update({
-        logo_url: publicUrl,
-        logo_storage_path: path,
-        primary_color: nextTheme.primaryColor,
-        accent_color: nextTheme.accentColor,
-        surface_color: nextTheme.surfaceColor,
-      })
-      .eq('id', clubId)
-      .select('*')
-      .single();
-
-    return requiredData(response) as ClubRow;
   }
 
   private async createClubViaRpc(

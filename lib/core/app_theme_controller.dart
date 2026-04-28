@@ -4,6 +4,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app_theme.dart';
 import 'club_theme_palette_extractor.dart';
 
+typedef ClubThemePaletteLoader =
+    Future<ClubThemePaletteResult> Function({
+      String? logoStoragePath,
+      String? logoUrl,
+    });
+
 class _StoredThemeState {
   const _StoredThemeState({required this.hasLocalOverride, this.palette});
 
@@ -12,7 +18,10 @@ class _StoredThemeState {
 }
 
 class AppThemeController extends ChangeNotifier {
-  AppThemeController() {
+  AppThemeController({
+    ClubThemePaletteLoader? paletteLoader,
+  }) : _paletteLoader =
+           paletteLoader ?? extractClubThemePaletteFromLogoReference {
     ClublineAppTheme.applyPalette(_palette);
     _initialize();
   }
@@ -37,6 +46,7 @@ class AppThemeController extends ChangeNotifier {
   int _themeSyncRevision = 0;
   String? _currentClubScopeKey;
   bool _legacyPreferencesMigrated = false;
+  final ClubThemePaletteLoader _paletteLoader;
 
   ClublineThemePalette get palette => _palette;
   ClublineThemePalette get clubPalette => _clubPalette;
@@ -82,6 +92,7 @@ class AppThemeController extends ChangeNotifier {
     required String? primaryColor,
     required String? accentColor,
     required String? surfaceColor,
+    String? logoStoragePath,
     String? logoUrl,
   }) async {
     final revision = ++_themeSyncRevision;
@@ -90,6 +101,7 @@ class AppThemeController extends ChangeNotifier {
       primaryColor: primaryColor,
       accentColor: accentColor,
       surfaceColor: surfaceColor,
+      logoStoragePath: logoStoragePath,
       logoUrl: logoUrl,
     );
     if (revision != _themeSyncRevision) {
@@ -146,6 +158,7 @@ class AppThemeController extends ChangeNotifier {
     required String? primaryColor,
     required String? accentColor,
     required String? surfaceColor,
+    required String? logoStoragePath,
     required String? logoUrl,
   }) async {
     final hasExplicitClubColors = [
@@ -162,11 +175,16 @@ class AppThemeController extends ChangeNotifier {
       );
     }
 
+    final normalizedLogoStoragePath = logoStoragePath?.trim();
     final normalizedLogoUrl = logoUrl?.trim();
-    if (normalizedLogoUrl != null && normalizedLogoUrl.isNotEmpty) {
+    final hasLogoReference =
+        (normalizedLogoStoragePath?.isNotEmpty ?? false) ||
+        (normalizedLogoUrl?.isNotEmpty ?? false);
+    if (hasLogoReference) {
       try {
-        final extracted = await extractClubThemePaletteFromUrl(
-          normalizedLogoUrl,
+        final extracted = await _paletteLoader(
+          logoStoragePath: normalizedLogoStoragePath,
+          logoUrl: normalizedLogoUrl,
         );
         return ClublineAppTheme.paletteFromClubTheme(
           primaryColor: extracted.primaryHex,

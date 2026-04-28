@@ -293,6 +293,7 @@ class _ClubJoinPageState extends State<ClubJoinPage> {
                                     children: [
                                       ClubLogoAvatar(
                                         logoUrl: club.logoUrl,
+                                        logoStoragePath: club.logoStoragePath,
                                         size: 48,
                                         fallbackIcon: Icons.shield_outlined,
                                         borderWidth: 1.5,

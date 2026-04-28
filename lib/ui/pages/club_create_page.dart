@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../core/app_session.dart';
 import '../../core/app_theme.dart';
@@ -23,6 +24,7 @@ class _ClubCreatePageState extends State<ClubCreatePage> {
 
   PickedClubLogo? pickedLogo;
   ClubThemePaletteResult? extractedPalette;
+  bool isUsingFallbackPalette = false;
   bool isSubmitting = false;
   bool isPickingLogo = false;
   String? errorMessage;
@@ -45,30 +47,28 @@ class _ClubCreatePageState extends State<ClubCreatePage> {
         return;
       }
 
-      if (!result.mimeType.startsWith('image/')) {
+      final validationError = validatePickedClubLogo(result);
+      if (validationError != null) {
         setState(() {
-          errorMessage = 'Seleziona un file immagine valido.';
+          errorMessage = validationError;
         });
         return;
       }
 
-      if (result.bytes.length > 5 * 1024 * 1024) {
-        setState(() {
-          errorMessage = 'Il logo deve essere inferiore a 5 MB.';
-        });
-        return;
-      }
-
-      ClubThemePaletteResult? palette;
+      late final ClubThemePaletteResult palette;
+      var usedFallbackPalette = false;
       try {
         palette = await extractClubThemePalette(result.bytes);
+        usedFallbackPalette = isFallbackClubThemePalette(palette);
       } catch (_) {
-        palette = null;
+        palette = fallbackClubThemePalette();
+        usedFallbackPalette = true;
       }
 
       setState(() {
         pickedLogo = result;
         extractedPalette = palette;
+        isUsingFallbackPalette = usedFallbackPalette;
       });
     } catch (error) {
       setState(() {
@@ -119,9 +119,9 @@ class _ClubCreatePageState extends State<ClubCreatePage> {
         ownerShirtNumber: playerIdentity.shirtNumber,
         ownerPrimaryRole: playerIdentity.primaryRole,
         logoDataUrl: pickedLogo?.dataUrl,
-        primaryColor: extractedPalette?.primaryHex,
-        accentColor: extractedPalette?.accentHex,
-        surfaceColor: extractedPalette?.surfaceHex,
+        primaryColor: pickedLogo == null ? null : extractedPalette?.primaryHex,
+        accentColor: pickedLogo == null ? null : extractedPalette?.accentHex,
+        surfaceColor: pickedLogo == null ? null : extractedPalette?.surfaceHex,
       );
       await session.refresh(showLoadingState: false);
 
@@ -184,6 +184,15 @@ class _ClubCreatePageState extends State<ClubCreatePage> {
                 const AppStatusBadge(
                   label: 'Logo pronto',
                   tone: AppStatusTone.info,
+                ),
+              if (pickedLogo != null && extractedPalette != null)
+                AppStatusBadge(
+                  label: isUsingFallbackPalette
+                      ? 'Palette fallback'
+                      : 'Palette aggiornata',
+                  tone: isUsingFallbackPalette
+                      ? AppStatusTone.warning
+                      : AppStatusTone.success,
                 ),
             ],
             trailing: playerIdentity == null
@@ -286,6 +295,13 @@ class _ClubCreatePageState extends State<ClubCreatePage> {
                           ),
                         ],
                       ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        isUsingFallbackPalette
+                            ? 'Il file e stato selezionato ma l estrazione automatica non e riuscita: useremo una palette sicura.'
+                            : 'La palette Stemma usera questi colori appena il club viene creato.',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
                     ],
                     if (errorMessage != null) ...[
                       const SizedBox(height: AppSpacing.md),
@@ -335,6 +351,10 @@ class _LogoPreviewCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final borderRadius = BorderRadius.circular(18);
+    final previewBackground = Theme.of(
+      context,
+    ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.42);
+    final previewBorder = Theme.of(context).colorScheme.outlineVariant;
 
     if (logo.isSvg) {
       return Container(
@@ -342,12 +362,8 @@ class _LogoPreviewCard extends StatelessWidget {
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
           borderRadius: borderRadius,
-          color: Theme.of(
-            context,
-          ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.42),
-          border: Border.all(
-            color: Theme.of(context).colorScheme.outlineVariant,
-          ),
+          color: previewBackground,
+          border: Border.all(color: previewBorder),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -369,38 +385,51 @@ class _LogoPreviewCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 10),
-            Text(
-              'Logo SVG caricato correttamente. L anteprima completa sarà visibile dopo il salvataggio del club.',
-              style: Theme.of(context).textTheme.bodyMedium,
+            const SizedBox(height: 14),
+            Container(
+              height: 180,
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.9),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: SvgPicture.memory(logo.bytes, fit: BoxFit.contain),
             ),
           ],
         ),
       );
     }
 
-    return ClipRRect(
-      borderRadius: borderRadius,
-      child: Image.memory(
-        logo.bytes,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: borderRadius,
+        color: previewBackground,
+        border: Border.all(color: previewBorder),
+      ),
+      child: Container(
         height: 180,
         width: double.infinity,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) {
-          return Container(
-            height: 180,
-            width: double.infinity,
-            alignment: Alignment.center,
-            color: Theme.of(
-              context,
-            ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.42),
-            child: Text(
-              'Anteprima non disponibile per questo file.',
-              style: Theme.of(context).textTheme.bodyMedium,
-              textAlign: TextAlign.center,
-            ),
-          );
-        },
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.9),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Image.memory(
+          logo.bytes,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) {
+            return Center(
+              child: Text(
+                'Anteprima non disponibile per questo file.',
+                style: Theme.of(context).textTheme.bodyMedium,
+                textAlign: TextAlign.center,
+              ),
+            );
+          },
+        ),
       ),
     );
   }
