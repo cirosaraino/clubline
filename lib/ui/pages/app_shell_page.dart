@@ -3,8 +3,16 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/app_session.dart';
+import '../../core/app_session_gate.dart';
 import '../../core/app_theme.dart';
 import '../widgets/app_chrome.dart';
+import '../widgets/auth_password_sheet.dart';
+import '../widgets/auth_sheet.dart';
+import '../widgets/biometric_unlock_sheet.dart';
+import '../widgets/club_info_sheet.dart';
+import '../widgets/clubline_brand_logo.dart';
+import '../widgets/theme_palette_sheet.dart';
+import '../widgets/vice_permissions_sheet.dart';
 import 'attendance_page.dart';
 import 'club_access_hub_page.dart';
 import 'club_management_page.dart';
@@ -13,13 +21,6 @@ import 'lineups_page.dart';
 import 'player_form_page.dart';
 import 'players_page.dart';
 import 'streams_page.dart';
-import '../widgets/auth_sheet.dart';
-import '../widgets/biometric_unlock_sheet.dart';
-import '../widgets/auth_password_sheet.dart';
-import '../widgets/clubline_brand_logo.dart';
-import '../widgets/theme_palette_sheet.dart';
-import '../widgets/club_info_sheet.dart';
-import '../widgets/vice_permissions_sheet.dart';
 
 class AppShellPage extends StatefulWidget {
   const AppShellPage({super.key});
@@ -29,74 +30,8 @@ class AppShellPage extends StatefulWidget {
 }
 
 class _AppShellPageState extends State<AppShellPage> {
-  static const Duration _initialAccessOverlayTimeout = Duration(
-    milliseconds: 1500,
-  );
-  static const Duration _postVerificationGuardDuration = Duration(
-    milliseconds: 1000,
-  );
-  static const Duration _accessConfirmedLabelLeadTime = Duration(
-    milliseconds: 300,
-  );
-  static const Duration _initialAccessTransitionDuration = Duration(
-    milliseconds: 420,
-  );
-
   int selectedIndex = 0;
   bool _hasAutoOpenedRecoverySheet = false;
-  bool _hasAutoOpenedProfileCompletion = false;
-  bool _isInitialAccessOverlayActive = true;
-  bool _isPostVerificationGuardActive = true;
-  bool _showAccessConfirmedLabel = false;
-  Timer? _initialAccessOverlayTimer;
-  Timer? _postVerificationGuardTimer;
-  Timer? _accessConfirmedLabelTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    _initialAccessOverlayTimer = Timer(_initialAccessOverlayTimeout, () {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _isInitialAccessOverlayActive = false;
-        _showAccessConfirmedLabel = false;
-      });
-
-      final accessConfirmedDelay =
-          _postVerificationGuardDuration - _accessConfirmedLabelLeadTime;
-      _accessConfirmedLabelTimer = Timer(accessConfirmedDelay, () {
-        if (!mounted) {
-          return;
-        }
-
-        setState(() {
-          _showAccessConfirmedLabel = true;
-        });
-      });
-
-      _postVerificationGuardTimer = Timer(_postVerificationGuardDuration, () {
-        if (!mounted) {
-          return;
-        }
-
-        setState(() {
-          _isPostVerificationGuardActive = false;
-          _showAccessConfirmedLabel = false;
-        });
-      });
-    });
-  }
-
-  @override
-  void dispose() {
-    _initialAccessOverlayTimer?.cancel();
-    _postVerificationGuardTimer?.cancel();
-    _accessConfirmedLabelTimer?.cancel();
-    super.dispose();
-  }
 
   void _goToTab(int index) {
     setState(() {
@@ -147,116 +82,14 @@ class _AppShellPageState extends State<AppShellPage> {
 
   Future<void> _openAuthSheet(AuthSheetMode initialMode) async {
     final session = AppSessionScope.read(context);
-
     if (session.isAuthenticated) {
       return;
     }
 
-    final result = await showModalBottomSheet<bool>(
+    await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       builder: (context) => AuthSheet(initialMode: initialMode),
-    );
-
-    if (result != true || !mounted) {
-      return;
-    }
-
-    await AppSessionScope.read(context).refresh(showLoadingState: false);
-  }
-
-  bool _showInitialAccessOverlay(AppSessionController session) {
-    return _isInitialAccessOverlayActive && session.isLoading;
-  }
-
-  bool _showSyncProfileOverlay(AppSessionController session) {
-    if (_showInitialAccessOverlay(session)) {
-      return false;
-    }
-
-    if (_isPostVerificationGuardActive && session.isAuthenticated) {
-      return true;
-    }
-
-    return false;
-  }
-
-  Widget _wrapHomeWithInitialOverlay({
-    required Widget child,
-    required AppSessionController session,
-  }) {
-    if (!session.isAuthenticated) {
-      return child;
-    }
-
-    final showInitialOverlay = _showInitialAccessOverlay(session);
-    final showSyncOverlay = _showSyncProfileOverlay(session);
-    final overlayVisible = showInitialOverlay || showSyncOverlay;
-    final overlayMessage = showInitialOverlay
-        ? 'Verifica accesso in corso...'
-        : _showAccessConfirmedLabel && session.isAuthenticated
-        ? 'Accesso confermato'
-        : 'Sincronizzazione profilo...';
-    final shouldBlockTouches = overlayVisible && session.isAuthenticated;
-    final overlayBackgroundAlpha = showInitialOverlay ? 0.22 : 0.14;
-    final panelPadding = showInitialOverlay
-        ? const EdgeInsets.symmetric(horizontal: 18, vertical: 16)
-        : const EdgeInsets.symmetric(horizontal: 14, vertical: 12);
-    final spinnerSize = showInitialOverlay ? 18.0 : 14.0;
-
-    return Stack(
-      children: [
-        AnimatedSlide(
-          duration: _initialAccessTransitionDuration,
-          curve: Curves.easeOutCubic,
-          offset: overlayVisible ? const Offset(0, 0.018) : Offset.zero,
-          child: AnimatedOpacity(
-            duration: _initialAccessTransitionDuration,
-            curve: Curves.easeOutCubic,
-            opacity: overlayVisible ? 0.92 : 1,
-            child: child,
-          ),
-        ),
-        if (overlayVisible)
-          Positioned.fill(
-            child: IgnorePointer(
-              ignoring: !shouldBlockTouches,
-              child: AnimatedOpacity(
-                duration: _initialAccessTransitionDuration,
-                curve: Curves.easeOutCubic,
-                opacity: 1,
-                child: Container(
-                  color: Colors.black.withValues(alpha: overlayBackgroundAlpha),
-                  alignment: Alignment.center,
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 22),
-                    padding: panelPadding,
-                    decoration: BoxDecoration(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.surface.withValues(alpha: 0.95),
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          width: spinnerSize,
-                          height: spinnerSize,
-                          child: const CircularProgressIndicator(
-                            strokeWidth: 2.2,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Flexible(child: Text(overlayMessage)),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
     );
   }
 
@@ -324,6 +157,17 @@ class _AppShellPageState extends State<AppShellPage> {
     }
   }
 
+  Future<void> _signOut() async {
+    await AppSessionScope.read(context).signOut();
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      selectedIndex = 0;
+    });
+  }
+
   void _maybeOpenRecoverySheet(AppSessionController session) {
     if (!session.requiresPasswordRecovery) {
       _hasAutoOpenedRecoverySheet = false;
@@ -343,53 +187,7 @@ class _AppShellPageState extends State<AppShellPage> {
     });
   }
 
-  void _maybeOpenProfileCompletion(AppSessionController session) {
-    if (!session.needsProfileSetup) {
-      _hasAutoOpenedProfileCompletion = false;
-      return;
-    }
-
-    if (selectedIndex != 0) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) {
-          return;
-        }
-
-        setState(() {
-          selectedIndex = 0;
-        });
-      });
-    }
-
-    if (_hasAutoOpenedProfileCompletion) {
-      return;
-    }
-
-    _hasAutoOpenedProfileCompletion = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
-        return;
-      }
-      unawaited(_openCreateProfile());
-    });
-  }
-
   Future<void> _handleDestinationSelected(int index) async {
-    final session = AppSessionScope.read(context);
-    if (session.needsProfileSetup && index != 0) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Completa prima il profilo giocatore per sbloccare il resto dell app.',
-            ),
-          ),
-        );
-      }
-      await _openCreateProfile();
-      return;
-    }
-
     _goToTab(index);
   }
 
@@ -522,12 +320,8 @@ class _AppShellPageState extends State<AppShellPage> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final session = AppSessionScope.of(context);
-    _maybeOpenRecoverySheet(session);
-    _maybeOpenProfileCompletion(session);
-    final pages = [
+  List<Widget> _buildAuthenticatedPages(AppSessionController session) {
+    return [
       HomePage(
         onOpenCreateProfile: _openCreateProfile,
         onOpenEditCurrentProfile: _openEditCurrentProfile,
@@ -548,22 +342,14 @@ class _AppShellPageState extends State<AppShellPage> {
       const StreamsPage(),
       const AttendancePage(),
     ];
+  }
 
-    if (!session.isAuthenticated) {
-      return Scaffold(
-        body: _wrapHomeWithInitialOverlay(child: pages.first, session: session),
-      );
-    }
-
-    if (!session.hasClubMembership) {
-      return ClubAccessHubPage(
-        onOpenPlayerSetup: _openCreateProfile,
-        onDeleteAccount: _deleteAccount,
-      );
-    }
-
+  Widget _buildClubShell(
+    BuildContext context,
+    AppSessionController session,
+    List<Widget> pages,
+  ) {
     final useRail = AppResponsive.useNavigationRail(context);
-
     if (!useRail) {
       return Scaffold(
         body: IndexedStack(index: selectedIndex, children: pages),
@@ -617,9 +403,7 @@ class _AppShellPageState extends State<AppShellPage> {
                             label:
                                 session.currentUser?.teamRoleDisplay ??
                                 'Club attivo',
-                            tone: session.needsProfileSetup
-                                ? AppStatusTone.warning
-                                : AppStatusTone.info,
+                            tone: AppStatusTone.info,
                           ),
                         ],
                       ),
@@ -636,24 +420,6 @@ class _AppShellPageState extends State<AppShellPage> {
                       destinations: _railDestinations(),
                     ),
                   ),
-                  if (session.needsProfileSetup)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        AppSpacing.sm,
-                        0,
-                        AppSpacing.sm,
-                        AppSpacing.sm,
-                      ),
-                      child: AppActionButton(
-                        label: 'Profilo',
-                        icon: Icons.person_outline,
-                        variant: AppButtonVariant.secondary,
-                        expand: true,
-                        onPressed: () {
-                          unawaited(_openCreateProfile());
-                        },
-                      ),
-                    ),
                 ],
               ),
             ),
@@ -665,6 +431,374 @@ class _AppShellPageState extends State<AppShellPage> {
           ),
           Expanded(
             child: IndexedStack(index: selectedIndex, children: pages),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _resetSelectedIndexIfNeeded(AppSessionGateKind gateKind) {
+    if (gateKind == AppSessionGateKind.authenticatedWithClub ||
+        selectedIndex == 0) {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        selectedIndex = 0;
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final session = AppSessionScope.of(context);
+    final gateKind = session.sessionGateKind;
+    _resetSelectedIndexIfNeeded(gateKind);
+
+    if (gateKind != AppSessionGateKind.resolving &&
+        gateKind != AppSessionGateKind.error &&
+        session.isAuthenticated) {
+      _maybeOpenRecoverySheet(session);
+    }
+
+    switch (gateKind) {
+      case AppSessionGateKind.resolving:
+        return _SessionResolutionPage(session: session);
+      case AppSessionGateKind.error:
+        return _SessionResolutionErrorPage(
+          session: session,
+          onRetry: session.retrySessionResolution,
+          onSignOut: session.isAuthenticated ? _signOut : null,
+        );
+      case AppSessionGateKind.unauthenticated:
+        return _buildAuthenticatedPages(session).first;
+      case AppSessionGateKind.authenticatedNeedsPlayerProfile:
+        return _PlayerProfileSetupGatePage(
+          session: session,
+          onOpenPlayerSetup: _openCreateProfile,
+          onDeleteAccount: _deleteAccount,
+          onSignOut: _signOut,
+        );
+      case AppSessionGateKind.authenticatedNeedsClubSelection:
+        return ClubAccessHubPage(
+          onOpenPlayerSetup: _openCreateProfile,
+          onDeleteAccount: _deleteAccount,
+        );
+      case AppSessionGateKind.authenticatedWithClub:
+        final pages = _buildAuthenticatedPages(session);
+        return _buildClubShell(context, session, pages);
+    }
+  }
+}
+
+enum _ProfileGateMenuAction { deleteAccount, signOut }
+
+class _SessionResolutionPage extends StatelessWidget {
+  const _SessionResolutionPage({required this.session});
+
+  final AppSessionController session;
+
+  String get _title {
+    switch (session.resolutionTrigger) {
+      case AppSessionResolutionTrigger.signIn:
+        return 'Accesso in corso...';
+      case AppSessionResolutionTrigger.signUp:
+        return 'Creazione account in corso...';
+      case AppSessionResolutionTrigger.retry:
+        return 'Nuovo tentativo in corso...';
+      case AppSessionResolutionTrigger.bootstrap:
+      case AppSessionResolutionTrigger.refresh:
+        return 'Verifica accesso in corso...';
+    }
+  }
+
+  String get _subtitle {
+    switch (session.resolutionPhase) {
+      case AppSessionResolutionPhase.hydratingClubData:
+        return 'Stiamo preparando profilo, club e permessi. Se il backend si sta riattivando potrebbero volerci alcuni secondi.';
+      case AppSessionResolutionPhase.restoringSession:
+      case AppSessionResolutionPhase.fetchingSessionState:
+        return 'Stiamo verificando sessione, profilo e stato del club. Non chiudere la pagina.';
+      case AppSessionResolutionPhase.idle:
+        return 'Ultimo controllo in corso.';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppPageScaffold(
+      wide: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppHeroPanel(
+            eyebrow: 'Sessione',
+            title: _title,
+            subtitle: _subtitle,
+            media: const ClublineBrandLogo(width: 188),
+            badges: [
+              if ((session.currentUserEmail ?? '').isNotEmpty)
+                AppStatusBadge(
+                  label: session.currentUserEmail!,
+                  tone: AppStatusTone.info,
+                ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          const AppSurfaceCard(
+            icon: Icons.sync_outlined,
+            title: 'Sincronizzazione in corso',
+            subtitle:
+                'Una sola transizione controllata fino allo stato finale.',
+            child: AppLoadingState(label: 'Attendi ancora un momento...'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SessionResolutionErrorPage extends StatelessWidget {
+  const _SessionResolutionErrorPage({
+    required this.session,
+    required this.onRetry,
+    this.onSignOut,
+  });
+
+  final AppSessionController session;
+  final Future<void> Function() onRetry;
+  final Future<void> Function()? onSignOut;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppPageScaffold(
+      wide: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppHeroPanel(
+            eyebrow: 'Sessione',
+            title: 'Impossibile completare l accesso',
+            subtitle:
+                'Non siamo riusciti a confermare sessione, profilo o stato del club. Puoi riprovare senza rifare il login.',
+            media: const ClublineBrandLogo(width: 172),
+            badges: [
+              if ((session.currentUserEmail ?? '').isNotEmpty)
+                AppStatusBadge(
+                  label: session.currentUserEmail!,
+                  tone: AppStatusTone.warning,
+                ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          AppErrorState(
+            title: 'Sessione non risolta',
+            message:
+                session.sessionGateErrorMessage ??
+                'Errore sconosciuto durante la verifica della sessione.',
+            actionLabel: 'Riprova',
+            onAction: () {
+              unawaited(onRetry());
+            },
+          ),
+          if (onSignOut != null) ...[
+            const SizedBox(height: AppSpacing.md),
+            Center(
+              child: TextButton.icon(
+                onPressed: () {
+                  unawaited(onSignOut!.call());
+                },
+                icon: const Icon(Icons.logout_outlined),
+                label: const Text('Esci e torna alla Home'),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _PlayerProfileSetupGatePage extends StatelessWidget {
+  const _PlayerProfileSetupGatePage({
+    required this.session,
+    required this.onOpenPlayerSetup,
+    required this.onDeleteAccount,
+    required this.onSignOut,
+  });
+
+  final AppSessionController session;
+  final Future<void> Function() onOpenPlayerSetup;
+  final Future<void> Function() onDeleteAccount;
+  final Future<void> Function() onSignOut;
+
+  String get _title {
+    if (session.hasClubMembership) {
+      return session.currentUser == null
+          ? 'Collega il tuo giocatore al club'
+          : 'Completa il profilo giocatore';
+    }
+
+    return 'Prima crea il tuo giocatore';
+  }
+
+  String get _subtitle {
+    if (session.hasClubMembership) {
+      final clubName = session.clubInfo.displayClubName;
+      return session.currentUser == null
+          ? 'Accesso confermato. Per entrare davvero in $clubName manca ancora il profilo giocatore collegato al tuo account.'
+          : 'Sei gia in $clubName. Completa i dati mancanti per rendere stabile l accesso e sbloccare tutte le aree.';
+    }
+
+    return 'Prima di creare o cercare un club serve un profilo giocatore completo. Lo useremo poi in tutti i flussi successivi.';
+  }
+
+  String get _actionLabel {
+    return session.currentUser == null ? 'Crea giocatore' : 'Completa profilo';
+  }
+
+  String get _statusLabel {
+    if (session.hasClubMembership) {
+      return session.currentUser == null
+          ? 'Profilo da collegare'
+          : 'Profilo da completare';
+    }
+
+    return 'Giocatore da creare';
+  }
+
+  Future<void> _handleMenuAction(_ProfileGateMenuAction action) async {
+    switch (action) {
+      case _ProfileGateMenuAction.deleteAccount:
+        await onDeleteAccount();
+        return;
+      case _ProfileGateMenuAction.signOut:
+        await onSignOut();
+        return;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppPageScaffold(
+      appBar: AppBar(
+        title: const Text('Clubline'),
+        actions: [
+          PopupMenuButton<_ProfileGateMenuAction>(
+            tooltip: 'Menu account',
+            icon: const CircleAvatar(
+              radius: 16,
+              child: Icon(Icons.person_outline, size: 18),
+            ),
+            onSelected: (action) {
+              unawaited(_handleMenuAction(action));
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem<_ProfileGateMenuAction>(
+                value: _ProfileGateMenuAction.deleteAccount,
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.delete_forever_outlined),
+                  title: Text('Cancella account'),
+                ),
+              ),
+              PopupMenuDivider(),
+              PopupMenuItem<_ProfileGateMenuAction>(
+                value: _ProfileGateMenuAction.signOut,
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.logout_outlined),
+                  title: Text('Esci'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      wide: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppHeroPanel(
+            eyebrow: session.hasClubMembership ? 'Profilo club' : 'Onboarding',
+            title: _title,
+            subtitle: _subtitle,
+            media: Center(
+              child: session.hasClubMembership
+                  ? ClublineBrandLogo(
+                      width: AppResponsive.isCompact(context) ? 152 : 196,
+                    )
+                  : ClublineBrandLogo(
+                      width: AppResponsive.isCompact(context) ? 176 : 220,
+                    ),
+            ),
+            badges: [
+              if ((session.currentUserEmail ?? '').isNotEmpty)
+                AppStatusBadge(
+                  label: session.currentUserEmail!,
+                  tone: AppStatusTone.info,
+                ),
+              AppStatusBadge(label: _statusLabel, tone: AppStatusTone.warning),
+            ],
+            actions: [
+              AppActionButton(
+                label: _actionLabel,
+                icon: Icons.person_add_alt_1_outlined,
+                expand: AppResponsive.isCompact(context),
+                onPressed: () {
+                  unawaited(onOpenPlayerSetup());
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          AppResponsiveGrid(
+            minChildWidth: 280,
+            children: [
+              AppFeatureCard(
+                icon: Icons.person_outline,
+                title: 'Profilo richiesto',
+                message: session.hasClubMembership
+                    ? 'Finche il profilo giocatore non e completo non renderizziamo le aree finali del club, evitando schermate intermedie instabili.'
+                    : 'Completa nome, cognome, ID console, maglia e ruolo una sola volta. Poi potrai creare un club o chiedere di entrare in una squadra.',
+                actionLabel: _actionLabel,
+                onAction: () {
+                  unawaited(onOpenPlayerSetup());
+                },
+                emphasized: true,
+              ),
+              AppSurfaceCard(
+                icon: Icons.verified_user_outlined,
+                title: 'Accesso gia confermato',
+                subtitle:
+                    'L autenticazione e valida. Ora stiamo solo aspettando il profilo corretto prima di sbloccare il resto.',
+                child: AppDetailsList(
+                  items: [
+                    AppDetailItem(
+                      label: 'Email',
+                      value: session.currentUserEmail ?? '-',
+                      emphasized: true,
+                    ),
+                    AppDetailItem(
+                      label: 'Club',
+                      value: session.hasClubMembership
+                          ? session.clubInfo.displayClubName
+                          : 'Nessun club attivo',
+                    ),
+                    AppDetailItem(
+                      label: 'Stato',
+                      value: _statusLabel,
+                      icon: Icons.hourglass_top_outlined,
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),

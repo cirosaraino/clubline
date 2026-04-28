@@ -193,6 +193,14 @@ class _AppRealtimeSyncHostState extends State<AppRealtimeSyncHost>
       return;
     }
 
+    final controller = _sessionController;
+    if (controller != null && !controller.shouldEnableRealtime) {
+      _lastScopeSignature = null;
+      _lastAccessToken = null;
+      await _disconnectRealtime();
+      return;
+    }
+
     if (_isConnecting) {
       _syncQueued = true;
       return;

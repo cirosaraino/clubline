@@ -34,6 +34,14 @@ class ApiClient {
   final http.Client _httpClient;
   final AuthSessionStore _sessionStore;
 
+  Future<void> warmUpBackend() async {
+    try {
+      await get('/health');
+    } catch (_) {
+      // Warm-up is best-effort and must never block the real auth flow.
+    }
+  }
+
   Future<dynamic> get(
     String path, {
     bool authenticated = false,

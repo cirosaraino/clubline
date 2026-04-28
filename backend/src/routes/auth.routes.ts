@@ -6,7 +6,9 @@ import { asyncHandler } from '../middleware/async-handler';
 import { createRateLimitMiddleware } from '../middleware/rate-limit';
 import { requireAuth } from '../middleware/auth';
 import { sendCreated, sendNoContent, sendOk } from '../lib/http';
+import { AccessService } from '../services/access.service';
 import { AuthService } from '../services/auth.service';
+import { ClubsService } from '../services/clubs.service';
 import {
   credentialsSchema,
   passwordResetRequestSchema,
@@ -15,6 +17,8 @@ import {
 } from '../validation/auth.validation';
 
 const authService = new AuthService(supabaseAuth, supabaseDb);
+const accessService = new AccessService(supabaseDb);
+const clubsService = new ClubsService(supabaseDb);
 
 function extractNormalizedEmail(body: unknown): string {
   if (typeof body !== 'object' || body == null || Array.isArray(body)) {
@@ -190,6 +194,66 @@ authRouter.get(
         emailVerified: principal.authUser.emailVerified,
         emailVerifiedAt: principal.authUser.emailVerifiedAt,
       },
+    });
+  }),
+);
+
+authRouter.get(
+  '/session-state',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const principal = req.principal;
+    if (!principal) {
+      sendOk(res, { user: null });
+      return;
+    }
+
+    const clubInfoPromise = principal.club
+      ? accessService.getClubInfoForClub(principal.club.id)
+      : Promise.resolve(null);
+    const pendingJoinRequestPromise = clubsService.getCurrentPendingJoinRequest(
+      principal.authUser.id,
+    );
+    const pendingLeaveRequestPromise = principal.membership
+      ? clubsService.getCurrentPendingLeaveRequest(principal.membership.id)
+      : Promise.resolve(null);
+    const captainPendingJoinRequestsPromise = principal.isCaptain
+      ? clubsService.listPendingJoinRequests(principal)
+      : Promise.resolve([]);
+    const captainPendingLeaveRequestsPromise = principal.isCaptain
+      ? clubsService.listPendingLeaveRequests(principal)
+      : Promise.resolve([]);
+
+    const [
+      clubInfo,
+      pendingJoinRequest,
+      pendingLeaveRequest,
+      captainPendingJoinRequests,
+      captainPendingLeaveRequests,
+    ] = await Promise.all([
+      clubInfoPromise,
+      pendingJoinRequestPromise,
+      pendingLeaveRequestPromise,
+      captainPendingJoinRequestsPromise,
+      captainPendingLeaveRequestsPromise,
+    ]);
+
+    sendOk(res, {
+      user: {
+        id: principal.authUser.id,
+        email: principal.authUser.email,
+        emailVerified: principal.authUser.emailVerified,
+        emailVerifiedAt: principal.authUser.emailVerifiedAt,
+      },
+      membership: principal.membership,
+      club: principal.club,
+      currentPlayer: principal.player,
+      vicePermissions: principal.permissions,
+      clubInfo,
+      pendingJoinRequest,
+      pendingLeaveRequest,
+      captainPendingJoinRequests,
+      captainPendingLeaveRequests,
     });
   }),
 );

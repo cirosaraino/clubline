@@ -194,9 +194,9 @@ class _AuthSheetState extends State<AuthSheet> {
         Text(
           isSignIn ? 'Entra nel tuo account.' : 'Crea il tuo account.',
           textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: ClublineAppTheme.textMuted,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: ClublineAppTheme.textMuted),
         ),
       ],
     );
@@ -271,6 +271,10 @@ class _AuthSheetState extends State<AuthSheet> {
   }
 
   Widget _buildFormCard(BuildContext context, bool isSignIn, bool compact) {
+    final submissionBannerMessage = isSignIn
+        ? 'Accesso in corso... Stiamo verificando sessione, profilo e stato del club.'
+        : 'Creazione account in corso... Stiamo preparando il tuo accesso.';
+
     return AppSurfaceCard(
       icon: isSignIn ? Icons.login_outlined : Icons.person_add_alt_1_outlined,
       title: isSignIn ? 'Accedi' : 'Registrati',
@@ -285,7 +289,10 @@ class _AuthSheetState extends State<AuthSheet> {
               controller: emailController,
               keyboardType: TextInputType.emailAddress,
               textInputAction: TextInputAction.next,
-              autofillHints: const [AutofillHints.username, AutofillHints.email],
+              autofillHints: const [
+                AutofillHints.username,
+                AutofillHints.email,
+              ],
               autocorrect: false,
               enableSuggestions: false,
               decoration: _decoration(
@@ -304,10 +311,7 @@ class _AuthSheetState extends State<AuthSheet> {
               autofillHints: isSignIn
                   ? const [AutofillHints.password]
                   : const [AutofillHints.newPassword],
-              decoration: _decoration(
-                'Password',
-                icon: Icons.lock_outline,
-              ),
+              decoration: _decoration('Password', icon: Icons.lock_outline),
               enabled: !isSubmitting,
               onSubmitted: isSignIn && !isSubmitting ? (_) => _submit() : null,
             ),
@@ -348,10 +352,20 @@ class _AuthSheetState extends State<AuthSheet> {
                     : Icons.error_outline,
               ),
             ],
+            if (isSubmitting) ...[
+              const SizedBox(height: AppSpacing.sm),
+              AppBanner(
+                message: submissionBannerMessage,
+                tone: AppStatusTone.info,
+                icon: Icons.hourglass_top_outlined,
+              ),
+            ],
             const SizedBox(height: AppSpacing.md),
             AppActionButton(
               label: isSubmitting
-                  ? 'Attendi...'
+                  ? isSignIn
+                        ? 'Accesso in corso...'
+                        : 'Creazione account...'
                   : isSignIn
                   ? 'Accedi'
                   : 'Crea account',
@@ -395,19 +409,20 @@ class _AuthSheetState extends State<AuthSheet> {
             ],
           );
 
-    return SafeArea(
-      child: Padding(
-        padding: EdgeInsets.only(
-          left: horizontalPadding,
-          right: horizontalPadding,
-          top: compact ? 8 : 12,
-          bottom: 14 + MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: compact ? 440 : 860),
-            child: SingleChildScrollView(
-              child: content,
+    return PopScope(
+      canPop: !isSubmitting,
+      child: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.only(
+            left: horizontalPadding,
+            right: horizontalPadding,
+            top: compact ? 8 : 12,
+            bottom: 14 + MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: compact ? 440 : 860),
+              child: SingleChildScrollView(child: content),
             ),
           ),
         ),

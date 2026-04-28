@@ -1,6 +1,7 @@
 import '../core/auth_recovery/auth_recovery_url_bridge.dart';
 import '../models/auth_session.dart';
 import '../models/authenticated_user.dart';
+import '../models/resolved_session_state.dart';
 import 'api_client.dart';
 import 'auth_session_store.dart';
 
@@ -17,6 +18,8 @@ class AuthRepository {
   AuthenticatedUser? get currentUser => _session?.user;
 
   AuthSession? get currentSession => _session;
+
+  Future<void> warmUpBackend() => _apiClient.warmUpBackend();
 
   Future<bool> fetchCanBootstrapCaptainRegistration() async {
     final response = await _apiClient.get('/auth/bootstrap-status');
@@ -47,6 +50,24 @@ class AuthRepository {
       return _refreshSession();
     } catch (_) {
       rethrow;
+    }
+  }
+
+  Future<ResolvedSessionState?> resolveSessionState() async {
+    await _restoreRecoverySessionFromUrl();
+    _session ??= await _sessionStore.readSession();
+    if (_session == null) {
+      return null;
+    }
+
+    try {
+      return await _fetchSessionState(_session!);
+    } on ApiUnauthorizedException {
+      final refreshedUser = await _refreshSession();
+      if (refreshedUser == null || _session == null) {
+        return null;
+      }
+      return _fetchSessionState(_session!);
     }
   }
 
@@ -184,6 +205,21 @@ class AuthRepository {
       _session = null;
       return null;
     }
+  }
+
+  Future<ResolvedSessionState> _fetchSessionState(AuthSession session) async {
+    final response = await _apiClient.get(
+      '/auth/session-state',
+      authenticated: true,
+      accessToken: session.accessToken,
+    );
+    final resolvedState = ResolvedSessionState.fromMap(
+      Map<String, dynamic>.from(response as Map),
+    );
+    final updatedSession = session.copyWith(user: resolvedState.user);
+    await _sessionStore.saveSession(updatedSession);
+    _session = updatedSession;
+    return resolvedState;
   }
 
   Future<void> _restoreRecoverySessionFromUrl() async {

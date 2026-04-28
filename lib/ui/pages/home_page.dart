@@ -72,17 +72,8 @@ class HomePage extends StatelessWidget {
     }
   }
 
-  Future<void> _signOut(
-    BuildContext context,
-    AppSessionController session,
-  ) async {
+  Future<void> _signOut(AppSessionController session) async {
     await session.signOut();
-
-    if (!context.mounted) {
-      return;
-    }
-
-    await AppSessionScope.read(context).refresh();
   }
 
   Future<void> _handleProfileMenuAction(
@@ -122,7 +113,7 @@ class HomePage extends StatelessWidget {
         await onDeleteAccount();
         return;
       case _HomeProfileMenuAction.signOut:
-        await _signOut(context, session);
+        await _signOut(session);
         return;
     }
   }

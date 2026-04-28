@@ -4,43 +4,50 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../data/auth_repository.dart';
-import '../data/club_info_repository.dart';
-import '../data/club_repository.dart';
 import '../data/player_repository.dart';
 import '../data/profile_setup_draft_store.dart';
-import '../data/vice_permissions_repository.dart';
 import '../models/authenticated_user.dart';
-import '../models/club_info.dart';
 import '../models/club.dart';
+import '../models/club_info.dart';
 import '../models/join_request.dart';
 import '../models/leave_request.dart';
 import '../models/membership.dart';
 import '../models/player_profile.dart';
+import '../models/resolved_session_state.dart';
 import '../models/vice_permissions.dart';
 import 'app_data_sync.dart';
+import 'app_session_gate.dart';
 import 'player_formatters.dart';
 
+enum AppSessionResolutionTrigger { bootstrap, signIn, signUp, retry, refresh }
+
+enum AppSessionResolutionPhase {
+  idle,
+  restoringSession,
+  fetchingSessionState,
+  hydratingClubData,
+}
+
 class AppSessionController extends ChangeNotifier {
-  AppSessionController({this.onClubInfoChanged})
-    : _authRepository = AuthRepository(),
-      _clubRepository = ClubRepository(),
-      _playerRepository = PlayerRepository(),
-      _clubInfoRepository = ClubInfoRepository(),
-      _vicePermissionsRepository = VicePermissionsRepository() {
+  AppSessionController({
+    this.onClubInfoChanged,
+    AuthRepository? authRepository,
+    PlayerRepository? playerRepository,
+  }) : _authRepository = authRepository ?? AuthRepository(),
+       _playerRepository = playerRepository ?? PlayerRepository() {
     AppDataSync.instance.addListener(_handleAppDataSync);
-    refresh();
+    unawaited(_authRepository.warmUpBackend());
+    unawaited(refresh(trigger: AppSessionResolutionTrigger.bootstrap));
   }
 
   final void Function(ClubInfo clubInfo)? onClubInfoChanged;
   final AuthRepository _authRepository;
-  final ClubRepository _clubRepository;
   final PlayerRepository _playerRepository;
-  final ClubInfoRepository _clubInfoRepository;
-  final VicePermissionsRepository _vicePermissionsRepository;
 
   AuthenticatedUser? _authUser;
   Club? _currentClub;
   Membership? _membership;
+  PlayerProfile? _currentPlayer;
   JoinRequest? _pendingJoinRequest;
   LeaveRequest? _pendingLeaveRequest;
   List<JoinRequest> _captainPendingJoinRequests = const [];
@@ -49,13 +56,20 @@ class AppSessionController extends ChangeNotifier {
   ProfileSetupDraft? _profileSetupDraft;
   ClubInfo _clubInfo = ClubInfo.defaults;
   VicePermissions _vicePermissions = VicePermissions.defaults;
-  bool _isLoading = true;
+  bool _isLoading = false;
   bool _isRefreshing = false;
   bool _refreshQueued = false;
+  bool _queuedShowLoadingState = false;
+  AppSessionResolutionTrigger? _queuedTrigger;
   String? _errorMessage;
+  String? _sessionGateErrorMessage;
   int _lastHandledSyncRevision = 0;
   bool _disposed = false;
-  bool _hasResolvedCurrentUserProfile = false;
+  bool _isSessionGateResolving = true;
+  AppSessionResolutionPhase _resolutionPhase =
+      AppSessionResolutionPhase.restoringSession;
+  AppSessionResolutionTrigger _resolutionTrigger =
+      AppSessionResolutionTrigger.bootstrap;
 
   List<PlayerProfile> get players => _players;
   ProfileSetupDraft? get profileSetupDraft => _profileSetupDraft;
@@ -63,11 +77,13 @@ class AppSessionController extends ChangeNotifier {
   VicePermissions get vicePermissions => _vicePermissions;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  String? get sessionGateErrorMessage => _sessionGateErrorMessage;
   AuthenticatedUser? get authUser => _authUser;
   bool get isAuthenticated => _authUser != null;
   String? get currentUserEmail => _authUser?.email.trim();
   Club? get currentClub => _currentClub;
   Membership? get membership => _membership;
+  PlayerProfile? get currentUser => _currentPlayer;
   JoinRequest? get pendingJoinRequest => _pendingJoinRequest;
   LeaveRequest? get pendingLeaveRequest => _pendingLeaveRequest;
   List<JoinRequest> get captainPendingJoinRequests =>
@@ -85,66 +101,63 @@ class AppSessionController extends ChangeNotifier {
       !hasPendingJoinRequest &&
       !hasPlayerIdentityDraft;
   bool get needsClubSelection =>
-      isAuthenticated && !hasClubMembership && !hasPendingJoinRequest;
-  bool get isResolvingCurrentUserProfile =>
-      hasClubMembership && !_hasResolvedCurrentUserProfile;
+      sessionGateKind == AppSessionGateKind.authenticatedNeedsClubSelection;
   bool get needsProfileSetup =>
+      sessionGateKind == AppSessionGateKind.authenticatedNeedsPlayerProfile;
+  bool get isResolvingCurrentUserProfile =>
       hasClubMembership &&
-      _hasResolvedCurrentUserProfile &&
-      (currentUser == null || currentUser!.needsProfileCompletion);
+      sessionGateKind == AppSessionGateKind.resolving &&
+      (_currentPlayer == null || _currentPlayer!.needsProfileCompletion);
   bool get requiresPasswordRecovery =>
       _authRepository.currentSession?.isRecoverySession == true;
   bool get isCaptainRegistrationOpen => false;
   bool get canBootstrapCaptain => false;
   bool get isEmailVerified => _authUser?.emailVerified == true;
+  bool get shouldEnableRealtime =>
+      sessionGateKind == AppSessionGateKind.authenticatedWithClub;
+  bool get isSessionGateResolving => _isSessionGateResolving;
+  AppSessionResolutionPhase get resolutionPhase => _resolutionPhase;
+  AppSessionResolutionTrigger get resolutionTrigger => _resolutionTrigger;
 
-  PlayerProfile? get currentUser {
-    final authUser = _authUser;
-    if (authUser == null) {
-      return null;
-    }
-
-    for (final player in _players) {
-      if (player.isLinkedToAuthUser(authUser.id)) {
-        return player;
-      }
-    }
-
-    for (final player in _players) {
-      if (player.matchesAccountEmail(authUser.email)) {
-        return player;
-      }
-    }
-
-    return null;
+  AppSessionGateKind get sessionGateKind {
+    return resolveAppSessionGate(
+      isResolving: _isSessionGateResolving,
+      hasResolutionError: _sessionGateErrorMessage != null,
+      isAuthenticated: isAuthenticated,
+      hasClubMembership: hasClubMembership,
+      hasPlayerIdentityDraft: hasPlayerIdentityDraft,
+      hasCurrentPlayer: _currentPlayer != null,
+      needsCurrentPlayerCompletion:
+          _currentPlayer?.needsProfileCompletion == true,
+    );
   }
 
   Future<void> signInWithEmail({
     required String email,
     required String password,
   }) async {
+    _logTransition('auth started', {'mode': 'sign_in'});
     final session = await _authRepository.signInWithEmail(
       email: email,
       password: password,
     );
     _authUser = session.user;
-    _errorMessage = null;
-    _notifyIfMounted();
-    await refresh(showLoadingState: false);
+    _beginSessionResolution(trigger: AppSessionResolutionTrigger.signIn);
+    unawaited(refresh(trigger: AppSessionResolutionTrigger.signIn));
   }
 
   Future<void> signUpWithEmail({
     required String email,
     required String password,
   }) async {
+    _logTransition('auth started', {'mode': 'sign_up'});
     final session = await _authRepository.signUpWithEmail(
       email: email,
       password: password,
     );
     _authUser = session?.user;
-    _errorMessage = null;
-    _notifyIfMounted();
-    await refresh(showLoadingState: false);
+    _beginSessionResolution(trigger: AppSessionResolutionTrigger.signUp);
+    unawaited(refresh(trigger: AppSessionResolutionTrigger.signUp));
   }
 
   Future<void> signOut() async {
@@ -168,144 +181,216 @@ class AppSessionController extends ChangeNotifier {
     return message;
   }
 
-  Future<void> refresh({bool showLoadingState = true}) async {
+  Future<void> retrySessionResolution() {
+    return refresh(trigger: AppSessionResolutionTrigger.retry);
+  }
+
+  Future<void> refresh({
+    bool showLoadingState = true,
+    AppSessionResolutionTrigger trigger = AppSessionResolutionTrigger.refresh,
+  }) async {
     if (_isRefreshing) {
       _refreshQueued = true;
+      _queuedShowLoadingState = _queuedShowLoadingState || showLoadingState;
+      _queuedTrigger = showLoadingState ? trigger : _queuedTrigger;
       return;
     }
 
     _isRefreshing = true;
     if (showLoadingState) {
-      _isLoading = true;
+      _beginSessionResolution(trigger: trigger, notify: false);
+    } else {
+      _errorMessage = null;
     }
-    _errorMessage = null;
     _notifyIfMounted();
 
     try {
-      _authUser = await _authRepository.restoreSession();
+      _resolutionPhase = AppSessionResolutionPhase.fetchingSessionState;
+      _notifyIfMounted();
+      final resolvedState = await _authRepository.resolveSessionState();
 
-      if (_authUser == null) {
+      if (resolvedState == null) {
+        _logTransition('Supabase session restored', {'authenticated': false});
         _resetAuthenticatedState();
+        _logTransition('final route/state chosen', {
+          'gate': AppSessionGateKind.unauthenticated.name,
+        });
         return;
       }
 
-      _hasResolvedCurrentUserProfile = false;
+      _logTransition('Supabase session restored', {'authenticated': true});
+
+      _applyResolvedSessionState(resolvedState);
       _profileSetupDraft = await ProfileSetupDraftStore.instance.loadForAccount(
         _authUser?.email,
       );
 
-      final membershipFuture = _clubRepository.fetchCurrentMembership();
-      final clubFuture = _clubRepository.fetchCurrentClub();
-      final pendingJoinRequestFuture = _clubRepository
-          .fetchCurrentPendingJoinRequest();
+      _logTransition('backend session/profile fetched', {
+        'hasCurrentPlayer': _currentPlayer != null,
+        'hasDraft': hasPlayerIdentityDraft,
+      });
+      _logTransition('membership resolved', {
+        'hasClubMembership': hasClubMembership,
+        'hasPendingJoinRequest': hasPendingJoinRequest,
+        'hasPendingLeaveRequest': hasPendingLeaveRequest,
+      });
 
-      final membership = await membershipFuture;
-      final currentClub = await clubFuture;
-      final pendingJoinRequest = await pendingJoinRequestFuture;
+      _isSessionGateResolving = false;
+      _sessionGateErrorMessage = null;
+      _resolutionPhase = AppSessionResolutionPhase.idle;
+      final nextGate = sessionGateKind;
+      _logTransition('final route/state chosen', {'gate': nextGate.name});
 
-      _membership = membership;
-      _currentClub = currentClub;
-      _pendingJoinRequest = pendingJoinRequest;
-
-      if (!hasClubMembership) {
-        _pendingLeaveRequest = null;
-        _captainPendingJoinRequests = const [];
-        _captainPendingLeaveRequests = const [];
-        _players = const [];
-        _vicePermissions = VicePermissions.defaults;
-        _clubInfo = ClubInfo.defaults;
-        _hasResolvedCurrentUserProfile = true;
-        _isLoading = false;
-        onClubInfoChanged?.call(_clubInfo);
+      if (nextGate == AppSessionGateKind.authenticatedWithClub) {
+        _isLoading = _players.isEmpty;
         _notifyIfMounted();
-        return;
+        await _hydrateClubData();
+      } else {
+        _players = const [];
+        _isLoading = false;
+        _notifyIfMounted();
       }
-
-      _clubInfo = _fallbackClubInfoForClub(currentClub!);
-      final loadedPlayersFuture = _playerRepository.fetchPlayers();
-      final loadedClubInfoFuture = _loadOptionalData<ClubInfo>(
-        _clubInfoRepository.fetchClubInfo(),
-        fallback: _clubInfo,
-        label: 'club_info',
-      );
-      final loadedVicePermissionsFuture = _loadOptionalData<VicePermissions>(
-        _vicePermissionsRepository.fetchPermissions(),
-        fallback: VicePermissions.defaults,
-        label: 'vice_permissions',
-      );
-      final pendingLeaveRequestFuture = _loadOptionalData<LeaveRequest?>(
-        _clubRepository.fetchCurrentPendingLeaveRequest(),
-        fallback: null,
-        label: 'current_pending_leave_request',
-      );
-      final captainJoinRequestsFuture = membership!.isCaptain
-          ? _loadOptionalData<List<JoinRequest>>(
-              _clubRepository.fetchPendingJoinRequests(),
-              fallback: const [],
-              label: 'captain_pending_join_requests',
-            )
-          : Future<List<JoinRequest>>.value(const []);
-      final captainLeaveRequestsFuture = membership.isCaptain
-          ? _loadOptionalData<List<LeaveRequest>>(
-              _clubRepository.fetchPendingLeaveRequests(),
-              fallback: const [],
-              label: 'captain_pending_leave_requests',
-            )
-          : Future<List<LeaveRequest>>.value(const []);
-
-      final loadedPlayers = await loadedPlayersFuture;
-      final loadedClubInfo = await loadedClubInfoFuture;
-      final loadedVicePermissions = await loadedVicePermissionsFuture;
-      final pendingLeaveRequest = await pendingLeaveRequestFuture;
-      final captainJoinRequests = await captainJoinRequestsFuture;
-      final captainLeaveRequests = await captainLeaveRequestsFuture;
-
-      _pendingLeaveRequest = pendingLeaveRequest;
-      _captainPendingJoinRequests = captainJoinRequests;
-      _captainPendingLeaveRequests = captainLeaveRequests;
-      _clubInfo = loadedClubInfo;
-      _vicePermissions = loadedVicePermissions;
-      _players = loadedPlayers
-          .map(
-            (player) => player.copyWith(vicePermissions: loadedVicePermissions),
-          )
-          .toList();
-      await _syncDraftIntoCurrentUserIfNeeded();
-      _hasResolvedCurrentUserProfile = true;
-      _isLoading = false;
-      _errorMessage = null;
-      onClubInfoChanged?.call(_clubInfo);
-      _notifyIfMounted();
-    } catch (e) {
-      _hasResolvedCurrentUserProfile = false;
-      _isLoading = false;
-      _errorMessage = e.toString();
+    } catch (error) {
+      if (showLoadingState) {
+        _isSessionGateResolving = false;
+        _sessionGateErrorMessage = error.toString();
+        _isLoading = false;
+        _resolutionPhase = AppSessionResolutionPhase.idle;
+      } else {
+        _errorMessage = error.toString();
+        _isLoading = false;
+      }
       _notifyIfMounted();
     } finally {
       _isRefreshing = false;
       if (_refreshQueued) {
+        final queuedShowLoadingState = _queuedShowLoadingState;
+        final queuedTrigger =
+            _queuedTrigger ?? AppSessionResolutionTrigger.refresh;
         _refreshQueued = false;
-        unawaited(refresh(showLoadingState: false));
+        _queuedShowLoadingState = false;
+        _queuedTrigger = null;
+        unawaited(
+          refresh(
+            showLoadingState: queuedShowLoadingState,
+            trigger: queuedTrigger,
+          ),
+        );
       }
     }
   }
 
-  Future<T> _loadOptionalData<T>(
-    Future<T> future, {
-    required T fallback,
-    required String label,
-  }) async {
-    try {
-      return await future;
-    } catch (error) {
-      debugPrint('AppSession optional fetch failed for $label: $error');
-      return fallback;
+  void _beginSessionResolution({
+    required AppSessionResolutionTrigger trigger,
+    bool notify = true,
+  }) {
+    _resolutionTrigger = trigger;
+    _resolutionPhase = AppSessionResolutionPhase.restoringSession;
+    _isSessionGateResolving = true;
+    _sessionGateErrorMessage = null;
+    _errorMessage = null;
+    if (notify) {
+      _notifyIfMounted();
     }
+  }
+
+  void _applyResolvedSessionState(ResolvedSessionState resolvedState) {
+    final previousUserId = _authUser?.id;
+    final previousClubId = _currentClub?.id;
+
+    _authUser = resolvedState.user;
+    _membership = resolvedState.membership;
+    _currentClub = resolvedState.club;
+    _currentPlayer = resolvedState.currentPlayer?.copyWith(
+      vicePermissions: resolvedState.vicePermissions,
+    );
+    _pendingJoinRequest = resolvedState.pendingJoinRequest;
+    _pendingLeaveRequest = resolvedState.pendingLeaveRequest;
+    _captainPendingJoinRequests = resolvedState.captainPendingJoinRequests;
+    _captainPendingLeaveRequests = resolvedState.captainPendingLeaveRequests;
+    _vicePermissions = resolvedState.vicePermissions;
+    _clubInfo =
+        resolvedState.clubInfo ??
+        (_currentClub == null
+            ? ClubInfo.defaults
+            : _fallbackClubInfoForClub(_currentClub!));
+
+    if (!_sameEntityId(previousUserId, _authUser?.id) ||
+        !_sameEntityId(previousClubId, _currentClub?.id)) {
+      _players = const [];
+    }
+
+    onClubInfoChanged?.call(_clubInfo);
+  }
+
+  Future<void> _hydrateClubData() async {
+    final expectedUserId = _authUser?.id;
+    final expectedClubId = _currentClub?.id;
+    _resolutionPhase = AppSessionResolutionPhase.hydratingClubData;
+    _notifyIfMounted();
+
+    try {
+      final loadedPlayers = await _playerRepository.fetchPlayers();
+      if (!_matchesSessionSnapshot(expectedUserId, expectedClubId)) {
+        return;
+      }
+
+      _players = loadedPlayers
+          .map((player) => player.copyWith(vicePermissions: _vicePermissions))
+          .toList(growable: false);
+      _refreshCurrentUserFromPlayers();
+      _isLoading = false;
+      _errorMessage = null;
+      _resolutionPhase = AppSessionResolutionPhase.idle;
+      _notifyIfMounted();
+      unawaited(_syncDraftIntoCurrentUserIfNeeded());
+    } catch (error) {
+      if (!_matchesSessionSnapshot(expectedUserId, expectedClubId)) {
+        return;
+      }
+
+      _isLoading = false;
+      _errorMessage = error.toString();
+      _resolutionPhase = AppSessionResolutionPhase.idle;
+      _notifyIfMounted();
+    }
+  }
+
+  void _refreshCurrentUserFromPlayers() {
+    final authUser = _authUser;
+    if (authUser == null || _players.isEmpty) {
+      return;
+    }
+
+    PlayerProfile? matchedPlayer = _currentPlayer == null
+        ? null
+        : _players.firstWhere(
+            (player) => _sameEntityId(player.id, _currentPlayer!.id),
+            orElse: () => const PlayerProfile(nome: '', cognome: ''),
+          );
+
+    if (matchedPlayer == null || matchedPlayer.id == null) {
+      for (final player in _players) {
+        if (player.isLinkedToAuthUser(authUser.id) ||
+            player.matchesAccountEmail(authUser.email)) {
+          matchedPlayer = player;
+          break;
+        }
+      }
+    }
+
+    if (matchedPlayer == null ||
+        matchedPlayer.id == null ||
+        matchedPlayer.nome.isEmpty && matchedPlayer.cognome.isEmpty) {
+      return;
+    }
+
+    _currentPlayer = matchedPlayer.copyWith(vicePermissions: _vicePermissions);
   }
 
   Future<void> _syncDraftIntoCurrentUserIfNeeded() async {
     final draft = _profileSetupDraft;
-    final player = currentUser;
+    final player = _currentPlayer;
     if (!hasClubMembership ||
         draft == null ||
         player == null ||
@@ -339,22 +424,29 @@ class AppSessionController extends ChangeNotifier {
     }
 
     try {
-      await _playerRepository.updatePlayer(
-        player.copyWith(
-          nome: draft.nome,
-          cognome: draft.cognome,
-          accountEmail: player.accountEmail ?? _authUser?.email,
-          shirtNumber: draft.shirtNumber,
-          primaryRole: draft.primaryRole,
-          secondaryRoles: normalizedDraftSecondaryRoles,
-          idConsole: draft.idConsole,
-        ),
+      final updatedPlayer = player.copyWith(
+        nome: draft.nome,
+        cognome: draft.cognome,
+        accountEmail: player.accountEmail ?? _authUser?.email,
+        shirtNumber: draft.shirtNumber,
+        primaryRole: draft.primaryRole,
+        secondaryRoles: normalizedDraftSecondaryRoles,
+        idConsole: draft.idConsole,
+        vicePermissions: _vicePermissions,
       );
+      await _playerRepository.updatePlayer(updatedPlayer);
 
-      final refreshedPlayers = await _playerRepository.fetchPlayers();
-      _players = refreshedPlayers
-          .map((current) => current.copyWith(vicePermissions: _vicePermissions))
-          .toList();
+      _currentPlayer = updatedPlayer;
+      if (_players.isNotEmpty) {
+        _players = _players
+            .map(
+              (current) => _sameEntityId(current.id, updatedPlayer.id)
+                  ? updatedPlayer
+                  : current,
+            )
+            .toList(growable: false);
+      }
+      _notifyIfMounted();
     } catch (error) {
       debugPrint('AppSession draft sync failed: $error');
     }
@@ -372,10 +464,20 @@ class AppSessionController extends ChangeNotifier {
     );
   }
 
+  bool _matchesSessionSnapshot(dynamic userId, dynamic clubId) {
+    return _sameEntityId(_authUser?.id, userId) &&
+        _sameEntityId(_currentClub?.id, clubId);
+  }
+
+  bool _sameEntityId(dynamic left, dynamic right) {
+    return '$left' == '$right';
+  }
+
   void _resetAuthenticatedState() {
     _authUser = null;
     _currentClub = null;
     _membership = null;
+    _currentPlayer = null;
     _pendingJoinRequest = null;
     _pendingLeaveRequest = null;
     _captainPendingJoinRequests = const [];
@@ -384,9 +486,11 @@ class AppSessionController extends ChangeNotifier {
     _profileSetupDraft = null;
     _clubInfo = ClubInfo.defaults;
     _vicePermissions = VicePermissions.defaults;
-    _hasResolvedCurrentUserProfile = false;
     _isLoading = false;
     _errorMessage = null;
+    _sessionGateErrorMessage = null;
+    _isSessionGateResolving = false;
+    _resolutionPhase = AppSessionResolutionPhase.idle;
     onClubInfoChanged?.call(_clubInfo);
     _notifyIfMounted();
   }
@@ -413,6 +517,22 @@ class AppSessionController extends ChangeNotifier {
 
     _lastHandledSyncRevision = change.revision;
     unawaited(refresh(showLoadingState: false));
+  }
+
+  void _logTransition(String event, [Map<String, Object?> details = const {}]) {
+    if (!kDebugMode) {
+      return;
+    }
+
+    final renderedDetails = details.entries
+        .map((entry) => '${entry.key}=${entry.value}')
+        .join(' ');
+    if (renderedDetails.isEmpty) {
+      debugPrint('AppSession $event');
+      return;
+    }
+
+    debugPrint('AppSession $event $renderedDetails');
   }
 
   @override
