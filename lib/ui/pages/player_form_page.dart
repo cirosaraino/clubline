@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/app_data_sync.dart';
@@ -18,18 +19,20 @@ class PlayerFormPage extends StatefulWidget {
     this.player,
     this.selfRegistration = false,
     this.draftOnly = false,
+    this.repository,
   });
 
   final PlayerProfile? player;
   final bool selfRegistration;
   final bool draftOnly;
+  final PlayerRepository? repository;
 
   @override
   State<PlayerFormPage> createState() => _PlayerFormPageState();
 }
 
 class _PlayerFormPageState extends State<PlayerFormPage> {
-  late final PlayerRepository repository;
+  late final PlayerRepository _repository;
   final nomeController = TextEditingController();
   final cognomeController = TextEditingController();
   final accountEmailController = TextEditingController();
@@ -62,25 +65,65 @@ class _PlayerFormPageState extends State<PlayerFormPage> {
   @override
   void initState() {
     super.initState();
-    repository = PlayerRepository();
+    _repository = widget.repository ?? PlayerRepository();
     _populateForm();
+  }
+
+  String? _shirtNumberSelection(int? shirtNumber) {
+    if (shirtNumber == null) {
+      return null;
+    }
+
+    return shirtNumber == 0 ? '00' : '$shirtNumber';
+  }
+
+  int? _parseSelectedShirtNumber(String? value) {
+    if (value == null) {
+      return null;
+    }
+
+    return int.tryParse(value);
+  }
+
+  String? _normalizePrimaryRole(String? role) {
+    final normalizedRoles = normalizeRoleCodes([role]);
+    if (normalizedRoles.isNotEmpty) {
+      return normalizedRoles.first;
+    }
+
+    final trimmed = role?.trim();
+    if (trimmed == null || trimmed.isEmpty) {
+      return null;
+    }
+
+    return trimmed;
+  }
+
+  List<String> _normalizeSecondaryRoles(
+    Iterable<String?> roles, {
+    String? primaryRole,
+  }) {
+    return normalizeRoleCodes(
+      roles,
+    ).where((role) => role != primaryRole).toList(growable: false);
   }
 
   void _populateForm() {
     final player = widget.player;
     if (player == null) return;
 
+    final normalizedPrimaryRole = _normalizePrimaryRole(player.primaryRole);
+
     nomeController.text = player.nome;
     cognomeController.text = player.cognome;
     accountEmailController.text = player.accountEmail ?? '';
-    selectedShirtNumber = player.shirtNumber == null
-        ? null
-        : player.shirtNumber == 0
-        ? '00'
-        : '${player.shirtNumber}';
+    selectedShirtNumber = _shirtNumberSelection(player.shirtNumber);
     idConsoleController.text = player.idConsole ?? '';
-    selectedPrimaryRole = player.primaryRole;
-    selectedSecondaryRoles = [...player.secondaryRoles];
+    selectedPrimaryRole = normalizedPrimaryRole;
+    selectedSecondaryRoles = _normalizeSecondaryRoles(
+      player.secondaryRoles,
+      primaryRole: normalizedPrimaryRole,
+    );
     selectedTeamRole = player.teamRole;
   }
 
@@ -100,8 +143,11 @@ class _PlayerFormPageState extends State<PlayerFormPage> {
     if ((widget.selfRegistration || widget.draftOnly) &&
         !hasSeededRegistrationEmail) {
       final session = AppSessionScope.read(context);
-      accountEmailController.text = session.currentUserEmail ?? '';
-      hasSeededRegistrationEmail = true;
+      final currentUserEmail = session.currentUserEmail;
+      if (currentUserEmail != null && currentUserEmail.isNotEmpty) {
+        accountEmailController.text = currentUserEmail;
+        hasSeededRegistrationEmail = true;
+      }
     }
 
     if (widget.selfRegistration && !hasSeededBootstrapRole) {
@@ -131,8 +177,12 @@ class _PlayerFormPageState extends State<PlayerFormPage> {
 
     if ((isProfileCompletionFlow || widget.draftOnly) &&
         !hasRequestedProfileDraftSeed) {
-      hasRequestedProfileDraftSeed = true;
-      unawaited(_seedPendingProfileDraft());
+      final session = AppSessionScope.read(context);
+      final currentUserEmail = session.currentUserEmail;
+      if (currentUserEmail != null && currentUserEmail.isNotEmpty) {
+        hasRequestedProfileDraftSeed = true;
+        unawaited(_seedPendingProfileDraft());
+      }
     }
   }
 
@@ -154,19 +204,29 @@ class _PlayerFormPageState extends State<PlayerFormPage> {
     if (idConsoleController.text.trim().isEmpty) {
       idConsoleController.text = draft.idConsole;
     }
-    if (selectedShirtNumber == null && draft.shirtNumber != null) {
-      selectedShirtNumber = draft.shirtNumber == 0
-          ? '00'
-          : '${draft.shirtNumber}';
-    }
-    if (selectedPrimaryRole == null &&
-        (draft.primaryRole?.trim().isNotEmpty == true)) {
-      selectedPrimaryRole = draft.primaryRole;
-    }
-    if (selectedSecondaryRoles.isEmpty && draft.secondaryRoles.isNotEmpty) {
-      selectedSecondaryRoles = normalizeRoleCodes(
-        draft.secondaryRoles.where((role) => role != draft.primaryRole),
-      );
+    final normalizedPrimaryRole = _normalizePrimaryRole(draft.primaryRole);
+    final draftShirtNumberSelection = _shirtNumberSelection(draft.shirtNumber);
+    final draftSecondaryRoles = _normalizeSecondaryRoles(
+      draft.secondaryRoles,
+      primaryRole: normalizedPrimaryRole,
+    );
+
+    final nextSelectedShirtNumber =
+        selectedShirtNumber ?? draftShirtNumberSelection;
+    final nextSelectedPrimaryRole =
+        selectedPrimaryRole ?? normalizedPrimaryRole;
+    final nextSelectedSecondaryRoles = selectedSecondaryRoles.isEmpty
+        ? draftSecondaryRoles
+        : selectedSecondaryRoles;
+
+    if (nextSelectedShirtNumber != selectedShirtNumber ||
+        nextSelectedPrimaryRole != selectedPrimaryRole ||
+        !listEquals(nextSelectedSecondaryRoles, selectedSecondaryRoles)) {
+      setState(() {
+        selectedShirtNumber = nextSelectedShirtNumber;
+        selectedPrimaryRole = nextSelectedPrimaryRole;
+        selectedSecondaryRoles = nextSelectedSecondaryRoles;
+      });
     }
   }
 
@@ -249,6 +309,12 @@ class _PlayerFormPageState extends State<PlayerFormPage> {
     final nome = normalizePlayerName(nomeController.text);
     final cognome = normalizePlayerName(cognomeController.text);
     final idConsole = idConsoleController.text.trim();
+    final shirtNumber = _parseSelectedShirtNumber(selectedShirtNumber);
+    final normalizedPrimaryRole = _normalizePrimaryRole(selectedPrimaryRole);
+    final normalizedSecondaryRoles = _normalizeSecondaryRoles(
+      selectedSecondaryRoles,
+      primaryRole: normalizedPrimaryRole,
+    );
 
     if (widget.draftOnly) {
       if (currentAuthUser == null) {
@@ -286,7 +352,7 @@ class _PlayerFormPageState extends State<PlayerFormPage> {
         return;
       }
 
-      if (selectedPrimaryRole == null || selectedPrimaryRole!.trim().isEmpty) {
+      if (normalizedPrimaryRole == null) {
         setState(() {
           _clearInlineErrors();
           errorMessage = null;
@@ -307,9 +373,9 @@ class _PlayerFormPageState extends State<PlayerFormPage> {
             nome: nome,
             cognome: cognome,
             idConsole: idConsole,
-            shirtNumber: int.tryParse(selectedShirtNumber!),
-            primaryRole: selectedPrimaryRole,
-            secondaryRoles: normalizeRoleCodes(selectedSecondaryRoles),
+            shirtNumber: shirtNumber,
+            primaryRole: normalizedPrimaryRole,
+            secondaryRoles: normalizedSecondaryRoles,
             accountEmail: session.currentUserEmail,
           ),
         );
@@ -393,7 +459,7 @@ class _PlayerFormPageState extends State<PlayerFormPage> {
       return;
     }
 
-    if (selectedPrimaryRole == null || selectedPrimaryRole!.trim().isEmpty) {
+    if (normalizedPrimaryRole == null) {
       setState(() {
         _clearInlineErrors();
         errorMessage = null;
@@ -403,7 +469,7 @@ class _PlayerFormPageState extends State<PlayerFormPage> {
     }
 
     try {
-      final existingPlayerWithConsoleId = await repository
+      final existingPlayerWithConsoleId = await _repository
           .findPlayerByConsoleId(idConsole);
       final isSamePlayer = existingPlayerWithConsoleId?.id == widget.player?.id;
       final hasAnotherPlayerWithSameConsoleId =
@@ -420,11 +486,9 @@ class _PlayerFormPageState extends State<PlayerFormPage> {
             cognome: cognome,
             authUserId: currentAuthUser?.id,
             accountEmail: accountEmail,
-            shirtNumber: selectedShirtNumber == null
-                ? null
-                : int.tryParse(selectedShirtNumber!),
-            primaryRole: selectedPrimaryRole,
-            secondaryRoles: selectedSecondaryRoles,
+            shirtNumber: shirtNumber,
+            primaryRole: normalizedPrimaryRole,
+            secondaryRoles: normalizedSecondaryRoles,
             idConsole: idConsole,
             teamRole: session.canBootstrapCaptain
                 ? 'captain'
@@ -438,7 +502,7 @@ class _PlayerFormPageState extends State<PlayerFormPage> {
           });
 
           try {
-            await repository.claimPlayer(playerToClaim);
+            await _repository.claimPlayer(playerToClaim);
             await _syncProfileDraftForCurrentUser(playerToClaim, currentUser);
             unawaited(session.refresh(showLoadingState: false));
             if (!mounted) return;
@@ -489,11 +553,9 @@ class _PlayerFormPageState extends State<PlayerFormPage> {
           ? currentAuthUser?.id
           : widget.player?.authUserId,
       accountEmail: accountEmail ?? widget.player?.accountEmail,
-      shirtNumber: selectedShirtNumber == null
-          ? null
-          : int.tryParse(selectedShirtNumber!),
-      primaryRole: selectedPrimaryRole,
-      secondaryRoles: selectedSecondaryRoles,
+      shirtNumber: shirtNumber,
+      primaryRole: normalizedPrimaryRole,
+      secondaryRoles: normalizedSecondaryRoles,
       idConsole: idConsole.isEmpty ? null : idConsole,
       teamRole: widget.selfRegistration
           ? (session.canBootstrapCaptain ? 'captain' : 'player')
@@ -504,7 +566,7 @@ class _PlayerFormPageState extends State<PlayerFormPage> {
 
     try {
       if (isEditing) {
-        await repository.updatePlayer(player);
+        await _repository.updatePlayer(player);
         await _syncProfileDraftForCurrentUser(player, currentUser);
         unawaited(session.refresh(showLoadingState: false));
         if (!mounted) return;
@@ -516,7 +578,7 @@ class _PlayerFormPageState extends State<PlayerFormPage> {
         return;
       }
 
-      await repository.createPlayer(player);
+      await _repository.createPlayer(player);
       await _syncProfileDraftForCurrentUser(player, currentUser);
       unawaited(session.refresh(showLoadingState: false));
 
@@ -863,12 +925,10 @@ class _PlayerFormPageState extends State<PlayerFormPage> {
                                               primaryRoleError = null;
                                               if (value != null) {
                                                 selectedSecondaryRoles =
-                                                    selectedSecondaryRoles
-                                                        .where(
-                                                          (role) =>
-                                                              role != value,
-                                                        )
-                                                        .toList();
+                                                    _normalizeSecondaryRoles(
+                                                      selectedSecondaryRoles,
+                                                      primaryRole: value,
+                                                    );
                                               }
                                             });
                                           },

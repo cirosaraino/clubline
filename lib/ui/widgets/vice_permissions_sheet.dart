@@ -21,6 +21,7 @@ class _VicePermissionsSheetState extends State<VicePermissionsSheet> {
   late final VicePermissionsRepository repository;
   late VicePermissions draftPermissions;
   bool hasInitializedDraft = false;
+  bool hasRequestedPlayers = false;
 
   bool isSaving = false;
   String? errorMessage;
@@ -40,6 +41,32 @@ class _VicePermissionsSheetState extends State<VicePermissionsSheet> {
 
     draftPermissions = AppSessionScope.read(context).vicePermissions;
     hasInitializedDraft = true;
+
+    if (!hasRequestedPlayers) {
+      hasRequestedPlayers = true;
+      unawaited(_ensurePlayersLoaded());
+    }
+  }
+
+  Future<void> _ensurePlayersLoaded() async {
+    try {
+      await AppSessionScope.read(context).ensurePlayersLoaded();
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        errorMessage = null;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        errorMessage = error.toString();
+      });
+    }
   }
 
   Future<void> _save() async {
@@ -130,84 +157,96 @@ class _VicePermissionsSheetState extends State<VicePermissionsSheet> {
               ],
             ),
             const SizedBox(height: 16),
-            _ViceScopeSummaryCard(
-              vicePlayers: vicePlayers,
-              permissions: draftPermissions,
-            ),
-            const SizedBox(height: 18),
-            _PermissionSwitchCard(
-              title: 'Rosa club',
-              description:
-                  'Aggiungere, modificare e cancellare giocatori dalla rosa. La modifica del ruolo club resta comunque solo al capitano.',
-              value: draftPermissions.managePlayers,
-              enabled: isCaptain && !isSaving,
-              onChanged: (value) {
-                setState(() {
-                  draftPermissions = draftPermissions.copyWith(
-                    managePlayers: value,
-                  );
-                });
-              },
-            ),
-            const SizedBox(height: 12),
-            _PermissionSwitchCard(
-              title: 'Formazioni',
-              description:
-                  'Creare, modificare, duplicare e cancellare le formazioni.',
-              value: draftPermissions.manageLineups,
-              enabled: isCaptain && !isSaving,
-              onChanged: (value) {
-                setState(() {
-                  draftPermissions = draftPermissions.copyWith(
-                    manageLineups: value,
-                  );
-                });
-              },
-            ),
-            const SizedBox(height: 12),
-            _PermissionSwitchCard(
-              title: 'Live',
-              description: 'Creare, modificare e cancellare le live del club.',
-              value: draftPermissions.manageStreams,
-              enabled: isCaptain && !isSaving,
-              onChanged: (value) {
-                setState(() {
-                  draftPermissions = draftPermissions.copyWith(
-                    manageStreams: value,
-                  );
-                });
-              },
-            ),
-            const SizedBox(height: 12),
-            _PermissionSwitchCard(
-              title: 'Presenze club',
-              description:
-                  'Aprire, archiviare, ripristinare le presenze e vedere o modificare le disponibilita di tutti.',
-              value: draftPermissions.manageAttendance,
-              enabled: isCaptain && !isSaving,
-              onChanged: (value) {
-                setState(() {
-                  draftPermissions = draftPermissions.copyWith(
-                    manageAttendance: value,
-                  );
-                });
-              },
-            ),
-            const SizedBox(height: 12),
-            _PermissionSwitchCard(
-              title: 'Info club',
-              description:
-                  'Aggiornare nome club, logo e link utili della Home.',
-              value: draftPermissions.manageClubInfo,
-              enabled: isCaptain && !isSaving,
-              onChanged: (value) {
-                setState(() {
-                  draftPermissions = draftPermissions.copyWith(
-                    manageClubInfo: value,
-                  );
-                });
-              },
-            ),
+            if (session.isLoadingPlayers && !session.hasResolvedPlayers) ...[
+              const AppSurfaceCard(
+                icon: Icons.groups_2_outlined,
+                title: 'Membri del club',
+                subtitle:
+                    'Stiamo caricando i vice prima di mostrare i permessi.',
+                child: AppLoadingState(label: 'Caricamento membri in corso...'),
+              ),
+              const SizedBox(height: 18),
+            ] else ...[
+              _ViceScopeSummaryCard(
+                vicePlayers: vicePlayers,
+                permissions: draftPermissions,
+              ),
+              const SizedBox(height: 18),
+              _PermissionSwitchCard(
+                title: 'Rosa club',
+                description:
+                    'Aggiungere, modificare e cancellare giocatori dalla rosa. La modifica del ruolo club resta comunque solo al capitano.',
+                value: draftPermissions.managePlayers,
+                enabled: isCaptain && !isSaving,
+                onChanged: (value) {
+                  setState(() {
+                    draftPermissions = draftPermissions.copyWith(
+                      managePlayers: value,
+                    );
+                  });
+                },
+              ),
+              const SizedBox(height: 12),
+              _PermissionSwitchCard(
+                title: 'Formazioni',
+                description:
+                    'Creare, modificare, duplicare e cancellare le formazioni.',
+                value: draftPermissions.manageLineups,
+                enabled: isCaptain && !isSaving,
+                onChanged: (value) {
+                  setState(() {
+                    draftPermissions = draftPermissions.copyWith(
+                      manageLineups: value,
+                    );
+                  });
+                },
+              ),
+              const SizedBox(height: 12),
+              _PermissionSwitchCard(
+                title: 'Live',
+                description:
+                    'Creare, modificare e cancellare le live del club.',
+                value: draftPermissions.manageStreams,
+                enabled: isCaptain && !isSaving,
+                onChanged: (value) {
+                  setState(() {
+                    draftPermissions = draftPermissions.copyWith(
+                      manageStreams: value,
+                    );
+                  });
+                },
+              ),
+              const SizedBox(height: 12),
+              _PermissionSwitchCard(
+                title: 'Presenze club',
+                description:
+                    'Aprire, archiviare, ripristinare le presenze e vedere o modificare le disponibilita di tutti.',
+                value: draftPermissions.manageAttendance,
+                enabled: isCaptain && !isSaving,
+                onChanged: (value) {
+                  setState(() {
+                    draftPermissions = draftPermissions.copyWith(
+                      manageAttendance: value,
+                    );
+                  });
+                },
+              ),
+              const SizedBox(height: 12),
+              _PermissionSwitchCard(
+                title: 'Info club',
+                description:
+                    'Aggiornare nome club, logo e link utili della Home.',
+                value: draftPermissions.manageClubInfo,
+                enabled: isCaptain && !isSaving,
+                onChanged: (value) {
+                  setState(() {
+                    draftPermissions = draftPermissions.copyWith(
+                      manageClubInfo: value,
+                    );
+                  });
+                },
+              ),
+            ],
             const SizedBox(height: 16),
             if (errorMessage != null)
               Padding(

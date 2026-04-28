@@ -272,7 +272,7 @@ class _AuthSheetState extends State<AuthSheet> {
 
   Widget _buildFormCard(BuildContext context, bool isSignIn, bool compact) {
     final submissionBannerMessage = isSignIn
-        ? 'Accesso in corso... Stiamo verificando sessione, profilo e stato del club.'
+        ? 'Accesso in corso... Stiamo verificando sessione, profilo e stato del club. Se il server si sta riattivando potrebbero volerci alcuni secondi.'
         : 'Creazione account in corso... Stiamo preparando il tuo accesso.';
 
     return AppSurfaceCard(

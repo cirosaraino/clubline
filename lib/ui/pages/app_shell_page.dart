@@ -32,10 +32,14 @@ class AppShellPage extends StatefulWidget {
 class _AppShellPageState extends State<AppShellPage> {
   int selectedIndex = 0;
   bool _hasAutoOpenedRecoverySheet = false;
+  final Map<int, Widget> _cachedClubPages = <int, Widget>{};
+  final Set<int> _visitedClubTabs = <int>{0};
+  String? _lastClubShellCacheKey;
 
   void _goToTab(int index) {
     setState(() {
       selectedIndex = index;
+      _visitedClubTabs.add(index);
     });
   }
 
@@ -320,35 +324,61 @@ class _AppShellPageState extends State<AppShellPage> {
     );
   }
 
-  List<Widget> _buildAuthenticatedPages(AppSessionController session) {
-    return [
-      HomePage(
-        onOpenCreateProfile: _openCreateProfile,
-        onOpenEditCurrentProfile: _openEditCurrentProfile,
-        onOpenSignIn: () => _openAuthSheet(AuthSheetMode.signIn),
-        onOpenSignUp: () => _openAuthSheet(AuthSheetMode.signUp),
-        onOpenPasswordSettings: () => _openPasswordSheet(
-          isRecoveryFlow: session.requiresPasswordRecovery,
-        ),
-        onOpenBiometricSettings: _openBiometricSettings,
-        onOpenClubManagement: _openClubManagement,
-        onOpenThemeSettings: _openThemeSettings,
-        onOpenVicePermissionsSettings: _openVicePermissionsSettings,
-        onOpenClubInfoSettings: _openClubInfoSettings,
-        onDeleteAccount: _deleteAccount,
-      ),
-      const PlayersPage(),
-      const LineupsPage(),
-      const StreamsPage(),
-      const AttendancePage(),
-    ];
+  Widget _buildAuthenticatedPageAt(int index) {
+    switch (index) {
+      case 0:
+        return HomePage(
+          key: const PageStorageKey<String>('club-home-page'),
+          onOpenCreateProfile: _openCreateProfile,
+          onOpenEditCurrentProfile: _openEditCurrentProfile,
+          onOpenSignIn: () => _openAuthSheet(AuthSheetMode.signIn),
+          onOpenSignUp: () => _openAuthSheet(AuthSheetMode.signUp),
+          onOpenPasswordSettings: () => _openPasswordSheet(
+            isRecoveryFlow: AppSessionScope.read(
+              context,
+            ).requiresPasswordRecovery,
+          ),
+          onOpenBiometricSettings: _openBiometricSettings,
+          onOpenClubManagement: _openClubManagement,
+          onOpenThemeSettings: _openThemeSettings,
+          onOpenVicePermissionsSettings: _openVicePermissionsSettings,
+          onOpenClubInfoSettings: _openClubInfoSettings,
+          onDeleteAccount: _deleteAccount,
+        );
+      case 1:
+        return const PlayersPage(
+          key: PageStorageKey<String>('club-players-page'),
+        );
+      case 2:
+        return const LineupsPage(
+          key: PageStorageKey<String>('club-lineups-page'),
+        );
+      case 3:
+        return const StreamsPage(
+          key: PageStorageKey<String>('club-streams-page'),
+        );
+      case 4:
+        return const AttendancePage(
+          key: PageStorageKey<String>('club-attendance-page'),
+        );
+      default:
+        return const SizedBox.shrink();
+    }
   }
 
-  Widget _buildClubShell(
-    BuildContext context,
-    AppSessionController session,
-    List<Widget> pages,
-  ) {
+  Widget _buildClubShell(BuildContext context, AppSessionController session) {
+    final pages = List<Widget>.generate(5, (index) {
+      final shouldInstantiate =
+          _visitedClubTabs.contains(index) || selectedIndex == index;
+      if (!shouldInstantiate) {
+        return SizedBox(key: ValueKey<String>('club-tab-placeholder-$index'));
+      }
+
+      return _cachedClubPages.putIfAbsent(
+        index,
+        () => _buildAuthenticatedPageAt(index),
+      );
+    });
     final useRail = AppResponsive.useNavigationRail(context);
     if (!useRail) {
       return Scaffold(
@@ -454,10 +484,30 @@ class _AppShellPageState extends State<AppShellPage> {
     });
   }
 
+  void _syncClubPageCache(
+    AppSessionController session,
+    AppSessionGateKind gateKind,
+  ) {
+    final nextCacheKey = gateKind == AppSessionGateKind.authenticatedWithClub
+        ? '${session.currentClub?.id}:${session.currentUser?.id}'
+        : null;
+    if (_lastClubShellCacheKey == nextCacheKey) {
+      return;
+    }
+
+    _lastClubShellCacheKey = nextCacheKey;
+    _cachedClubPages.clear();
+    _visitedClubTabs
+      ..clear()
+      ..add(0);
+    selectedIndex = 0;
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = AppSessionScope.of(context);
     final gateKind = session.sessionGateKind;
+    _syncClubPageCache(session, gateKind);
     _resetSelectedIndexIfNeeded(gateKind);
 
     if (gateKind != AppSessionGateKind.resolving &&
@@ -476,7 +526,7 @@ class _AppShellPageState extends State<AppShellPage> {
           onSignOut: session.isAuthenticated ? _signOut : null,
         );
       case AppSessionGateKind.unauthenticated:
-        return _buildAuthenticatedPages(session).first;
+        return _buildAuthenticatedPageAt(0);
       case AppSessionGateKind.authenticatedNeedsPlayerProfile:
         return _PlayerProfileSetupGatePage(
           session: session,
@@ -490,8 +540,7 @@ class _AppShellPageState extends State<AppShellPage> {
           onDeleteAccount: _deleteAccount,
         );
       case AppSessionGateKind.authenticatedWithClub:
-        final pages = _buildAuthenticatedPages(session);
-        return _buildClubShell(context, session, pages);
+        return _buildClubShell(context, session);
     }
   }
 }
@@ -519,11 +568,9 @@ class _SessionResolutionPage extends StatelessWidget {
 
   String get _subtitle {
     switch (session.resolutionPhase) {
-      case AppSessionResolutionPhase.hydratingClubData:
-        return 'Stiamo preparando profilo, club e permessi. Se il backend si sta riattivando potrebbero volerci alcuni secondi.';
       case AppSessionResolutionPhase.restoringSession:
       case AppSessionResolutionPhase.fetchingSessionState:
-        return 'Stiamo verificando sessione, profilo e stato del club. Non chiudere la pagina.';
+        return 'Stiamo verificando sessione, profilo e stato del club. Se il backend si sta riattivando potrebbero volerci alcuni secondi.';
       case AppSessionResolutionPhase.idle:
         return 'Ultimo controllo in corso.';
     }

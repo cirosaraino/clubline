@@ -33,9 +33,24 @@ class PlayerProfile {
   final String teamRole;
   final VicePermissions vicePermissions;
 
-  factory PlayerProfile.fromMap(Map<String, dynamic> map) {
-    final shirtNumberValue = map['shirt_number'];
+  static int? _parseShirtNumber(dynamic value) {
+    if (value is num) {
+      return value.toInt();
+    }
 
+    return int.tryParse(value?.toString().trim() ?? '');
+  }
+
+  static String? _normalizeOptionalText(dynamic value) {
+    final trimmed = value?.toString().trim();
+    if (trimmed == null || trimmed.isEmpty) {
+      return null;
+    }
+
+    return trimmed;
+  }
+
+  factory PlayerProfile.fromMap(Map<String, dynamic> map) {
     final rawSecondaryRoles = map['secondary_roles'];
 
     return PlayerProfile(
@@ -48,8 +63,8 @@ class PlayerProfile {
       accountEmail: normalizePlayerAccountEmail(
         map['account_email']?.toString(),
       ),
-      shirtNumber: shirtNumberValue is num ? shirtNumberValue.toInt() : null,
-      primaryRole: map['primary_role']?.toString(),
+      shirtNumber: _parseShirtNumber(map['shirt_number']),
+      primaryRole: _normalizeOptionalText(map['primary_role']),
       secondaryRoles: normalizeRoleCodes([
         if (rawSecondaryRoles is Iterable)
           ...rawSecondaryRoles.map((role) => role?.toString())
@@ -57,7 +72,7 @@ class PlayerProfile {
           rawSecondaryRoles,
         map['secondary_role']?.toString(),
       ]),
-      idConsole: map['id_console']?.toString(),
+      idConsole: _normalizeOptionalText(map['id_console']),
       teamRole: normalizeTeamRole(map['team_role']?.toString()),
       vicePermissions: VicePermissions.defaults,
     );

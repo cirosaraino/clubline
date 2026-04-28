@@ -21,12 +21,7 @@ import 'player_formatters.dart';
 
 enum AppSessionResolutionTrigger { bootstrap, signIn, signUp, retry, refresh }
 
-enum AppSessionResolutionPhase {
-  idle,
-  restoringSession,
-  fetchingSessionState,
-  hydratingClubData,
-}
+enum AppSessionResolutionPhase { idle, restoringSession, fetchingSessionState }
 
 class AppSessionController extends ChangeNotifier {
   AppSessionController({
@@ -53,10 +48,13 @@ class AppSessionController extends ChangeNotifier {
   List<JoinRequest> _captainPendingJoinRequests = const [];
   List<LeaveRequest> _captainPendingLeaveRequests = const [];
   List<PlayerProfile> _players = const [];
+  Future<void>? _playersLoadOperation;
   ProfileSetupDraft? _profileSetupDraft;
   ClubInfo _clubInfo = ClubInfo.defaults;
   VicePermissions _vicePermissions = VicePermissions.defaults;
   bool _isLoading = false;
+  bool _isLoadingPlayers = false;
+  bool _hasResolvedPlayers = false;
   bool _isRefreshing = false;
   bool _refreshQueued = false;
   bool _queuedShowLoadingState = false;
@@ -76,6 +74,8 @@ class AppSessionController extends ChangeNotifier {
   ClubInfo get clubInfo => _clubInfo;
   VicePermissions get vicePermissions => _vicePermissions;
   bool get isLoading => _isLoading;
+  bool get isLoadingPlayers => _isLoadingPlayers;
+  bool get hasResolvedPlayers => _hasResolvedPlayers;
   String? get errorMessage => _errorMessage;
   String? get sessionGateErrorMessage => _sessionGateErrorMessage;
   AuthenticatedUser? get authUser => _authUser;
@@ -242,14 +242,14 @@ class AppSessionController extends ChangeNotifier {
       _logTransition('final route/state chosen', {'gate': nextGate.name});
 
       if (nextGate == AppSessionGateKind.authenticatedWithClub) {
-        _isLoading = _players.isEmpty;
-        _notifyIfMounted();
-        await _hydrateClubData();
+        _isLoading = false;
       } else {
         _players = const [];
+        _hasResolvedPlayers = false;
+        _isLoadingPlayers = false;
         _isLoading = false;
-        _notifyIfMounted();
       }
+      _notifyIfMounted();
     } catch (error) {
       if (showLoadingState) {
         _isSessionGateResolving = false;
@@ -318,41 +318,75 @@ class AppSessionController extends ChangeNotifier {
     if (!_sameEntityId(previousUserId, _authUser?.id) ||
         !_sameEntityId(previousClubId, _currentClub?.id)) {
       _players = const [];
+      _hasResolvedPlayers = false;
+      _isLoadingPlayers = false;
+      _playersLoadOperation = null;
+    } else if (_players.isNotEmpty) {
+      _players = _players
+          .map((player) => player.copyWith(vicePermissions: _vicePermissions))
+          .toList(growable: false);
+      _refreshCurrentUserFromPlayers();
     }
 
     onClubInfoChanged?.call(_clubInfo);
   }
 
-  Future<void> _hydrateClubData() async {
+  Future<void> ensurePlayersLoaded({bool forceRefresh = false}) async {
+    if (!hasClubMembership) {
+      _players = const [];
+      _hasResolvedPlayers = false;
+      _isLoadingPlayers = false;
+      _notifyIfMounted();
+      return;
+    }
+
+    if (!forceRefresh && _hasResolvedPlayers) {
+      return;
+    }
+
+    final activeLoad = _playersLoadOperation;
+    if (activeLoad != null) {
+      return activeLoad;
+    }
+
+    final completer = Completer<void>();
+    _playersLoadOperation = completer.future;
     final expectedUserId = _authUser?.id;
     final expectedClubId = _currentClub?.id;
-    _resolutionPhase = AppSessionResolutionPhase.hydratingClubData;
+    _isLoadingPlayers = true;
     _notifyIfMounted();
 
     try {
       final loadedPlayers = await _playerRepository.fetchPlayers();
       if (!_matchesSessionSnapshot(expectedUserId, expectedClubId)) {
+        completer.complete();
+        _playersLoadOperation = null;
         return;
       }
 
       _players = loadedPlayers
           .map((player) => player.copyWith(vicePermissions: _vicePermissions))
           .toList(growable: false);
+      _hasResolvedPlayers = true;
+      _isLoadingPlayers = false;
       _refreshCurrentUserFromPlayers();
-      _isLoading = false;
-      _errorMessage = null;
-      _resolutionPhase = AppSessionResolutionPhase.idle;
       _notifyIfMounted();
       unawaited(_syncDraftIntoCurrentUserIfNeeded());
+      _logTransition('players loaded', {'count': _players.length});
+      completer.complete();
     } catch (error) {
       if (!_matchesSessionSnapshot(expectedUserId, expectedClubId)) {
+        completer.complete();
+        _playersLoadOperation = null;
         return;
       }
 
-      _isLoading = false;
-      _errorMessage = error.toString();
-      _resolutionPhase = AppSessionResolutionPhase.idle;
+      _isLoadingPlayers = false;
       _notifyIfMounted();
+      completer.completeError(error);
+      rethrow;
+    } finally {
+      _playersLoadOperation = null;
     }
   }
 
@@ -483,10 +517,13 @@ class AppSessionController extends ChangeNotifier {
     _captainPendingJoinRequests = const [];
     _captainPendingLeaveRequests = const [];
     _players = const [];
+    _playersLoadOperation = null;
     _profileSetupDraft = null;
     _clubInfo = ClubInfo.defaults;
     _vicePermissions = VicePermissions.defaults;
     _isLoading = false;
+    _isLoadingPlayers = false;
+    _hasResolvedPlayers = false;
     _errorMessage = null;
     _sessionGateErrorMessage = null;
     _isSessionGateResolving = false;
@@ -516,7 +553,18 @@ class AppSessionController extends ChangeNotifier {
     }
 
     _lastHandledSyncRevision = change.revision;
-    unawaited(refresh(showLoadingState: false));
+    unawaited(_refreshFromDataChange(change.affects({AppDataScope.players})));
+  }
+
+  Future<void> _refreshFromDataChange(bool playersMayHaveChanged) async {
+    await refresh(showLoadingState: false);
+    if (playersMayHaveChanged && _hasResolvedPlayers && hasClubMembership) {
+      try {
+        await ensurePlayersLoaded(forceRefresh: true);
+      } catch (_) {
+        // Keep background sync best-effort for deferred data.
+      }
+    }
   }
 
   void _logTransition(String event, [Map<String, Object?> details = const {}]) {

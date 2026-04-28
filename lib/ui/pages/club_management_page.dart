@@ -22,7 +22,20 @@ class ClubManagementPage extends StatefulWidget {
 class _ClubManagementPageState extends State<ClubManagementPage> {
   final ClubRepository repository = ClubRepository();
   bool isBusy = false;
+  bool _hasRequestedPlayers = false;
+  String? _playersLoadError;
   dynamic selectedCaptainMembershipId;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_hasRequestedPlayers) {
+      return;
+    }
+
+    _hasRequestedPlayers = true;
+    unawaited(_ensurePlayersLoaded());
+  }
 
   String _errorMessage(Object error) {
     if (error is ApiException) {
@@ -35,6 +48,27 @@ class _ClubManagementPageState extends State<ClubManagementPage> {
     }
 
     return message;
+  }
+
+  Future<void> _ensurePlayersLoaded() async {
+    try {
+      await AppSessionScope.read(context).ensurePlayersLoaded();
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _playersLoadError = null;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _playersLoadError = _errorMessage(error);
+      });
+    }
   }
 
   Future<void> _runAction(
@@ -164,6 +198,29 @@ class _ClubManagementPageState extends State<ClubManagementPage> {
   @override
   Widget build(BuildContext context) {
     final session = AppSessionScope.of(context);
+    if (session.isLoadingPlayers && !session.hasResolvedPlayers) {
+      return const AppPageScaffold(
+        title: 'Dashboard capitano',
+        wide: true,
+        child: AppLoadingState(label: 'Stiamo caricando i membri del club...'),
+      );
+    }
+
+    if (_playersLoadError != null && !session.hasResolvedPlayers) {
+      return AppPageScaffold(
+        title: 'Dashboard capitano',
+        wide: true,
+        child: AppErrorState(
+          title: 'Errore nel caricamento del club',
+          message: _playersLoadError!,
+          actionLabel: 'Riprova',
+          onAction: () {
+            unawaited(_ensurePlayersLoaded());
+          },
+        ),
+      );
+    }
+
     final currentUser = session.currentUser;
     final otherMembers = session.players
         .where(

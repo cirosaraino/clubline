@@ -227,8 +227,12 @@ class _AttendancePageState extends State<AttendancePage> {
     });
 
     try {
+      final session = AppSessionScope.read(context);
+      final playersFuture = session.ensurePlayersLoaded();
       final loadedWeek = await attendanceRepository.fetchActiveWeek();
-      final loadedEntries = await _loadEntriesForWeek(loadedWeek);
+      final loadedEntriesFuture = _loadEntriesForWeek(loadedWeek);
+      final loadedEntries = await loadedEntriesFuture;
+      await playersFuture;
       final mergedEntries = _mergeEntriesWithLocalOverrides(loadedEntries);
 
       if (!mounted) {
@@ -554,12 +558,16 @@ class _AttendancePageState extends State<AttendancePage> {
     final players = session.players;
     final viewer = session.currentUser;
 
-    if (session.isLoading && players.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+    if (session.isLoadingPlayers && !session.hasResolvedPlayers) {
+      return const AppLoadingState(
+        label: 'Stiamo caricando rosa e presenze...',
+      );
     }
 
     if (isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingState(
+        label: 'Stiamo preparando il sondaggio presenze...',
+      );
     }
 
     if (errorMessage != null) {
