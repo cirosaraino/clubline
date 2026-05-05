@@ -19,6 +19,8 @@ class ResolvedSessionState {
     this.pendingLeaveRequest,
     this.captainPendingJoinRequests = const [],
     this.captainPendingLeaveRequests = const [],
+    this.unreadNotificationsCount = 0,
+    this.pendingReceivedInvitesCount = 0,
   });
 
   final AuthenticatedUser user;
@@ -31,6 +33,11 @@ class ResolvedSessionState {
   final LeaveRequest? pendingLeaveRequest;
   final List<JoinRequest> captainPendingJoinRequests;
   final List<LeaveRequest> captainPendingLeaveRequests;
+  final int unreadNotificationsCount;
+  final int pendingReceivedInvitesCount;
+
+  bool get hasUnreadNotifications => unreadNotificationsCount > 0;
+  bool get hasPendingReceivedInvites => pendingReceivedInvitesCount > 0;
 
   factory ResolvedSessionState.fromMap(Map<String, dynamic> map) {
     final rawMembership = map['membership'];
@@ -92,6 +99,16 @@ class ResolvedSessionState {
                 )
                 .toList(growable: false)
           : const [],
+      unreadNotificationsCount: map['unreadNotificationsCount'] is num
+          ? (map['unreadNotificationsCount'] as num).toInt()
+          : map['unread_notifications_count'] is num
+          ? (map['unread_notifications_count'] as num).toInt()
+          : 0,
+      pendingReceivedInvitesCount: map['pendingReceivedInvitesCount'] is num
+          ? (map['pendingReceivedInvitesCount'] as num).toInt()
+          : map['pending_received_invites_count'] is num
+          ? (map['pending_received_invites_count'] as num).toInt()
+          : 0,
     );
   }
 }

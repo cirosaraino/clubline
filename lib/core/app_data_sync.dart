@@ -8,6 +8,34 @@ enum AppDataScope {
   attendance,
   clubInfo,
   vicePermissions,
+  invites,
+  notifications,
+}
+
+AppDataScope? parseAppDataScope(String rawScope) {
+  switch (rawScope) {
+    case 'clubs':
+      return AppDataScope.clubs;
+    case 'players':
+      return AppDataScope.players;
+    case 'streams':
+      return AppDataScope.streams;
+    case 'lineups':
+      return AppDataScope.lineups;
+    case 'attendance':
+      return AppDataScope.attendance;
+    case 'clubInfo':
+    case 'teamInfo':
+      return AppDataScope.clubInfo;
+    case 'vicePermissions':
+      return AppDataScope.vicePermissions;
+    case 'invites':
+      return AppDataScope.invites;
+    case 'notifications':
+      return AppDataScope.notifications;
+    default:
+      return null;
+  }
 }
 
 class AppDataChange {

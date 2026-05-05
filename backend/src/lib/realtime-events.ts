@@ -8,7 +8,9 @@ export type LocalRealtimeScope =
   | 'attendance'
   | 'clubInfo'
   | 'teamInfo'
-  | 'vicePermissions';
+  | 'vicePermissions'
+  | 'invites'
+  | 'notifications';
 
 export type LocalRealtimeChange = {
   revision: number;

@@ -34,6 +34,7 @@ class _RealtimeScopeSnapshot {
     required this.clubId,
     required this.playerId,
     required this.isCaptain,
+    required this.canManageInvites,
     required this.canManageAttendanceAll,
   });
 
@@ -47,6 +48,7 @@ class _RealtimeScopeSnapshot {
       clubId: _normalizeEntityId(controller?.currentClub?.id),
       playerId: _normalizeEntityId(controller?.currentUser?.id),
       isCaptain: controller?.membership?.isCaptain == true,
+      canManageInvites: controller?.canManageInvites == true,
       canManageAttendanceAll:
           controller?.currentUser?.canManageAttendanceAll == true,
     );
@@ -57,6 +59,7 @@ class _RealtimeScopeSnapshot {
   final String? clubId;
   final String? playerId;
   final bool isCaptain;
+  final bool canManageInvites;
   final bool canManageAttendanceAll;
 
   String get signature {
@@ -66,6 +69,7 @@ class _RealtimeScopeSnapshot {
       clubId ?? '-',
       playerId ?? '-',
       isCaptain ? 'captain' : 'member',
+      canManageInvites ? 'manage-invites' : 'no-invite-access',
       canManageAttendanceAll ? 'attendance-all' : 'attendance-self',
     ].join('|');
   }
@@ -390,6 +394,18 @@ class _AppRealtimeSyncHostState extends State<AppRealtimeSyncHost>
         },
         reason: 'player_profile',
       ),
+      _binding(
+        table: 'club_invites',
+        filter: _eqFilter('target_user_id', snapshot.userId),
+        scopes: {AppDataScope.invites, AppDataScope.notifications},
+        reason: 'club_invite',
+      ),
+      _binding(
+        table: 'app_notifications',
+        filter: _eqFilter('recipient_user_id', snapshot.userId),
+        scopes: {AppDataScope.notifications},
+        reason: 'app_notification',
+      ),
       if (snapshot.userEmail.isNotEmpty)
         _binding(
           table: 'player_profiles',
@@ -515,6 +531,22 @@ class _AppRealtimeSyncHostState extends State<AppRealtimeSyncHost>
               filter: _eqFilter('club_id', clubId),
               scopes: {AppDataScope.clubs, AppDataScope.players},
               reason: 'leave_request',
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (snapshot.canManageInvites) {
+      plans.add(
+        _RealtimeChannelPlan(
+          name: 'clubline:invites:$clubId',
+          bindings: <_RealtimeBindingPlan>[
+            _binding(
+              table: 'club_invites',
+              filter: _eqFilter('club_id', clubId),
+              scopes: {AppDataScope.invites, AppDataScope.notifications},
+              reason: 'club_invite',
             ),
           ],
         ),
@@ -651,25 +683,7 @@ class _AppRealtimeSyncHostState extends State<AppRealtimeSyncHost>
   }
 
   AppDataScope? _mapScope(String rawScope) {
-    switch (rawScope) {
-      case 'clubs':
-        return AppDataScope.clubs;
-      case 'players':
-        return AppDataScope.players;
-      case 'streams':
-        return AppDataScope.streams;
-      case 'lineups':
-        return AppDataScope.lineups;
-      case 'attendance':
-        return AppDataScope.attendance;
-      case 'clubInfo':
-      case 'teamInfo':
-        return AppDataScope.clubInfo;
-      case 'vicePermissions':
-        return AppDataScope.vicePermissions;
-      default:
-        return null;
-    }
+    return parseAppDataScope(rawScope);
   }
 
   void _scheduleDispatch() {

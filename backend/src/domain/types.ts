@@ -4,6 +4,14 @@ export type TeamRole = 'captain' | 'vice_captain' | 'player';
 export type MembershipStatus = 'active' | 'left';
 export type RequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled' | 'expired';
 export type StreamStatus = 'live' | 'scheduled' | 'ended' | 'unknown';
+export type ClubInviteStatus = 'pending' | 'accepted' | 'declined' | 'revoked' | 'expired';
+export type AppNotificationType =
+  | 'club_invite_received'
+  | 'club_invite_accepted'
+  | 'club_invite_declined'
+  | 'club_invite_revoked'
+  | 'lineup_published'
+  | 'attendance_published';
 
 export interface AuthUserDto {
   id: string;
@@ -97,6 +105,7 @@ export interface VicePermissionsRow {
   vice_manage_lineups: boolean;
   vice_manage_streams: boolean;
   vice_manage_attendance: boolean;
+  vice_manage_invites: boolean;
   vice_manage_team_info: boolean;
   updated_at?: string | null;
 }
@@ -145,6 +154,76 @@ export interface LeaveRequestRow {
   created_at?: string | null;
   updated_at?: string | null;
   membership?: MembershipRow | null;
+}
+
+export interface ClubInviteRow {
+  id: number | string;
+  club_id: number | string;
+  created_by_user_id: string | null;
+  created_by_membership_id: number | string | null;
+  target_user_id: string;
+  target_player_profile_id: number | string | null;
+  target_account_email: string | null;
+  target_nome: string;
+  target_cognome: string;
+  target_id_console: string | null;
+  target_primary_role: string | null;
+  status: ClubInviteStatus;
+  resolved_at: string | null;
+  resolved_by_user_id: string | null;
+  resolved_by_membership_id: number | string | null;
+  accepted_membership_id: number | string | null;
+  accepted_player_id: number | string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  club?: ClubRow | null;
+}
+
+export type InviteCandidateReason =
+  | 'pending_join_request_same_club'
+  | 'pending_join_request_other_club';
+
+export interface InviteCandidateDto {
+  user_id: string;
+  player_profile_id: number | string;
+  nome: string;
+  cognome: string;
+  account_email: string | null;
+  id_console: string | null;
+  primary_role: string | null;
+  invitable: boolean;
+  reason: InviteCandidateReason | null;
+}
+
+export interface AppNotificationRow {
+  id: number | string;
+  recipient_user_id: string;
+  club_id: number | string | null;
+  notification_type: AppNotificationType;
+  title: string;
+  body: string | null;
+  metadata: Record<string, unknown>;
+  related_invite_id: number | string | null;
+  read_at: string | null;
+  dedupe_key: string | null;
+  created_at?: string | null;
+}
+
+export interface CursorPaginationDto {
+  limit: number;
+  hasMore: boolean;
+  nextCursor: string | null;
+}
+
+export interface ClubInviteListResultDto {
+  invites: ClubInviteRow[];
+  pagination: CursorPaginationDto;
+}
+
+export interface AppNotificationsListResultDto {
+  notifications: AppNotificationRow[];
+  unreadCount: number;
+  pagination: CursorPaginationDto;
 }
 
 export interface StreamLinkRow {
@@ -232,6 +311,7 @@ export interface RequestPrincipal {
   canManageLineups: boolean;
   canManageStreams: boolean;
   canManageAttendance: boolean;
+  canManageInvites: boolean;
   canManageClubInfo: boolean;
 }
 

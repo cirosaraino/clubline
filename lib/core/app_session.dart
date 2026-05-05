@@ -48,6 +48,8 @@ class AppSessionController extends ChangeNotifier {
   List<JoinRequest> _captainPendingJoinRequests = const [];
   List<LeaveRequest> _captainPendingLeaveRequests = const [];
   List<PlayerProfile> _players = const [];
+  int _unreadNotificationsCount = 0;
+  int _pendingReceivedInvitesCount = 0;
   Future<void>? _playersLoadOperation;
   ProfileSetupDraft? _profileSetupDraft;
   ClubInfo _clubInfo = ClubInfo.defaults;
@@ -90,10 +92,14 @@ class AppSessionController extends ChangeNotifier {
       _captainPendingJoinRequests;
   List<LeaveRequest> get captainPendingLeaveRequests =>
       _captainPendingLeaveRequests;
+  int get unreadNotificationsCount => _unreadNotificationsCount;
+  int get pendingReceivedInvitesCount => _pendingReceivedInvitesCount;
   bool get hasClubMembership =>
       _membership?.isActive == true && _currentClub != null;
   bool get hasPendingJoinRequest => _pendingJoinRequest?.isPending == true;
   bool get hasPendingLeaveRequest => _pendingLeaveRequest?.isPending == true;
+  bool get hasUnreadNotifications => _unreadNotificationsCount > 0;
+  bool get hasPendingReceivedInvites => _pendingReceivedInvitesCount > 0;
   bool get hasPlayerIdentityDraft => _profileSetupDraft?.isValid == true;
   bool get needsPlayerIdentitySetup =>
       isAuthenticated &&
@@ -114,10 +120,13 @@ class AppSessionController extends ChangeNotifier {
   bool get canBootstrapCaptain => false;
   bool get isEmailVerified => _authUser?.emailVerified == true;
   bool get shouldEnableRealtime =>
-      sessionGateKind == AppSessionGateKind.authenticatedWithClub;
+      isAuthenticated &&
+      !_isSessionGateResolving &&
+      _sessionGateErrorMessage == null;
   bool get isSessionGateResolving => _isSessionGateResolving;
   AppSessionResolutionPhase get resolutionPhase => _resolutionPhase;
   AppSessionResolutionTrigger get resolutionTrigger => _resolutionTrigger;
+  bool get canManageInvites => _currentPlayer?.canManageInvites == true;
 
   AppSessionGateKind get sessionGateKind {
     return resolveAppSessionGate(
@@ -308,6 +317,8 @@ class AppSessionController extends ChangeNotifier {
     _pendingLeaveRequest = resolvedState.pendingLeaveRequest;
     _captainPendingJoinRequests = resolvedState.captainPendingJoinRequests;
     _captainPendingLeaveRequests = resolvedState.captainPendingLeaveRequests;
+    _unreadNotificationsCount = resolvedState.unreadNotificationsCount;
+    _pendingReceivedInvitesCount = resolvedState.pendingReceivedInvitesCount;
     _vicePermissions = resolvedState.vicePermissions;
     _clubInfo =
         resolvedState.clubInfo ??
@@ -518,6 +529,8 @@ class AppSessionController extends ChangeNotifier {
     _captainPendingJoinRequests = const [];
     _captainPendingLeaveRequests = const [];
     _players = const [];
+    _unreadNotificationsCount = 0;
+    _pendingReceivedInvitesCount = 0;
     _playersLoadOperation = null;
     _profileSetupDraft = null;
     _clubInfo = ClubInfo.defaults;
@@ -549,6 +562,8 @@ class AppSessionController extends ChangeNotifier {
       AppDataScope.players,
       AppDataScope.clubInfo,
       AppDataScope.vicePermissions,
+      AppDataScope.invites,
+      AppDataScope.notifications,
     })) {
       return;
     }

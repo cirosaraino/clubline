@@ -73,3 +73,57 @@ test('ClubWorkflowsRepository maps approveJoinRequest RPC payload', async () => 
     playerId: 55,
   });
 });
+
+test('ClubWorkflowsRepository maps createClubInvite RPC payload', async () => {
+  const repository = new ClubWorkflowsRepository({
+    rpc: async () => ({
+      data: {
+        invite_id: 101,
+        club_id: 7,
+        target_user_id: 'target-1',
+        notification_id: 202,
+      },
+      error: null,
+    }),
+  } as any);
+
+  const result = await repository.createClubInvite({
+    actorUserId: 'captain-1',
+    targetUserId: 'target-1',
+  });
+
+  assert.deepEqual(result, {
+    inviteId: 101,
+    clubId: 7,
+    targetUserId: 'target-1',
+    notificationId: 202,
+  });
+});
+
+test('ClubWorkflowsRepository maps acceptClubInvite RPC payload', async () => {
+  const repository = new ClubWorkflowsRepository({
+    rpc: async () => ({
+      data: {
+        invite_id: 101,
+        club_id: 7,
+        membership_id: 303,
+        player_id: 404,
+        status: 'accepted',
+      },
+      error: null,
+    }),
+  } as any);
+
+  const result = await repository.acceptClubInvite({
+    actorUserId: 'target-1',
+    inviteId: 101,
+  });
+
+  assert.deepEqual(result, {
+    inviteId: 101,
+    clubId: 7,
+    membershipId: 303,
+    playerId: 404,
+    status: 'accepted',
+  });
+});

@@ -155,10 +155,10 @@ export class LineupsService {
     lineupId: string | number,
     assignments: LineupAssignmentInput[],
     principal: RequestPrincipal,
-  ): Promise<void> {
+  ): Promise<LineupRow> {
     const clubId = this.requireClubId(principal);
     this.ensureCanManageLineups(principal);
-    await this.getLineupOrThrow(lineupId, clubId);
+    const lineup = await this.getLineupOrThrow(lineupId, clubId);
     await this.ensurePlayersBelongToClub(assignments, clubId);
 
     const deleteResponse = await this.db
@@ -169,7 +169,7 @@ export class LineupsService {
     ensureSuccess(deleteResponse);
 
     if (assignments.length === 0) {
-      return;
+      return lineup;
     }
 
     const insertResponse = await this.db.from('lineup_players').insert(
@@ -182,6 +182,7 @@ export class LineupsService {
     );
 
     ensureSuccess(insertResponse);
+    return lineup;
   }
 
   private requireClubId(principal: RequestPrincipal): string | number {

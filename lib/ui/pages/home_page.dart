@@ -9,6 +9,7 @@ import '../../models/club_info.dart';
 import '../widgets/app_chrome.dart';
 import '../widgets/clubline_brand_logo.dart';
 import '../widgets/club_logo_avatar.dart';
+import '../widgets/notifications_bell_button.dart';
 
 enum _HomeProfileMenuAction {
   completeProfile,
@@ -161,6 +162,10 @@ class HomePage extends StatelessWidget {
         currentUser?.canManageClubInfo == true && !needsProfileSetup;
     final canManageVicePermissions =
         currentUser?.isCaptain == true && !needsProfileSetup;
+    final canOpenClubManagement =
+        !needsProfileSetup &&
+        (currentUser?.isCaptain == true ||
+            currentUser?.canManageInvites == true);
     final isPersonalizedExperience = hasClubMembership;
     final pendingJoinRequests = session.captainPendingJoinRequests.length;
     final pendingLeaveRequests = session.captainPendingLeaveRequests.length;
@@ -172,6 +177,7 @@ class HomePage extends StatelessWidget {
           isPersonalizedExperience ? clubInfo.displayClubName : 'Clubline',
         ),
         actions: [
+          const NotificationsBellButton(),
           if (canShowProfileMenu)
             PopupMenuButton<_HomeProfileMenuAction>(
               key: const Key('home-profile-menu-button'),
@@ -239,16 +245,19 @@ class HomePage extends StatelessWidget {
                       title: Text('Info club'),
                     ),
                   ),
-                if (currentUser?.isCaptain == true)
-                  if (!needsProfileSetup)
-                    const PopupMenuItem<_HomeProfileMenuAction>(
-                      value: _HomeProfileMenuAction.manageClub,
-                      child: ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(Icons.admin_panel_settings_outlined),
-                        title: Text('Dashboard capitano'),
+                if (canOpenClubManagement)
+                  PopupMenuItem<_HomeProfileMenuAction>(
+                    value: _HomeProfileMenuAction.manageClub,
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.admin_panel_settings_outlined),
+                      title: Text(
+                        currentUser?.isCaptain == true
+                            ? 'Dashboard capitano'
+                            : 'Gestione inviti club',
                       ),
                     ),
+                  ),
                 if (currentUser != null && currentUser.isCaptain != true)
                   if (!needsProfileSetup)
                     const PopupMenuItem<_HomeProfileMenuAction>(

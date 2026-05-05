@@ -10,6 +10,7 @@ Ordine di applicazione supportato:
 4. `clubline_player_membership_guardrails.sql`
 5. `clubline_backend_hardening.sql`
 6. `clubline_post_refactor_grants.sql`
+7. `clubline_invites_notifications.sql`
 
 Script attivi aggiuntivi:
 

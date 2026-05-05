@@ -203,4 +203,96 @@ export class ClubWorkflowsRepository {
     );
     requiredData(result);
   }
+
+  async createClubInvite(input: {
+    actorUserId: string;
+    targetUserId: string;
+  }): Promise<{
+    inviteId: string | number;
+    clubId: string | number;
+    targetUserId: string;
+    notificationId: string | number;
+  }> {
+    const result = await (this.db as RpcCapableClient).rpc!(
+      'clubline_create_club_invite',
+      {
+        p_actor_user_id: input.actorUserId,
+        p_target_user_id: input.targetUserId,
+      },
+    );
+    const payload = asObject(requiredData(result) as unknown);
+
+    return {
+      inviteId: requiredNumberLike(payload, 'invite_id'),
+      clubId: requiredNumberLike(payload, 'club_id'),
+      targetUserId: `${requiredNumberLike(payload, 'target_user_id')}`,
+      notificationId: requiredNumberLike(payload, 'notification_id'),
+    };
+  }
+
+  async revokeClubInvite(input: {
+    actorUserId: string;
+    inviteId: string | number;
+  }): Promise<{ inviteId: string | number; status: string }> {
+    const result = await (this.db as RpcCapableClient).rpc!(
+      'clubline_revoke_club_invite',
+      {
+        p_actor_user_id: input.actorUserId,
+        p_invite_id: input.inviteId,
+      },
+    );
+    const payload = asObject(requiredData(result) as unknown);
+
+    return {
+      inviteId: requiredNumberLike(payload, 'invite_id'),
+      status: `${payload.status ?? ''}`,
+    };
+  }
+
+  async acceptClubInvite(input: {
+    actorUserId: string;
+    inviteId: string | number;
+  }): Promise<{
+    inviteId: string | number;
+    clubId: string | number;
+    membershipId: string | number;
+    playerId: string | number;
+    status: string;
+  }> {
+    const result = await (this.db as RpcCapableClient).rpc!(
+      'clubline_accept_club_invite',
+      {
+        p_actor_user_id: input.actorUserId,
+        p_invite_id: input.inviteId,
+      },
+    );
+    const payload = asObject(requiredData(result) as unknown);
+
+    return {
+      inviteId: requiredNumberLike(payload, 'invite_id'),
+      clubId: requiredNumberLike(payload, 'club_id'),
+      membershipId: requiredNumberLike(payload, 'membership_id'),
+      playerId: requiredNumberLike(payload, 'player_id'),
+      status: `${payload.status ?? ''}`,
+    };
+  }
+
+  async declineClubInvite(input: {
+    actorUserId: string;
+    inviteId: string | number;
+  }): Promise<{ inviteId: string | number; status: string }> {
+    const result = await (this.db as RpcCapableClient).rpc!(
+      'clubline_decline_club_invite',
+      {
+        p_actor_user_id: input.actorUserId,
+        p_invite_id: input.inviteId,
+      },
+    );
+    const payload = asObject(requiredData(result) as unknown);
+
+    return {
+      inviteId: requiredNumberLike(payload, 'invite_id'),
+      status: `${payload.status ?? ''}`,
+    };
+  }
 }

@@ -20,6 +20,34 @@ const authService = new AuthService(supabaseAuth, supabaseDb);
 const accessService = new AccessService(supabaseDb);
 const clubsService = new ClubsService(supabaseDb);
 
+async function countUnreadNotificationsForUser(userId: string): Promise<number> {
+  const response = await supabaseDb
+    .from('app_notifications')
+    .select('id', { count: 'exact', head: true })
+    .eq('recipient_user_id', userId)
+    .is('read_at', null);
+
+  if (response.error) {
+    throw response.error;
+  }
+
+  return response.count ?? 0;
+}
+
+async function countPendingReceivedInvitesForUser(userId: string): Promise<number> {
+  const response = await supabaseDb
+    .from('club_invites')
+    .select('id', { count: 'exact', head: true })
+    .eq('target_user_id', userId)
+    .eq('status', 'pending');
+
+  if (response.error) {
+    throw response.error;
+  }
+
+  return response.count ?? 0;
+}
+
 function extractNormalizedEmail(body: unknown): string {
   if (typeof body !== 'object' || body == null || Array.isArray(body)) {
     return 'unknown';
@@ -223,6 +251,11 @@ authRouter.get(
     const captainPendingLeaveRequestsPromise = principal.isCaptain
       ? clubsService.listPendingLeaveRequests(principal)
       : Promise.resolve([]);
+    const unreadNotificationsCountPromise = countUnreadNotificationsForUser(
+      principal.authUser.id,
+    );
+    const pendingReceivedInvitesCountPromise =
+      countPendingReceivedInvitesForUser(principal.authUser.id);
 
     const [
       clubInfo,
@@ -230,12 +263,16 @@ authRouter.get(
       pendingLeaveRequest,
       captainPendingJoinRequests,
       captainPendingLeaveRequests,
+      unreadNotificationsCount,
+      pendingReceivedInvitesCount,
     ] = await Promise.all([
       clubInfoPromise,
       pendingJoinRequestPromise,
       pendingLeaveRequestPromise,
       captainPendingJoinRequestsPromise,
       captainPendingLeaveRequestsPromise,
+      unreadNotificationsCountPromise,
+      pendingReceivedInvitesCountPromise,
     ]);
 
     sendOk(res, {
@@ -254,6 +291,8 @@ authRouter.get(
       pendingLeaveRequest,
       captainPendingJoinRequests,
       captainPendingLeaveRequests,
+      unreadNotificationsCount,
+      pendingReceivedInvitesCount,
     });
   }),
 );

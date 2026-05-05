@@ -32,6 +32,7 @@ export function buildPrincipal(
     canManageLineups: isCaptain || (isViceCaptain && permissions.vice_manage_lineups),
     canManageStreams: isCaptain || (isViceCaptain && permissions.vice_manage_streams),
     canManageAttendance: isCaptain || (isViceCaptain && permissions.vice_manage_attendance),
+    canManageInvites: isCaptain || (isViceCaptain && permissions.vice_manage_invites),
     canManageClubInfo:
       isCaptain || (isViceCaptain && permissions.vice_manage_team_info),
   };

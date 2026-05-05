@@ -1,11 +1,14 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { RequestHandler } from 'express';
 import { Router } from 'express';
 import { z } from 'zod';
 
-import { supabaseDb } from '../lib/supabase';
 import { sendCreated, sendNoContent, sendOk } from '../lib/http';
 import { publishRealtimeChange } from '../lib/realtime-publisher';
+import { supabaseDb } from '../lib/supabase';
 import { asyncHandler } from '../middleware/async-handler';
 import { requireAuth } from '../middleware/auth';
+import { ClubNotificationPublisherService } from '../services/club-notification-publisher.service';
 import { LineupsService } from '../services/lineups.service';
 
 const lineupInputSchema = z.object({
@@ -29,107 +32,140 @@ const deleteLineupsByIdsSchema = z.object({
   lineup_ids: z.array(z.union([z.string().min(1), z.number()])).min(1),
 });
 
-export const lineupsRouter = Router();
-const lineupsService = new LineupsService(supabaseDb);
+type LineupsRouterOptions = {
+  db?: SupabaseClient;
+  authMiddleware?: RequestHandler;
+  publishChange?: typeof publishRealtimeChange;
+};
 
-lineupsRouter.get(
-  '/',
-  requireAuth,
-  asyncHandler(async (_req, res) => {
-    const lineups = await lineupsService.listLineups(_req.principal!);
-    sendOk(res, { lineups });
-  }),
-);
+export function createLineupsRouter(
+  options: LineupsRouterOptions = {},
+): Router {
+  const router = Router();
+  const db = options.db ?? supabaseDb;
+  const authMiddleware = options.authMiddleware ?? requireAuth;
+  const publishChange = options.publishChange ?? publishRealtimeChange;
+  const lineupsService = new LineupsService(db);
+  const notificationsPublisher = new ClubNotificationPublisherService(db);
 
-lineupsRouter.get(
-  '/assignments',
-  requireAuth,
-  asyncHandler(async (req, res) => {
-    const rawIds = typeof req.query.lineup_ids === 'string' ? req.query.lineup_ids : '';
-    const lineupIds = rawIds
-      .split(',')
-      .map((value) => value.trim())
-      .filter(Boolean);
+  router.get(
+    '/',
+    authMiddleware,
+    asyncHandler(async (_req, res) => {
+      const lineups = await lineupsService.listLineups(_req.principal!);
+      sendOk(res, { lineups });
+    }),
+  );
 
-    const assignments = await lineupsService.listAssignmentsForLineups(lineupIds, req.principal!);
-    sendOk(res, { assignments });
-  }),
-);
+  router.get(
+    '/assignments',
+    authMiddleware,
+    asyncHandler(async (req, res) => {
+      const rawIds = typeof req.query.lineup_ids === 'string' ? req.query.lineup_ids : '';
+      const lineupIds = rawIds
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean);
 
-lineupsRouter.post(
-  '/',
-  requireAuth,
-  asyncHandler(async (req, res) => {
-    const lineup = await lineupsService.createLineup(
-      lineupInputSchema.parse(req.body),
-      req.principal!,
-    );
-    publishRealtimeChange(['lineups', 'attendance'], 'lineup_created');
-    sendCreated(res, { lineup });
-  }),
-);
+      const assignments = await lineupsService.listAssignmentsForLineups(lineupIds, req.principal!);
+      sendOk(res, { assignments });
+    }),
+  );
 
-lineupsRouter.get(
-  '/:id/players',
-  requireAuth,
-  asyncHandler(async (req, res) => {
-    const assignments = await lineupsService.listLineupPlayers(req.params.id, req.principal!);
-    sendOk(res, { assignments });
-  }),
-);
+  router.post(
+    '/',
+    authMiddleware,
+    asyncHandler(async (req, res) => {
+      const lineup = await lineupsService.createLineup(
+        lineupInputSchema.parse(req.body),
+        req.principal!,
+      );
+      publishChange(['lineups', 'attendance'], 'lineup_created');
+      sendCreated(res, { lineup });
+    }),
+  );
 
-lineupsRouter.put(
-  '/:id/players',
-  requireAuth,
-  asyncHandler(async (req, res) => {
-    const { assignments } = lineupAssignmentsSchema.parse(req.body);
-    await lineupsService.replaceLineupPlayers(req.params.id, assignments, req.principal!);
-    publishRealtimeChange(['lineups', 'attendance'], 'lineup_players_updated');
-    sendNoContent(res);
-  }),
-);
+  router.get(
+    '/:id/players',
+    authMiddleware,
+    asyncHandler(async (req, res) => {
+      const assignments = await lineupsService.listLineupPlayers(req.params.id, req.principal!);
+      sendOk(res, { assignments });
+    }),
+  );
 
-lineupsRouter.put(
-  '/:id',
-  requireAuth,
-  asyncHandler(async (req, res) => {
-    const lineup = await lineupsService.updateLineup(
-      req.params.id,
-      lineupInputSchema.parse(req.body),
-      req.principal!,
-    );
-    publishRealtimeChange(['lineups', 'attendance'], 'lineup_updated');
-    sendOk(res, { lineup });
-  }),
-);
+  router.put(
+    '/:id/players',
+    authMiddleware,
+    asyncHandler(async (req, res) => {
+      const { assignments } = lineupAssignmentsSchema.parse(req.body);
+      const lineup = await lineupsService.replaceLineupPlayers(
+        req.params.id,
+        assignments,
+        req.principal!,
+      );
 
-lineupsRouter.delete(
-  '/all',
-  requireAuth,
-  asyncHandler(async (req, res) => {
-    await lineupsService.deleteAllLineups(req.principal!);
-    publishRealtimeChange(['lineups', 'attendance'], 'lineup_deleted_all');
-    sendNoContent(res);
-  }),
-);
+      if (assignments.length > 0) {
+        await notificationsPublisher.publishLineupPublished({
+          clubId: lineup.club_id,
+          clubName: req.principal?.club?.name,
+          lineup,
+        });
+        publishChange(['lineups', 'attendance', 'notifications'], 'lineup_players_updated');
+      } else {
+        publishChange(['lineups', 'attendance'], 'lineup_players_updated');
+      }
 
-lineupsRouter.delete(
-  '/day',
-  requireAuth,
-  asyncHandler(async (req, res) => {
-    const { lineup_ids: lineupIds } = deleteLineupsByIdsSchema.parse(req.body);
-    await lineupsService.deleteLineupsByIds(lineupIds, req.principal!);
-    publishRealtimeChange(['lineups', 'attendance'], 'lineup_deleted_day');
-    sendNoContent(res);
-  }),
-);
+      sendNoContent(res);
+    }),
+  );
 
-lineupsRouter.delete(
-  '/:id',
-  requireAuth,
-  asyncHandler(async (req, res) => {
-    await lineupsService.deleteLineup(req.params.id, req.principal!);
-    publishRealtimeChange(['lineups', 'attendance'], 'lineup_deleted');
-    sendNoContent(res);
-  }),
-);
+  router.put(
+    '/:id',
+    authMiddleware,
+    asyncHandler(async (req, res) => {
+      const lineup = await lineupsService.updateLineup(
+        req.params.id,
+        lineupInputSchema.parse(req.body),
+        req.principal!,
+      );
+      publishChange(['lineups', 'attendance'], 'lineup_updated');
+      sendOk(res, { lineup });
+    }),
+  );
+
+  router.delete(
+    '/all',
+    authMiddleware,
+    asyncHandler(async (req, res) => {
+      await lineupsService.deleteAllLineups(req.principal!);
+      publishChange(['lineups', 'attendance'], 'lineup_deleted_all');
+      sendNoContent(res);
+    }),
+  );
+
+  router.delete(
+    '/day',
+    authMiddleware,
+    asyncHandler(async (req, res) => {
+      const { lineup_ids: lineupIds } = deleteLineupsByIdsSchema.parse(req.body);
+      await lineupsService.deleteLineupsByIds(lineupIds, req.principal!);
+      publishChange(['lineups', 'attendance'], 'lineup_deleted_day');
+      sendNoContent(res);
+    }),
+  );
+
+  router.delete(
+    '/:id',
+    authMiddleware,
+    asyncHandler(async (req, res) => {
+      await lineupsService.deleteLineup(req.params.id, req.principal!);
+      publishChange(['lineups', 'attendance'], 'lineup_deleted');
+      sendNoContent(res);
+    }),
+  );
+
+  return router;
+}
+
+export const lineupsRouter = createLineupsRouter();

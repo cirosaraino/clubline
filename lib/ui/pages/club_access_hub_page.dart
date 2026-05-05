@@ -3,21 +3,28 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/app_session.dart';
+import '../../data/club_invites_repository.dart';
 import '../../data/club_repository.dart';
 import '../../data/profile_setup_draft_store.dart';
+import '../../models/club_invite.dart';
 import '../widgets/app_chrome.dart';
 import '../widgets/clubline_brand_logo.dart';
+import '../widgets/notifications_bell_button.dart';
 import 'club_create_page.dart';
 import 'club_join_page.dart';
+import 'received_club_invites_page.dart';
 
 enum _ClubAccessMenuAction { editPlayer, deleteAccount, signOut }
 
 class ClubAccessHubPage extends StatefulWidget {
-  const ClubAccessHubPage({
+  ClubAccessHubPage({
     super.key,
     required this.onOpenPlayerSetup,
     required this.onDeleteAccount,
-  });
+    ClubInvitesRepository? clubInvitesRepository,
+  }) : clubInvitesRepository = clubInvitesRepository ?? ClubInvitesRepository();
+
+  final ClubInvitesRepository clubInvitesRepository;
 
   final Future<void> Function() onOpenPlayerSetup;
   final Future<void> Function() onDeleteAccount;
@@ -54,6 +61,18 @@ class _ClubAccessHubPageState extends State<ClubAccessHubPage> {
 
   Future<void> _openPlayerSetup() {
     return widget.onOpenPlayerSetup();
+  }
+
+  Future<void> _openReceivedInvites() async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ReceivedClubInvitesPage(
+          repository: widget.clubInvitesRepository,
+          initialStatus: ClubInviteListStatus.pending,
+        ),
+      ),
+    );
   }
 
   void _openPlayerSetupAction() {
@@ -116,11 +135,13 @@ class _ClubAccessHubPageState extends State<ClubAccessHubPage> {
     final email = session.currentUserEmail;
     final playerIdentity = session.profileSetupDraft;
     final hasPlayerIdentity = playerIdentity != null;
+    final pendingReceivedInvitesCount = session.pendingReceivedInvitesCount;
 
     return AppPageScaffold(
       appBar: AppBar(
         title: const Text('Clubline'),
         actions: [
+          const NotificationsBellButton(),
           PopupMenuButton<_ClubAccessMenuAction>(
             tooltip: 'Menu account',
             icon: const CircleAvatar(
@@ -251,6 +272,29 @@ class _ClubAccessHubPageState extends State<ClubAccessHubPage> {
                 _PlayerIdentityCard(
                   draft: playerIdentity,
                   onEdit: _openPlayerSetupAction,
+                ),
+              if (pendingReceivedInvitesCount > 0)
+                AppFeatureCard(
+                  key: const Key('club-access-pending-invites-card'),
+                  icon: Icons.mail_outline,
+                  title: pendingReceivedInvitesCount == 1
+                      ? 'Hai 1 invito ricevuto'
+                      : 'Hai $pendingReceivedInvitesCount inviti ricevuti',
+                  message:
+                      'Apri la lista per accettare o rifiutare gli inviti direttamente dall app.',
+                  badge: AppStatusBadge(
+                    label: '$pendingReceivedInvitesCount',
+                    tone: AppStatusTone.success,
+                  ),
+                  actionLabel: 'Apri inviti',
+                  actionIcon: Icons.arrow_forward_outlined,
+                  onAction: () {
+                    unawaited(_openReceivedInvites());
+                  },
+                  onTap: () {
+                    unawaited(_openReceivedInvites());
+                  },
+                  emphasized: true,
                 ),
               if (pendingJoinRequest != null && pendingJoinRequest.isPending)
                 AppFeatureCard(

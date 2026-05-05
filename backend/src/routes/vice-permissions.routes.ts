@@ -13,6 +13,7 @@ const permissionsSchema = z.object({
   vice_manage_lineups: z.boolean().default(false),
   vice_manage_streams: z.boolean().default(false),
   vice_manage_attendance: z.boolean().default(false),
+  vice_manage_invites: z.boolean().default(false),
   vice_manage_team_info: z.boolean().default(false),
   updated_at: z.string().nullable().optional(),
 });

@@ -11,6 +11,7 @@ import '../widgets/auth_sheet.dart';
 import '../widgets/biometric_unlock_sheet.dart';
 import '../widgets/club_info_sheet.dart';
 import '../widgets/clubline_brand_logo.dart';
+import '../widgets/notifications_bell_button.dart';
 import '../widgets/theme_palette_sheet.dart';
 import '../widgets/vice_permissions_sheet.dart';
 import 'attendance_page.dart';
@@ -235,7 +236,7 @@ class _AppShellPageState extends State<AppShellPage> {
   Future<void> _openClubManagement() async {
     final deletedClub = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(builder: (context) => const ClubManagementPage()),
+      MaterialPageRoute(builder: (context) => ClubManagementPage()),
     );
 
     if (deletedClub == true && mounted) {
@@ -736,6 +737,7 @@ class _PlayerProfileSetupGatePage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Clubline'),
         actions: [
+          const NotificationsBellButton(),
           PopupMenuButton<_ProfileGateMenuAction>(
             tooltip: 'Menu account',
             icon: const CircleAvatar(

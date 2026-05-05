@@ -60,6 +60,7 @@ function createPermissions(
     vice_manage_lineups: false,
     vice_manage_streams: false,
     vice_manage_attendance: false,
+    vice_manage_invites: false,
     vice_manage_team_info: false,
     updated_at: '2026-04-22T10:00:00.000Z',
     ...overrides,
@@ -90,6 +91,7 @@ function buildPrincipal(options: {
     canManageLineups: false,
     canManageStreams: false,
     canManageAttendance: false,
+    canManageInvites: false,
     canManageClubInfo: false,
   };
 }

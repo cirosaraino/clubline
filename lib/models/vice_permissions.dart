@@ -4,6 +4,7 @@ class VicePermissions {
     this.manageLineups = false,
     this.manageStreams = false,
     this.manageAttendance = false,
+    this.manageInvites = false,
     this.manageClubInfo = false,
   });
 
@@ -13,6 +14,7 @@ class VicePermissions {
     manageLineups: true,
     manageStreams: true,
     manageAttendance: true,
+    manageInvites: true,
     manageClubInfo: true,
   );
 
@@ -20,6 +22,7 @@ class VicePermissions {
   final bool manageLineups;
   final bool manageStreams;
   final bool manageAttendance;
+  final bool manageInvites;
   final bool manageClubInfo;
 
   factory VicePermissions.fromMap(Map<String, dynamic> map) {
@@ -28,6 +31,7 @@ class VicePermissions {
       manageLineups: map['vice_manage_lineups'] == true,
       manageStreams: map['vice_manage_streams'] == true,
       manageAttendance: map['vice_manage_attendance'] == true,
+      manageInvites: map['vice_manage_invites'] == true,
       manageClubInfo: map['vice_manage_team_info'] == true,
     );
   }
@@ -37,6 +41,7 @@ class VicePermissions {
     bool? manageLineups,
     bool? manageStreams,
     bool? manageAttendance,
+    bool? manageInvites,
     bool? manageClubInfo,
   }) {
     return VicePermissions(
@@ -44,6 +49,7 @@ class VicePermissions {
       manageLineups: manageLineups ?? this.manageLineups,
       manageStreams: manageStreams ?? this.manageStreams,
       manageAttendance: manageAttendance ?? this.manageAttendance,
+      manageInvites: manageInvites ?? this.manageInvites,
       manageClubInfo: manageClubInfo ?? this.manageClubInfo,
     );
   }
@@ -54,6 +60,7 @@ class VicePermissions {
       'vice_manage_lineups': manageLineups,
       'vice_manage_streams': manageStreams,
       'vice_manage_attendance': manageAttendance,
+      'vice_manage_invites': manageInvites,
       'vice_manage_team_info': manageClubInfo,
     };
   }
@@ -63,6 +70,7 @@ class VicePermissions {
         manageLineups ||
         manageStreams ||
         manageAttendance ||
+        manageInvites ||
         manageClubInfo;
   }
 
@@ -71,6 +79,7 @@ class VicePermissions {
         manageLineups &&
         manageStreams &&
         manageAttendance &&
+        manageInvites &&
         manageClubInfo;
   }
 

@@ -2,18 +2,25 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/app_data_sync.dart';
 import '../../core/app_session.dart';
 import '../../core/app_theme.dart';
 import '../../data/api_client.dart';
+import '../../data/club_invites_repository.dart';
 import '../../data/club_repository.dart';
 import '../../data/profile_setup_draft_store.dart';
+import '../../models/club_invite.dart';
 import '../../models/join_request.dart';
 import '../../models/leave_request.dart';
 import '../../models/player_profile.dart';
 import '../widgets/app_chrome.dart';
+import 'invite_player_page.dart';
 
 class ClubManagementPage extends StatefulWidget {
-  const ClubManagementPage({super.key});
+  ClubManagementPage({super.key, ClubInvitesRepository? clubInvitesRepository})
+    : clubInvitesRepository = clubInvitesRepository ?? ClubInvitesRepository();
+
+  final ClubInvitesRepository clubInvitesRepository;
 
   @override
   State<ClubManagementPage> createState() => _ClubManagementPageState();
@@ -34,7 +41,12 @@ class _ClubManagementPageState extends State<ClubManagementPage> {
     }
 
     _hasRequestedPlayers = true;
-    unawaited(_ensurePlayersLoaded());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      unawaited(_ensurePlayersLoaded());
+    });
   }
 
   String _errorMessage(Object error) {
@@ -198,9 +210,11 @@ class _ClubManagementPageState extends State<ClubManagementPage> {
   @override
   Widget build(BuildContext context) {
     final session = AppSessionScope.of(context);
+    final isCaptain = session.membership?.isCaptain == true;
+    final canManageInvites = session.canManageInvites;
     if (session.isLoadingPlayers && !session.hasResolvedPlayers) {
       return const AppPageScaffold(
-        title: 'Dashboard capitano',
+        title: 'Gestione club',
         wide: true,
         child: AppLoadingState(label: 'Stiamo caricando i membri del club...'),
       );
@@ -208,7 +222,7 @@ class _ClubManagementPageState extends State<ClubManagementPage> {
 
     if (_playersLoadError != null && !session.hasResolvedPlayers) {
       return AppPageScaffold(
-        title: 'Dashboard capitano',
+        title: 'Gestione club',
         wide: true,
         child: AppErrorState(
           title: 'Errore nel caricamento del club',
@@ -228,122 +242,146 @@ class _ClubManagementPageState extends State<ClubManagementPage> {
               player.membershipId != null && player.id != currentUser?.id,
         )
         .toList();
-
-    return AppPageScaffold(
-      title: 'Dashboard capitano',
-      wide: true,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _CaptainDashboardHeader(),
-          const SizedBox(height: AppSpacing.md),
-          AppAdaptiveColumns(
-            breakpoint: 1080,
-            gap: AppResponsive.sectionGap(context),
-            flex: const [3, 2],
+    final primarySections = <Widget>[
+      if (canManageInvites)
+        _ClubInvitesSectionCard(
+          key: const Key('club-management-invites-section'),
+          repository: widget.clubInvitesRepository,
+        ),
+      if (canManageInvites && isCaptain) const SizedBox(height: AppSpacing.md),
+      if (isCaptain)
+        _RequestsSectionCard(
+          joinRequests: session.captainPendingJoinRequests,
+          leaveRequests: session.captainPendingLeaveRequests,
+          players: session.players,
+          busy: isBusy,
+          onApproveJoin: _approveJoinRequest,
+          onRejectJoin: _rejectJoinRequest,
+          onApproveLeave: _approveLeaveRequest,
+          onRejectLeave: _rejectLeaveRequest,
+        ),
+    ];
+    final secondarySections = <Widget>[
+      if (isCaptain)
+        _SectionCard(
+          icon: Icons.flag_outlined,
+          title: 'Trasferisci la fascia',
+          subtitle: 'Nomina il nuovo capitano prima di uscire dal club.',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _RequestsSectionCard(
-                    joinRequests: session.captainPendingJoinRequests,
-                    leaveRequests: session.captainPendingLeaveRequests,
-                    players: session.players,
-                    busy: isBusy,
-                    onApproveJoin: _approveJoinRequest,
-                    onRejectJoin: _rejectJoinRequest,
-                    onApproveLeave: _approveLeaveRequest,
-                    onRejectLeave: _rejectLeaveRequest,
-                  ),
+              DropdownButtonFormField<dynamic>(
+                initialValue: selectedCaptainMembershipId,
+                items: [
+                  for (final player in otherMembers)
+                    DropdownMenuItem<dynamic>(
+                      value: player.membershipId,
+                      child: Text(player.fullName),
+                    ),
                 ],
+                onChanged: isBusy
+                    ? null
+                    : (value) {
+                        setState(() {
+                          selectedCaptainMembershipId = value;
+                        });
+                      },
+                decoration: const InputDecoration(labelText: 'Nuovo capitano'),
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _SectionCard(
-                    icon: Icons.flag_outlined,
-                    title: 'Trasferisci la fascia',
-                    subtitle:
-                        'Nomina il nuovo capitano prima di uscire dal club.',
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        DropdownButtonFormField<dynamic>(
-                          initialValue: selectedCaptainMembershipId,
-                          items: [
-                            for (final player in otherMembers)
-                              DropdownMenuItem<dynamic>(
-                                value: player.membershipId,
-                                child: Text(player.fullName),
-                              ),
-                          ],
-                          onChanged: isBusy
-                              ? null
-                              : (value) {
-                                  setState(() {
-                                    selectedCaptainMembershipId = value;
-                                  });
-                                },
-                          decoration: const InputDecoration(
-                            labelText: 'Nuovo capitano',
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        AppActionButton(
-                          label: 'Trasferisci ruolo',
-                          icon: Icons.flag_outlined,
-                          variant: AppButtonVariant.secondary,
-                          expand: true,
-                          onPressed:
-                              isBusy || selectedCaptainMembershipId == null
-                              ? null
-                              : _transferCaptain,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  _SectionCard(
-                    icon: Icons.warning_amber_outlined,
-                    title: 'Zona sensibile',
-                    subtitle: 'Usala solo quando resti l unico membro attivo.',
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const AppBanner(
-                          message:
-                              'Puoi eliminare il club solo se sei l unico membro attivo rimasto.',
-                          tone: AppStatusTone.warning,
-                          icon: Icons.warning_amber_outlined,
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: isBusy ? null : _deleteCurrentClub,
-                            icon: const Icon(Icons.delete_outline),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Theme.of(
-                                context,
-                              ).colorScheme.error,
-                              side: BorderSide(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.error.withValues(alpha: 0.34),
-                              ),
-                            ),
-                            label: const Text('Elimina club'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              const SizedBox(height: AppSpacing.sm),
+              AppActionButton(
+                label: 'Trasferisci ruolo',
+                icon: Icons.flag_outlined,
+                variant: AppButtonVariant.secondary,
+                expand: true,
+                onPressed: isBusy || selectedCaptainMembershipId == null
+                    ? null
+                    : _transferCaptain,
               ),
             ],
           ),
-        ],
-      ),
+        ),
+      if (isCaptain) const SizedBox(height: AppSpacing.md),
+      if (isCaptain)
+        _SectionCard(
+          icon: Icons.warning_amber_outlined,
+          title: 'Zona sensibile',
+          subtitle: 'Usala solo quando resti l unico membro attivo.',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const AppBanner(
+                message:
+                    'Puoi eliminare il club solo se sei l unico membro attivo rimasto.',
+                tone: AppStatusTone.warning,
+                icon: Icons.warning_amber_outlined,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: isBusy ? null : _deleteCurrentClub,
+                  icon: const Icon(Icons.delete_outline),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Theme.of(context).colorScheme.error,
+                    side: BorderSide(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.error.withValues(alpha: 0.34),
+                    ),
+                  ),
+                  label: const Text('Elimina club'),
+                ),
+              ),
+            ],
+          ),
+        ),
+    ];
+
+    return AppPageScaffold(
+      title: 'Gestione club',
+      wide: true,
+      child: !isCaptain && !canManageInvites
+          ? const AppEmptyState(
+              key: Key('club-management-no-access-state'),
+              icon: Icons.lock_outline,
+              title: 'Nessun permesso gestionale',
+              message:
+                  'Questo account non ha autorizzazioni staff disponibili in questa area.',
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _ClubManagementHeader(
+                  title: isCaptain ? 'Gestione club' : 'Gestione inviti club',
+                  subtitle: isCaptain
+                      ? 'Approva richieste, invita player e gestisci il club.'
+                      : 'Qui puoi cercare player registrati, inviare inviti e monitorare quelli pendenti.',
+                ),
+                const SizedBox(height: AppSpacing.md),
+                if (secondarySections.isEmpty)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: primarySections,
+                  )
+                else
+                  AppAdaptiveColumns(
+                    breakpoint: 1080,
+                    gap: AppResponsive.sectionGap(context),
+                    flex: const [3, 2],
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: primarySections,
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: secondarySections,
+                      ),
+                    ],
+                  ),
+              ],
+            ),
     );
   }
 }
@@ -387,15 +425,518 @@ class _SectionCard extends StatelessWidget {
   }
 }
 
-class _CaptainDashboardHeader extends StatelessWidget {
-  const _CaptainDashboardHeader();
+String _clubManagementErrorMessage(Object error) {
+  if (error is ApiException) {
+    final rawMessage = error.message.trim();
+    final normalizedMessage = rawMessage.toLowerCase();
+    switch (error.code?.trim()) {
+      case 'pending_club_invite_exists':
+        return 'Esiste gia un invito pendente per questo player nel club.';
+      case 'target_user_has_active_membership':
+      case 'active_membership_exists':
+        return 'Questo utente appartiene gia a un club attivo.';
+      case 'pending_join_request_same_club':
+        return 'Questo player ha gia una richiesta di ingresso pendente per questo club.';
+      case 'pending_join_request_other_club':
+        return 'Questo player ha gia una richiesta di ingresso pendente verso un altro club.';
+      case 'invite_management_forbidden':
+        return 'Non hai i permessi per gestire gli inviti del club.';
+      case 'invite_not_found':
+        return 'L invito non e piu disponibile.';
+      case 'invite_not_pending':
+        return 'Questo invito non e piu pendente.';
+    }
+
+    if (error.statusCode == 403) {
+      return 'Non hai i permessi per gestire gli inviti del club.';
+    }
+    if (normalizedMessage.contains('gia un invito pendente')) {
+      return 'Esiste gia un invito pendente per questo player nel club.';
+    }
+    if (normalizedMessage.contains('club attivo')) {
+      return 'Questo utente appartiene gia a un club attivo.';
+    }
+    if (normalizedMessage.contains(
+      'richiesta di ingresso pendente per questo club',
+    )) {
+      return 'Questo player ha gia una richiesta di ingresso pendente per questo club.';
+    }
+    if (normalizedMessage.contains('verso un altro club')) {
+      return 'Questo player ha gia una richiesta di ingresso pendente verso un altro club.';
+    }
+    if (normalizedMessage.contains('non trovato')) {
+      return 'L invito non e piu disponibile.';
+    }
+    if (normalizedMessage.contains('non pendente') ||
+        normalizedMessage.contains('gia stata gestita')) {
+      return 'Questo invito non e piu pendente.';
+    }
+    if (rawMessage.isNotEmpty) {
+      return rawMessage;
+    }
+  }
+
+  final fallback = error.toString().trim();
+  if (fallback.isEmpty) {
+    return 'Operazione non riuscita. Riprova tra un attimo.';
+  }
+
+  return fallback;
+}
+
+String _clubInviteStatusLabel(ClubInviteStatus status) {
+  switch (status) {
+    case ClubInviteStatus.accepted:
+      return 'Accettato';
+    case ClubInviteStatus.declined:
+      return 'Rifiutato';
+    case ClubInviteStatus.revoked:
+      return 'Revocato';
+    case ClubInviteStatus.expired:
+      return 'Scaduto';
+    case ClubInviteStatus.pending:
+      return 'In attesa';
+  }
+}
+
+AppStatusTone _clubInviteStatusTone(ClubInviteStatus status) {
+  switch (status) {
+    case ClubInviteStatus.accepted:
+      return AppStatusTone.success;
+    case ClubInviteStatus.declined:
+    case ClubInviteStatus.revoked:
+    case ClubInviteStatus.expired:
+      return AppStatusTone.warning;
+    case ClubInviteStatus.pending:
+      return AppStatusTone.info;
+  }
+}
+
+String _formatInviteDateTime(DateTime? value) {
+  const monthLabels = [
+    'gen',
+    'feb',
+    'mar',
+    'apr',
+    'mag',
+    'giu',
+    'lug',
+    'ago',
+    'set',
+    'ott',
+    'nov',
+    'dic',
+  ];
+
+  if (value == null) {
+    return 'Data non disponibile';
+  }
+
+  final localValue = value.toLocal();
+  final day = localValue.day.toString().padLeft(2, '0');
+  final month = monthLabels[localValue.month - 1];
+  final year = localValue.year.toString();
+  final hours = localValue.hour.toString().padLeft(2, '0');
+  final minutes = localValue.minute.toString().padLeft(2, '0');
+
+  return '$day $month $year • $hours:$minutes';
+}
+
+class _ClubManagementHeader extends StatelessWidget {
+  const _ClubManagementHeader({required this.title, required this.subtitle});
+
+  final String title;
+  final String subtitle;
 
   @override
   Widget build(BuildContext context) {
-    return const AppPageHeader(
-      eyebrow: 'Captain tools',
-      title: 'Dashboard capitano',
-      subtitle: 'Approva richieste e gestisci il club.',
+    return AppPageHeader(
+      eyebrow: 'Staff tools',
+      title: title,
+      subtitle: subtitle,
+    );
+  }
+}
+
+class _ClubInvitesSectionCard extends StatefulWidget {
+  const _ClubInvitesSectionCard({super.key, required this.repository});
+
+  final ClubInvitesRepository repository;
+
+  @override
+  State<_ClubInvitesSectionCard> createState() =>
+      _ClubInvitesSectionCardState();
+}
+
+class _ClubInvitesSectionCardState extends State<_ClubInvitesSectionCard> {
+  final Set<String> _revokingInviteIds = <String>{};
+
+  List<ClubInvite> invites = const [];
+  ClubInviteListStatus selectedStatus = ClubInviteListStatus.pending;
+  bool isLoading = true;
+  String? errorMessage;
+  int _lastHandledSyncRevision = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    AppDataSync.instance.addListener(_handleAppDataSync);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      unawaited(_loadInvites());
+    });
+  }
+
+  @override
+  void dispose() {
+    AppDataSync.instance.removeListener(_handleAppDataSync);
+    super.dispose();
+  }
+
+  void _handleAppDataSync() {
+    final change = AppDataSync.instance.latestChange;
+    if (change == null || change.revision == _lastHandledSyncRevision) {
+      return;
+    }
+    if (!change.affects({AppDataScope.invites})) {
+      return;
+    }
+
+    _lastHandledSyncRevision = change.revision;
+    unawaited(_loadInvites());
+  }
+
+  Future<void> _loadInvites() async {
+    setState(() {
+      isLoading = true;
+      errorMessage = null;
+    });
+
+    try {
+      final result = await widget.repository.getSentInvites(
+        status: selectedStatus,
+        limit: 50,
+      );
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        invites = result.invites;
+        isLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        errorMessage = _clubManagementErrorMessage(error);
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _changeFilter(ClubInviteListStatus nextStatus) async {
+    if (selectedStatus == nextStatus) {
+      return;
+    }
+
+    setState(() {
+      selectedStatus = nextStatus;
+    });
+    await _loadInvites();
+  }
+
+  void _upsertInvite(ClubInvite invite) {
+    setState(() {
+      if (selectedStatus == ClubInviteListStatus.pending && !invite.isPending) {
+        invites = invites
+            .where((entry) => '${entry.id}' != '${invite.id}')
+            .toList(growable: false);
+        return;
+      }
+
+      final existingIndex = invites.indexWhere(
+        (entry) => '${entry.id}' == '${invite.id}',
+      );
+      if (existingIndex == -1) {
+        invites = [invite, ...invites];
+        return;
+      }
+
+      final nextInvites = invites.toList(growable: false);
+      nextInvites[existingIndex] = invite;
+      invites = nextInvites;
+    });
+  }
+
+  Future<void> _openInvitePlayerPage() async {
+    final createdInvite = await Navigator.of(context).push<ClubInvite>(
+      MaterialPageRoute(
+        builder: (_) => InvitePlayerPage(repository: widget.repository),
+      ),
+    );
+
+    if (createdInvite == null || !mounted) {
+      return;
+    }
+
+    _upsertInvite(createdInvite);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Invito inviato a ${createdInvite.fullName}.')),
+    );
+    AppDataSync.instance.notifyDataChanged({
+      AppDataScope.invites,
+    }, reason: 'club_invite_created_local');
+  }
+
+  Future<void> _revokeInvite(ClubInvite invite) async {
+    final shouldRevoke = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Revoca invito'),
+        content: Text(
+          'Vuoi davvero revocare l invito inviato a ${invite.fullName}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Annulla'),
+          ),
+          FilledButton(
+            key: const Key('club-management-revoke-confirm'),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Revoca'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldRevoke != true) {
+      return;
+    }
+
+    final inviteId = '${invite.id}';
+    setState(() {
+      _revokingInviteIds.add(inviteId);
+    });
+
+    try {
+      final updatedInvite = await widget.repository.revokeInvite(invite.id);
+      if (!mounted) {
+        return;
+      }
+
+      _upsertInvite(updatedInvite);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Invito revocato per ${updatedInvite.fullName}.'),
+        ),
+      );
+      AppDataSync.instance.notifyDataChanged({
+        AppDataScope.invites,
+      }, reason: 'club_invite_revoked_local');
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      final message = _clubManagementErrorMessage(error);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+      if (error is ApiException && error.statusCode == 409) {
+        unawaited(_loadInvites());
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _revokingInviteIds.remove(inviteId);
+        });
+      }
+    }
+  }
+
+  Widget _buildInviteTile(ClubInvite invite) {
+    final inviteId = '${invite.id}';
+    final isRevoking = _revokingInviteIds.contains(inviteId);
+
+    return Container(
+      key: Key('club-management-sent-invite-$inviteId'),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: ClublineAppTheme.outlineSoft),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  invite.fullName,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+                ),
+              ),
+              AppStatusBadge(
+                label: _clubInviteStatusLabel(invite.status),
+                tone: _clubInviteStatusTone(invite.status),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            (invite.targetIdConsole ?? '').trim().isNotEmpty
+                ? 'ID console: ${invite.targetIdConsole}'
+                : 'Invito player nel club.',
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: ClublineAppTheme.textMuted),
+          ),
+          const SizedBox(height: 10),
+          AppDetailsList(
+            items: [
+              AppDetailItem(
+                label: 'Stato',
+                value: _clubInviteStatusLabel(invite.status),
+                icon: Icons.mark_email_read_outlined,
+              ),
+              AppDetailItem(
+                label: 'Creato',
+                value: _formatInviteDateTime(invite.createdAt),
+                icon: Icons.schedule_outlined,
+              ),
+            ],
+          ),
+          if (invite.isPending) ...[
+            const SizedBox(height: 10),
+            AppActionButton(
+              key: Key('club-management-revoke-invite-$inviteId'),
+              label: isRevoking ? 'Revoca in corso...' : 'Revoca invito',
+              icon: Icons.close_outlined,
+              variant: AppButtonVariant.secondary,
+              expand: true,
+              onPressed: isRevoking ? null : () => _revokeInvite(invite),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pendingCount = invites.where((invite) => invite.isPending).length;
+
+    return _SectionCard(
+      icon: Icons.mail_outline,
+      title: 'Inviti player',
+      subtitle:
+          'Cerca player registrati, invia inviti e monitora quelli pendenti.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            children: [
+              AppCountPill(label: 'Totali', value: '${invites.length}'),
+              AppCountPill(
+                label: 'Pendenti',
+                value: '$pendingCount',
+                emphasized: pendingCount > 0,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          AppAdaptiveColumns(
+            breakpoint: 720,
+            gap: AppSpacing.sm,
+            flex: const [2, 1],
+            children: [
+              SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<ClubInviteListStatus>(
+                  segments: const [
+                    ButtonSegment<ClubInviteListStatus>(
+                      value: ClubInviteListStatus.pending,
+                      label: Text('Pendenti'),
+                      icon: Icon(Icons.schedule_outlined),
+                    ),
+                    ButtonSegment<ClubInviteListStatus>(
+                      value: ClubInviteListStatus.all,
+                      label: Text('Tutti'),
+                      icon: Icon(Icons.inbox_outlined),
+                    ),
+                  ],
+                  selected: {selectedStatus},
+                  onSelectionChanged: isLoading
+                      ? null
+                      : (selection) {
+                          unawaited(_changeFilter(selection.first));
+                        },
+                ),
+              ),
+              AppActionButton(
+                key: const Key('club-management-open-invite-player'),
+                label: 'Invita player',
+                icon: Icons.person_add_alt_1_outlined,
+                expand: true,
+                onPressed: _openInvitePlayerPage,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          if (isLoading)
+            const AppLoadingState(
+              label: 'Stiamo caricando gli inviti inviati...',
+            )
+          else if (errorMessage != null)
+            AppErrorState(
+              title: 'Impossibile caricare gli inviti',
+              message: errorMessage!,
+              actionLabel: 'Riprova',
+              onAction: _loadInvites,
+            )
+          else if (invites.isEmpty)
+            AppEmptyState(
+              key: const Key('club-management-sent-invites-empty-state'),
+              icon: selectedStatus == ClubInviteListStatus.pending
+                  ? Icons.mark_email_read_outlined
+                  : Icons.inbox_outlined,
+              title: selectedStatus == ClubInviteListStatus.pending
+                  ? 'Nessun invito pendente'
+                  : 'Nessun invito inviato',
+              message: selectedStatus == ClubInviteListStatus.pending
+                  ? 'Gli inviti pendenti del club appariranno qui.'
+                  : 'Quando inizierai a invitare player troverai qui anche lo storico.',
+              actionLabel: 'Invita player',
+              actionIcon: Icons.person_add_alt_1_outlined,
+              onAction: _openInvitePlayerPage,
+            )
+          else
+            RefreshIndicator(
+              onRefresh: _loadInvites,
+              child: ListView.separated(
+                shrinkWrap: true,
+                physics: const AlwaysScrollableScrollPhysics(),
+                itemCount: invites.length,
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: AppSpacing.sm),
+                itemBuilder: (context, index) =>
+                    _buildInviteTile(invites[index]),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

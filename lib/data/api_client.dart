@@ -7,17 +7,22 @@ import '../core/app_backend_config.dart';
 import 'auth_session_store.dart';
 
 class ApiException implements Exception {
-  const ApiException(this.message, {this.statusCode});
+  const ApiException(this.message, {this.statusCode, this.code});
 
   final String message;
   final int? statusCode;
+  final String? code;
 
   @override
   String toString() => message;
 }
 
 class ApiUnauthorizedException extends ApiException {
-  const ApiUnauthorizedException(super.message, {super.statusCode});
+  const ApiUnauthorizedException(
+    super.message, {
+    super.statusCode,
+    super.code,
+  });
 }
 
 class ApiClient {
@@ -215,12 +220,17 @@ class ApiClient {
   ApiException _mapError(http.Response response, dynamic decodedBody) {
     final message = _extractErrorMessage(decodedBody) ??
         'Richiesta API fallita con stato ${response.statusCode}.';
+    final code = _extractErrorCode(decodedBody);
 
     if (response.statusCode == 401) {
-      return ApiUnauthorizedException(message, statusCode: response.statusCode);
+      return ApiUnauthorizedException(
+        message,
+        statusCode: response.statusCode,
+        code: code,
+      );
     }
 
-    return ApiException(message, statusCode: response.statusCode);
+    return ApiException(message, statusCode: response.statusCode, code: code);
   }
 
   String? _extractErrorMessage(dynamic decodedBody) {
@@ -237,6 +247,18 @@ class ApiClient {
       final rawMessage = decodedBody['message'];
       if (rawMessage != null) {
         return rawMessage.toString();
+      }
+    }
+
+    return null;
+  }
+
+  String? _extractErrorCode(dynamic decodedBody) {
+    if (decodedBody is Map) {
+      final rawError = decodedBody['error'];
+      if (rawError is Map && rawError['code'] != null) {
+        final code = rawError['code'].toString().trim();
+        return code.isEmpty ? null : code;
       }
     }
 

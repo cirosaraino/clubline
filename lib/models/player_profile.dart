@@ -210,6 +210,12 @@ class PlayerProfile {
     return false;
   }
 
+  bool get canManageInvites {
+    if (isCaptain) return true;
+    if (isViceCaptain) return vicePermissions.manageInvites;
+    return false;
+  }
+
   bool get canManageClubInfo {
     if (isCaptain) return true;
     if (isViceCaptain) return vicePermissions.manageClubInfo;
@@ -225,6 +231,7 @@ class PlayerProfile {
         canManageLineups ||
         canManageStreams ||
         canManageAttendanceAll ||
+        canManageInvites ||
         canManageClubInfo;
   }
 

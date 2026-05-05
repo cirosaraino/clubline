@@ -23,6 +23,32 @@ function valuesEqual(left: unknown, right: unknown): boolean {
   return `${left}` === `${right}`;
 }
 
+function compareValues(left: unknown, right: unknown): number {
+  if (left == null && right == null) {
+    return 0;
+  }
+  if (left == null) {
+    return -1;
+  }
+  if (right == null) {
+    return 1;
+  }
+
+  const leftNumber = Number(left);
+  const rightNumber = Number(right);
+  if (Number.isFinite(leftNumber) && Number.isFinite(rightNumber)) {
+    if (leftNumber < rightNumber) {
+      return -1;
+    }
+    if (leftNumber > rightNumber) {
+      return 1;
+    }
+    return 0;
+  }
+
+  return `${left}`.localeCompare(`${right}`);
+}
+
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -183,6 +209,26 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
   in(column: string, values: unknown[]): this {
     const allowedValues = new Set(values.map((value) => `${value}`));
     this.filters.push((row) => allowedValues.has(`${row[column]}`));
+    return this;
+  }
+
+  lt(column: string, value: unknown): this {
+    this.filters.push((row) => compareValues(row[column], value) < 0);
+    return this;
+  }
+
+  lte(column: string, value: unknown): this {
+    this.filters.push((row) => compareValues(row[column], value) <= 0);
+    return this;
+  }
+
+  gt(column: string, value: unknown): this {
+    this.filters.push((row) => compareValues(row[column], value) > 0);
+    return this;
+  }
+
+  gte(column: string, value: unknown): this {
+    this.filters.push((row) => compareValues(row[column], value) >= 0);
     return this;
   }
 
